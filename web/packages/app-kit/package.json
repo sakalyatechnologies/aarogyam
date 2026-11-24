@@ -16,6 +16,7 @@
     "./story-video": "./src/story-video/index.ts",
     "./story-video/support": "./src/story-video/support.ts",
     "./present/brushing-panel": "./src/present/brushing-panel.tsx",
+    "./present/more-menu": "./src/present/more-menu.tsx",
     "./present/deck": "./src/present/deck.tsx",
     "./hold-to-exit.css": "./src/present/hold-to-exit.css",
     "./chart/odontogram-model": "./src/present/chart/odontogram-model.ts",

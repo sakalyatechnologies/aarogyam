@@ -9,7 +9,7 @@ import { FactList, IllustrationBadge, ProvenanceFooter, dotsOf } from "./blocks.
 import type { Orientation, PresentModel } from "./model.js";
 import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
 import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
-import { SHADE_TRACK, dotAt, paintSmile, shadeSwatch, smileScene, spread, toothRect, type Shade } from "./painter.js";
+import { dotAt, paintSmile, smileScene, spread, toothRect, type Shade } from "./painter.js";
 
 export interface PaintedProps {
   model: PresentModel;
@@ -104,7 +104,7 @@ export function PaintedMap({ model, orientation, shade, theme, onOpen }: Pick<Pa
 }
 
 export function PaintedStyle(props: PaintedProps): ReactElement {
-  const { model, orientation, onOrientation, shade, onShade } = props;
+  const { model, orientation } = props;
   // §6.2: when the front map would hide every recorded problem, open on Open wide
   const auto: PaintedView = frontHidesAllProblems(model) ? "wide" : "front";
   const [own, setOwn] = useState<PaintedView | undefined>(undefined);
@@ -130,26 +130,6 @@ export function PaintedStyle(props: PaintedProps): ReactElement {
             <button type="button" aria-pressed={view === "front"} onClick={() => { setView("front"); }}>Front</button>
             <button type="button" aria-pressed={view === "wide"} onClick={openWide}>Open wide</button>
           </div>
-          <div className="ps-seg" role="group" aria-label="Which way round">
-            {(["mirror", "photo"] as const).map((o) => (
-              <button key={o} type="button" aria-pressed={orientation === o} onClick={() => { onOrientation(o); }}>{o === "mirror" ? "As in your mirror" : "As in a photo"}</button>
-            ))}
-          </div>
-          {view === "front" ? (
-            <div className="ps-shades" role="group" aria-label="Tooth colour">
-              <span className="ps-shade-end">Lighter</span>
-              <input
-                type="range" className="ps-shade" min={0} max={100} step={1} value={shade} aria-label="Tooth colour"
-                ref={(el) => { el?.style.setProperty("--ps-track", SHADE_TRACK); el?.style.setProperty("--ps-thumb", shadeSwatch(shade)); }}
-                onChange={(e) => { onShade(e.currentTarget.valueAsNumber); }}
-              />
-              <span className="ps-shade-end">Deeper</span>
-              {props.shadeDirty === true && props.onSaveShade !== undefined ? (
-                <button type="button" className="ps-save-shade" disabled={props.savingShade === true} onClick={props.onSaveShade}>Save colour</button>
-              ) : null}
-              <IllustrationBadge>Colour chosen to look like you</IllustrationBadge>
-            </div>
-          ) : null}
         </div>
         {view === "front" && hidden.length > 0 ? (
           <button type="button" className="ps-prompt" onClick={openWide}>

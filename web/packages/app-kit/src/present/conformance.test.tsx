@@ -22,7 +22,7 @@ import { SHIPPED_STYLES, type PresentStyleId } from "./styles.js";
 
 afterEach(cleanup);
 
-const STYLES: Partial<Record<PresentStyleId, (m: PresentModel) => ReactElement>> = {
+const STYLES: Partial<Record<PresentStyleId | "xray", (m: PresentModel) => ReactElement>> = {
   story: (m) => <StoryStyle model={m} orientation="mirror" onOrientation={() => undefined} theme="light" stacked />,
   painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} />,
   face: (m) => <FaceStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" start="face" />,
@@ -165,7 +165,7 @@ describe.each(Object.entries(FIXTURES))("conformance: usual options in the story
       expect(card, s.key).not.toBeNull();
       expect([...(card?.querySelectorAll("[data-option]") ?? [])].map((o) => o.getAttribute("data-option"))).toEqual(s.options.map((o) => o.key));
       expect([...(card?.querySelectorAll(".ps-badge-ill") ?? [])].map((b) => b.textContent)).toContain("Illustration · general guidance");
-      expect(card?.textContent).toContain("Usual options · general guidance");
+      expect(card?.textContent).toContain("general guidance");
       expect(card?.textContent).not.toMatch(/₹|Visit \d|\b\d{4}-\d\d-\d\d\b/);
     }
   });

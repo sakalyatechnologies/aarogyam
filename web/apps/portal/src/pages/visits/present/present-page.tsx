@@ -6,7 +6,6 @@
  * back to the overview; only the press-and-hold Exit leaves, so a patient tapping around can't land
  * in Patient 360. The query refetches after chart, plan, procedure, tooth-status and booking saves.
  */
-import { Brush, Moon, Sun } from "lucide-react";
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 
@@ -16,7 +15,7 @@ import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import {
-  DEFAULT_SHADE, DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, Smile3dSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts, usePins,
+  DEFAULT_SHADE, DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, Smile3dSlot, StorySlot, StudioProvider, isShipped, normalizeStyle, presentFacts, usePins,
   type Orientation, type PaintedView, type PresentStyleId, type Shade, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
@@ -34,24 +33,21 @@ import { PresentChart } from "./present-chart.js";
 const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
 // loaded only when asked: the X-rays tab (Explain mode's viewer and pins) and "How to brush"
 const XraysTab = lazy(() => import("./xrays-tab.js").then((m) => ({ default: m.XraysTab })));
-const OwnXraySlot = lazy(() => import("./own-xray.js").then((m) => ({ default: m.OwnXraySlot })));
 const StoryXray = lazy(() => import("./own-xray.js").then((m) => ({ default: m.StoryXray })));
 const PinnedBar = lazy(() => import("./pinned-bar.js").then((m) => ({ default: m.PinnedBar })));
+const MoreMenu = lazy(() => import("@aarogyam/app-kit/present/more-menu").then((m) => ({ default: m.MoreMenu })));
 const BrushingPanel = lazy(() => import("@aarogyam/app-kit/present/brushing-panel").then((m) => ({ default: m.BrushingPanel })));
 type Tab = "teeth" | "xrays";
 const TABS: readonly Tab[] = ["teeth", "xrays"];
 /** A Show patient style, or the doctor's chart look. */
 type View = PresentStyleId | "chart";
-/** Own X-ray is enabled only when the patient has an X-ray or OPG (`xray`: undefined while that is still loading). */
-const viewsFor = (xray: boolean | undefined, saved: PresentStyleId): readonly SwitcherOption[] => [
-  ...PRESENT_STYLES.map((s) => ({
+/** The Look list in More: Your visit, Map + list, then the beta looks. Own X-ray is a Story card, not a look. */
+const looksFor = (saved: PresentStyleId): readonly SwitcherOption[] =>
+  PRESENT_STYLES.map((s) => ({
     id: s.id, label: s.label, beta: s.beta, note: s.id === saved ? "Default" : undefined,
-    disabled: !isShipped(s.id) ? "Coming soon" : s.id === "xray" && xray !== true ? (xray === undefined ? "Checking X-rays" : "No X-ray yet") : undefined,
-  })),
-  { id: "chart", label: "Chart", separate: true },
-];
+    disabled: !isShipped(s.id) ? "Coming soon" : undefined,
+  }));
 const isStyle = (v: string | undefined): v is PresentStyleId => PRESENT_STYLES.some((s) => s.id === v);
-const isView = (v: string): v is View => v === "chart" || isStyle(v);
 
 export function PresentPage() {
   const params = useParams();
@@ -79,7 +75,7 @@ export function PresentPage() {
   const saveUiPrefs = useSaveUiPrefs();
   const toast = useToast();
   const savedPref = uiPrefs.data?.present_style;
-  const saved: PresentStyleId = isStyle(savedPref) ? savedPref : DEFAULT_STYLE;
+  const saved: PresentStyleId = normalizeStyle(savedPref) ?? DEFAULT_STYLE;
   const [picked, setView] = useState<View | undefined>(undefined);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
   // The tooth colour: opens on the one saved for this patient; the doctor's live change is never clobbered.
@@ -104,10 +100,9 @@ export function PresentPage() {
   const [paintedView, setPaintedView] = useState<PaintedView | undefined>(undefined);
   const xrays = useOwnXrays(patientId, visitId);
   const hasXray = xrays.loading ? undefined : xrays.images.length > 0;
-  // a saved style that can't be drawn for this visit (Own X-ray without an image) falls back to story cards
-  const opening: PresentStyleId = isShipped(saved) && (saved !== "xray" || hasXray === true) ? saved : DEFAULT_STYLE;
+  const opening: PresentStyleId = isShipped(saved) ? saved : DEFAULT_STYLE;
   const view: View = picked ?? opening;
-  const views = useMemo(() => viewsFor(hasXray, saved), [hasXray, saved]);
+  const looks = useMemo(() => looksFor(saved), [saved]);
   const model = useMemo(() => (mouth.data === undefined ? undefined : presentFacts(mouth.data, visitId)), [mouth.data, visitId]);
   // The doctor's chart look and dentition, so the patient sees the same teeth and numbers; switching here is for this showing only.
   const { session } = useClinic();
@@ -117,6 +112,8 @@ export function PresentPage() {
   const chart = useDentalChart(patientId);
   const plans = usePlans(patientId);
   const planItems = plans.data?.items.flatMap((plan) => plan.items) ?? [];
+  // the story's "Your plan" card: the plans the patient has not turned down
+  const storyPlans = plans.data?.items.filter((plan) => plan.status !== "declined").flatMap((plan) => plan.items);
   // all art chunks start together the moment the snapshot is here (a no-op when Show patient prefetched them)
   if (mouth.data !== undefined) preloadArt(mouth.data);
   return (
@@ -126,7 +123,6 @@ export function PresentPage() {
       <header className="pm-bar">
         <div className="pm-who">
           {first === undefined ? "Present mode" : `${first}${age === undefined ? "" : `, ${String(age)}`}`}
-          <small>Show patient · the same mouth view as the patient's page</small>
         </div>
         <div className="pm-tabs" role="tablist" aria-label="Show">
           {TABS.map((t) => (
@@ -135,50 +131,26 @@ export function PresentPage() {
             </button>
           ))}
         </div>
-        {tab === "teeth" ? <StyleSwitcher options={views} value={view} onChange={(v) => { if (isView(v)) setView(v); }} /> : null}
-        {tab === "teeth" && view !== "chart" && view !== saved ? (
-          <button
-            type="button"
-            className="pm-chip"
-            disabled={saveUiPrefs.isPending}
-            onClick={() => {
-              saveUiPrefs.mutate({ present_style: view }, { onError: () => { toast.show({ title: "Couldn't save your default. Please try again.", tone: "danger" }); } });
-            }}
-          >
-            Make default
-          </button>
-        ) : null}
-        {tab === "teeth" && view === "chart" ? (
-          <div className="pm-tabs" role="group" aria-label="Chart look">
-            {LOOKS.map((l) => (
-              <button key={l.value} type="button" className="pm-tab" aria-pressed={look === l.value} onClick={() => { setLook(l.value); }}>
-                {l.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {tab === "teeth" && view === "chart" ? (
-          <div className="pm-tabs" role="group" aria-label="Dentition">
-            {DENTITIONS.map((d) => (
-              <button key={d.value} type="button" className="pm-tab" aria-pressed={dentition === d.value} onClick={() => { setDentition(d.value); }}>
-                {d.label}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {tab === "teeth" && view === "chart" ? (
-          <button type="button" className="pm-chip pm-today" aria-pressed={onlyToday} onClick={() => { setOnlyToday(!onlyToday); }}>
-            Today
-          </button>
-        ) : null}
-        <button type="button" className="pm-chip pm-icon" aria-label={theme === "dark" ? "Use light screen" : "Use dark screen"} onClick={() => { setTheme(theme === "dark" ? "light" : "dark"); }}>
-          {theme === "dark" ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
-        </button>
         {tab === "teeth" ? (
-          <button type="button" className="pm-chip pm-brushchip" onClick={() => { setBrushing(true); }}>
-            <Brush aria-hidden="true" />
-            How to brush
-          </button>
+          <Suspense fallback={<span className="pm-chip pm-morechip" aria-hidden="true">More</span>}>
+            <MoreMenu
+              looks={looks} look={view === "chart" ? opening : view} onLook={(id) => { if (isStyle(id)) setView(id); }}
+              chart={{
+                active: view === "chart", onActive: (on) => { setView(on ? "chart" : opening); },
+                looks: LOOKS, look, onLook: (v) => { const l = LOOKS.find((x) => x.value === v); if (l !== undefined) setLook(l.value); },
+                dentitions: DENTITIONS, dentition, onDentition: (v) => { const d = DENTITIONS.find((x) => x.value === v); if (d !== undefined) setDentition(d.value); },
+              }}
+              onlyToday={onlyToday} onOnlyToday={setOnlyToday}
+              orientation={orientation} onOrientation={setOrientation}
+              shade={shade} onShade={setShade} shadeDirty={shadeSave.shadeDirty} savingShade={shadeSave.savingShade} onSaveShade={shadeSave.onSaveShade}
+              dark={theme === "dark"} onDark={(d) => { setTheme(d ? "dark" : "light"); }}
+              onBrush={() => { setBrushing(true); }}
+              onMakeDefault={view !== "chart" && view !== saved ? () => {
+                saveUiPrefs.mutate({ present_style: view }, { onError: () => { toast.show({ title: "Couldn't save your default. Please try again.", tone: "danger" }); } });
+              } : undefined}
+              makingDefault={saveUiPrefs.isPending}
+            />
+          </Suspense>
         ) : null}
         {tab === "teeth" && visitId !== undefined ? (
           <PinnedGate visitId={visitId} studio={present.data} />
@@ -198,19 +170,16 @@ export function PresentPage() {
             name={first}
             mode="present"
             filter={onlyToday ? "today" : undefined}
+            doctorLines={view === "chart"}
             load3d={load3d}
             toothExtras={patientId === undefined ? undefined : (tooth) => <AddDepth snapshot={mouth.data} tooth={tooth} patientId={patientId} visitId={visitId} />}
             overview={view === "chart"
               ? (chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />)
-              : model === undefined ? undefined : view === "xray" && patientId !== undefined ? () => (
-                <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}>
-                  <OwnXraySlot model={model} patientId={patientId} visitId={visitId} load3d={load3d} />
-                </Suspense>
-              ) : view === "face" ? (slot) => (
+              : model === undefined ? undefined : view === "face" ? (slot) => (
                 <FaceSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} {...shadeSave} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} />
               ) : view === "story" ? (slot) => (
                 <StorySlot
-                  model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} shade={shade} view={paintedView} onView={setPaintedView} load3d={load3d}
+                  model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} shade={shade} view={paintedView} onView={setPaintedView} load3d={load3d} plans={storyPlans}
                   xray={hasXray === true && patientId !== undefined ? (
                     <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}><StoryXray patientId={patientId} visitId={visitId} /></Suspense>
                   ) : undefined}

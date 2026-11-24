@@ -351,6 +351,7 @@ val apiModels =
         "PresentRange",
         "PresentFinish",
         "PresentLifespan",
+        "PresentWaitStage",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

@@ -286,7 +286,7 @@ div.ps-found-item { cursor: default; }
 .ps-3d-box canvas { display: block; width: 100%; height: 100%; }
 
 /* Pinned options: the pin, the deck, side-by-side compare and the pen (slice 2e) */
-.ps-pin { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--mv-card); color: var(--mv-muted); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
+.ps-pin { min-height: 44px; min-width: 44px; display: inline-grid; place-items: center; padding: 0; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--mv-card); color: var(--mv-muted); font: inherit; font-weight: 700; font-size: 14px; cursor: pointer; }
 .ps-pin[aria-pressed="true"] { background: var(--mv-brand-soft); color: var(--mv-brand); border-color: var(--mv-brand); }
 .pd-shell { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; gap: 12px; background: var(--mv-bg); color: var(--mv-text); padding: max(12px, env(safe-area-inset-top)) 20px 16px; outline: none; }
 .pd-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -316,3 +316,58 @@ div.ps-found-item { cursor: default; }
 .pm-pinned-list h3 { margin: 0; font-size: 1.1rem; }
 .pm-pinned-list ol { margin: 0; padding-left: 1.4em; display: grid; gap: 4px; }
 .pm-pinned-list li[data-active] { font-weight: 700; }
+/* Show patient header and the More menu (audit item 1): one row everywhere. */
+.pm-bar { flex-wrap: nowrap; }
+.pm-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-more { position: relative; }
+.pm-more-panel { position: absolute; z-index: 45; top: calc(100% + 6px); right: 0; width: min(380px, calc(100vw - 24px)); max-height: min(78vh, 640px); overflow: auto; display: grid; gap: 14px; padding: 14px; border-radius: 18px; background: var(--mv-card); border: 1px solid var(--mv-line); box-shadow: 0 12px 32px rgba(0, 0, 0, .2); }
+.pm-more-group { display: grid; gap: 8px; }
+.pm-more-h { margin: 0; font-size: 13px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; color: var(--mv-muted); }
+.pm-more-sub { margin: 4px 0 0; font-size: 13px; font-weight: 700; color: var(--mv-muted); }
+.pm-more-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.pm-more-row { width: 100%; min-height: 48px; padding: 0 12px; border-radius: 10px; border: 0; background: transparent; color: var(--mv-text); font: inherit; font-weight: 650; font-size: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; cursor: pointer; }
+.pm-more-row:hover:not(:disabled), .pm-more-row[aria-checked="true"], .pm-more-row[aria-pressed="true"] { background: var(--mv-brand-soft); }
+.pm-more-row:disabled { color: var(--mv-muted); cursor: default; }
+.pm-more-row:focus-visible { outline: 3px solid var(--mv-brand); outline-offset: 2px; }
+.pm-more-row svg { width: 20px; height: 20px; flex: none; }
+.pm-more-panel .ps-seg { justify-self: start; flex-wrap: wrap; }
+.pm-more-panel .ps-shades { flex-wrap: nowrap; }
+.pm-more-panel .ps-save-shade { min-height: 40px; }
+@media (max-width: 640px) {
+  .pm-shell { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: 8px; }
+  .pm-bar { gap: 6px; }
+  .pm-bar .pm-who { flex: 1 1 0; min-width: 0; font-size: 15px; }
+  .pm-bar .pm-tabs { padding: 2px; gap: 2px; }
+  .pm-bar .pm-tab { min-height: 40px; padding: 0 10px; font-size: 14px; }
+  .pm-bar .pm-chip { min-height: 44px; padding: 0 10px; }
+  .pm-morechip .pm-more-label { display: none; }
+  .pm-shell .xp-exit { min-height: 44px; min-width: 56px; padding: 4px 12px; }
+  .pm-shell .xp-exit-hint { display: none; }
+  .pm-more-panel { position: fixed; top: 60px; left: 12px; right: 12px; width: auto; max-height: 70vh; }
+}
+/* Story order, mid-treatment and Your plan (v3 C) */
+.ps-your-tx { margin: 0.25rem 0 0.5rem; padding: 0.5rem 0.75rem; border-radius: 0.75rem; background: color-mix(in srgb, var(--ps-accent, #2f7d6d) 12%, transparent); }
+.ps-other { margin-top: 0.75rem; }
+.ps-other > summary { cursor: pointer; font-weight: 600; padding: 0.5rem 0; min-height: 44px; display: flex; align-items: center; }
+.ps-other > summary { list-style: none; gap: 8px; color: var(--mv-brand, #0b6e5b); }
+.ps-other > summary::-webkit-details-marker { display: none; }
+.ps-other > summary::before { content: "▸"; transition: rotate .15s; }
+.ps-other[open] > summary::before { rotate: 90deg; }
+@media (prefers-reduced-motion: reduce) { .ps-other > summary::before { transition: none; } }
+.ps-past-toggle { margin-top: 0.75rem; }
+.ps-plan-steps { padding-left: 1.25rem; }
+.ps-plan-steps li[data-done] { opacity: 0.65; }
+.ps-plan-total { display: grid; gap: 0.125rem; margin: 0.75rem 0; font-size: 1.125rem; }
+.ps-plan-total small { font-size: 0.8125rem; opacity: 0.75; }
+.ps-next-step { margin: 0.75rem 0; padding: 0.75rem 1rem; border-radius: 0.75rem; font-weight: 600; background: color-mix(in srgb, var(--ps-accent, #2f7d6d) 14%, transparent); }
+/* Options with pictures (v3 B) */
+.ps-opt-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ps-opt-sugg { justify-self: start; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--mv-brand-soft); color: var(--mv-brand); }
+.ps-opt[data-suggested] { border-style: solid; border-color: var(--mv-brand); }
+.ps-opt-pic { display: grid; gap: 4px; justify-items: center; padding: 6px; min-height: 44px; border-radius: 12px; border: 1px solid var(--mv-line); background: var(--mv-stage); color: var(--mv-muted); font: inherit; font-size: 13px; cursor: pointer; }
+.ps-opt-pic[aria-expanded="true"] { border-color: var(--mv-brand); }
+.ps-opt-art { width: 100%; max-height: 120px; }
+.ps-opt-art svg { width: 100%; height: 100%; display: block; }
+.ps-opt-ba { display: grid; gap: 8px; justify-items: start; padding: 10px; border-radius: 16px; border: 1px solid var(--mv-line); background: var(--mv-card); }
+.ps-opt-close { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--mv-line); background: var(--mv-card); color: inherit; font: inherit; cursor: pointer; }
+.ps-opt-table th[scope="col"] { min-width: 130px; }

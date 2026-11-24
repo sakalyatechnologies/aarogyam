@@ -12,11 +12,16 @@
   "situations": {
     "deep_decay": {
       "title": "Decay close to the nerve",
+      "if_wait": [
+        { "stage": "Now", "words": "The decay has reached the soft layer under the enamel and is close to the nerve." },
+        { "stage": "Usually next", "words": "It spreads to the nerve. The tooth often starts to ache, especially with hot or cold." },
+        { "stage": "If it goes on", "words": "The nerve can die and the root can get infected. The tooth is then harder to save." }
+      ],
       "options": [
         {
-          "key": "wait", "label": "Wait and watch",
+          "key": "wait", "label": "Wait and watch", "is_wait": true,
           "summary": "Leave it for now and look again at the next visit.",
-          "looks_like": "The decay stays where it is.",
+          "looks_like": "Decay does not heal by itself. Waiting usually means it gets deeper and the tooth starts to ache.",
           "visits": { "min": 0, "max": 0 }, "look": "overlay:caries.near_pulp", "comfort": "none",
           "price_parts": []
         },
@@ -25,7 +30,7 @@
           "summary": "Clean the inside of the tooth, seal it, then cover it with a cap (crown).",
           "looks_like": "Your own tooth is kept, with a cap on top.",
           "visits": { "min": 2, "max": 3 }, "finish": { "min": 2, "max": 4, "unit": "weeks" },
-          "look": "scene:root_canal", "comfort": "numbed_longer",
+          "look": "scene:root_canal", "comfort": "numbed_longer", "plan_models": ["root_canal", "crown"],
           "price_parts": [{ "procedure": "root_canal" }, { "procedure": "crown" }]
         },
         {
@@ -33,7 +38,7 @@
           "summary": "Take the tooth out, let the area heal, then place an implant and a crown on it.",
           "looks_like": "A new tooth on an implant fills the gap.",
           "visits": { "min": 4, "max": 6 }, "finish": { "min": 3, "max": 6, "unit": "months" },
-          "look": "scene:implant", "outcome": "implant", "comfort": "surgical",
+          "look": "scene:implant", "outcome": "implant", "comfort": "surgical", "plan_models": ["implant"],
           "price_parts": [{ "procedure": "extraction" }, { "procedure": "implant" }, { "procedure": "crown" }]
         },
         {
@@ -41,7 +46,7 @@
           "summary": "Take the tooth out, then join a new tooth to the teeth either side of the gap.",
           "looks_like": "A new tooth held by the neighbouring teeth fills the gap.",
           "visits": { "min": 3, "max": 4 }, "finish": { "min": 4, "max": 8, "unit": "weeks" },
-          "look": "overlay:bridge_pontic", "comfort": "numbed_longer",
+          "look": "overlay:bridge_pontic", "comfort": "numbed_longer", "plan_models": ["bridge"],
           "price_parts": [{ "procedure": "extraction" }, { "procedure": "bridge" }]
         },
         {
@@ -49,20 +54,67 @@
           "summary": "Take the tooth out and leave the gap.",
           "looks_like": "A gap where the tooth was.",
           "visits": { "min": 1, "max": 1 }, "finish": { "min": 1, "max": 2, "unit": "weeks" },
-          "look": "scene:extraction", "comfort": "surgical",
+          "look": "scene:extraction", "comfort": "surgical", "plan_models": ["extraction"],
+          "price_parts": [{ "procedure": "extraction" }]
+        }
+      ]
+    },
+    "infection": {
+      "title": "Infection at the root",
+      "if_wait": [
+        { "stage": "Now", "words": "The infection has reached the root of the tooth. It can cause pain or swelling." },
+        { "stage": "Usually next", "words": "The infection spreads in the bone around the root. Swelling and pain tend to come back." },
+        { "stage": "If it goes on", "words": "It can spread to the face and the body. Treatment is then needed more urgently." }
+      ],
+      "options": [
+        {
+          "key": "rct_crown", "label": "Root canal and cap",
+          "summary": "Clean the inside of the tooth, seal it, then cover it with a cap (crown).",
+          "looks_like": "Your own tooth is kept, with a cap on top.",
+          "visits": { "min": 2, "max": 3 }, "finish": { "min": 2, "max": 4, "unit": "weeks" },
+          "look": "scene:root_canal", "comfort": "numbed_longer", "plan_models": ["root_canal", "crown"],
+          "price_parts": [{ "procedure": "root_canal" }, { "procedure": "crown" }]
+        },
+        {
+          "key": "extract_implant", "label": "Remove the tooth, then an implant",
+          "summary": "Take the tooth out, let the area heal, then place an implant and a crown on it.",
+          "looks_like": "A new tooth on an implant fills the gap.",
+          "visits": { "min": 4, "max": 6 }, "finish": { "min": 3, "max": 6, "unit": "months" },
+          "look": "scene:implant", "outcome": "implant", "comfort": "surgical", "plan_models": ["implant"],
+          "price_parts": [{ "procedure": "extraction" }, { "procedure": "implant" }, { "procedure": "crown" }]
+        },
+        {
+          "key": "extract_bridge", "label": "Remove the tooth, then a bridge",
+          "summary": "Take the tooth out, then join a new tooth to the teeth either side of the gap.",
+          "looks_like": "A new tooth held by the neighbouring teeth fills the gap.",
+          "visits": { "min": 3, "max": 4 }, "finish": { "min": 4, "max": 8, "unit": "weeks" },
+          "look": "overlay:bridge_pontic", "comfort": "numbed_longer", "plan_models": ["bridge"],
+          "price_parts": [{ "procedure": "extraction" }, { "procedure": "bridge" }]
+        },
+        {
+          "key": "extract", "label": "Remove the tooth only",
+          "summary": "Take the tooth out and leave the gap.",
+          "looks_like": "A gap where the tooth was.",
+          "visits": { "min": 1, "max": 1 }, "finish": { "min": 1, "max": 2, "unit": "weeks" },
+          "look": "scene:extraction", "comfort": "surgical", "plan_models": ["extraction"],
           "price_parts": [{ "procedure": "extraction" }]
         }
       ]
     },
     "missing": {
       "title": "A missing tooth",
+      "if_wait": [
+        { "stage": "Now", "words": "There is a gap where the tooth was." },
+        { "stage": "Usually next", "words": "The teeth next to the gap slowly lean in, and the tooth above or below can drift down or up." },
+        { "stage": "If it goes on", "words": "Food gets trapped, chewing gets harder on that side, and the gap becomes harder to fill." }
+      ],
       "options": [
         {
           "key": "implant", "label": "Implant",
           "summary": "A small post is placed in the jaw. Once it has healed, a crown goes on top.",
           "looks_like": "A new tooth that stands on its own.",
           "visits": { "min": 3, "max": 5 }, "finish": { "min": 3, "max": 6, "unit": "months" },
-          "look": "scene:implant", "outcome": "implant", "comfort": "surgical",
+          "look": "scene:implant", "outcome": "implant", "comfort": "surgical", "plan_models": ["implant"],
           "price_parts": [{ "procedure": "implant" }, { "procedure": "crown" }]
         },
         {
@@ -70,13 +122,13 @@
           "summary": "A new tooth is joined to the teeth either side of the gap.",
           "looks_like": "A new tooth held by the neighbouring teeth.",
           "visits": { "min": 2, "max": 3 }, "finish": { "min": 2, "max": 4, "unit": "weeks" },
-          "look": "overlay:bridge_pontic", "comfort": "numbed_longer",
+          "look": "overlay:bridge_pontic", "comfort": "numbed_longer", "plan_models": ["bridge"],
           "price_parts": [{ "procedure": "bridge" }]
         },
         {
-          "key": "leave_gap", "label": "Leave the gap",
+          "key": "leave_gap", "label": "Leave the gap", "is_wait": true,
           "summary": "Do nothing for now. We keep an eye on the neighbouring teeth.",
-          "looks_like": "The gap stays.",
+          "looks_like": "The gap stays, and the nearby teeth usually move into it over time.",
           "visits": { "min": 0, "max": 0 }, "look": "overlay:missing", "comfort": "none",
           "price_parts": []
         }
@@ -84,19 +136,24 @@
     },
     "impacted_wisdom": {
       "title": "A wisdom tooth that is not fully out",
+      "if_wait": [
+        { "stage": "Now", "words": "The tooth is only partly through the gum, or still under it." },
+        { "stage": "Usually next", "words": "Food and germs get under the gum flap. The gum around it can swell and hurt from time to time." },
+        { "stage": "If it goes on", "words": "The tooth next to it can decay or be pushed, and the infection can come back again and again." }
+      ],
       "options": [
         {
           "key": "remove", "label": "Remove it",
           "summary": "A small procedure to take the wisdom tooth out.",
           "looks_like": "The tooth is gone and the gum heals over.",
           "visits": { "min": 1, "max": 2 }, "finish": { "min": 1, "max": 2, "unit": "weeks" },
-          "look": "scene:wisdom_extraction", "comfort": "surgical",
+          "look": "scene:wisdom_extraction", "comfort": "surgical", "plan_models": ["extraction", "wisdom_extraction"],
           "price_parts": [{ "procedure": "extraction" }]
         },
         {
-          "key": "monitor", "label": "Keep watching it",
+          "key": "monitor", "label": "Keep watching it", "is_wait": true,
           "summary": "Leave it for now and look at it again, usually with an X-ray.",
-          "looks_like": "The tooth stays as it is.",
+          "looks_like": "The tooth stays as it is for now. If it starts to hurt or swell, it usually needs to come out.",
           "visits": { "min": 0, "max": 0 }, "look": "scene:wisdom_extraction.position.impacted_vertical", "comfort": "none",
           "price_parts": []
         }

@@ -58,14 +58,28 @@ pub struct PresentSettingsBody {
 /// A recorded situation on one tooth.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PresentSituation {
-    /// `deep_decay`, `missing` or `impacted_wisdom` (a plain string; more may come).
+    /// `deep_decay`, `infection`, `missing` or `impacted_wisdom` (a plain string; more may come).
     pub key: String,
     /// FDI tooth.
     pub tooth: u8,
     /// Words for the situation.
     pub title: String,
+    /// What waiting usually leads to, in order. General guidance ("Illustration · general guidance");
+    /// absent when there are no words.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_wait: Option<Vec<PresentWaitStage>>,
     /// The usual options. General guidance: show "Usual options · general guidance".
     pub options: Vec<PresentOption>,
+}
+
+/// One stage of what waiting usually leads to.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PresentWaitStage {
+    /// Short name of the stage, such as "Usually next".
+    pub stage: String,
+    /// What the patient reads.
+    pub words: String,
 }
 
 /// One usual option for a situation.
@@ -93,6 +107,11 @@ pub struct PresentOption {
     pub lifespan: Option<PresentLifespan>,
     /// How it feels, in words.
     pub comfort: String,
+    /// True on the one option that is the same work as a treatment already planned or in progress
+    /// on this tooth: show it first as "Your dentist suggests". Absent otherwise.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggested: Option<bool>,
 }
 
 /// A range of whole numbers.
@@ -152,6 +171,15 @@ impl From<domain::PresentStudio> for PresentStudio {
                     key: s.key,
                     tooth: s.tooth,
                     title: s.title,
+                    if_wait: (!s.if_wait.is_empty()).then(|| {
+                        s.if_wait
+                            .into_iter()
+                            .map(|w| PresentWaitStage {
+                                stage: w.stage,
+                                words: w.words,
+                            })
+                            .collect()
+                    }),
                     options: s
                         .options
                         .into_iter()
@@ -177,6 +205,7 @@ impl From<domain::PresentStudio> for PresentStudio {
                                 source_quote: l.source_quote,
                             }),
                             comfort: o.comfort,
+                            suggested: o.suggested.then_some(true),
                         })
                         .collect(),
                 })

@@ -2420,12 +2420,16 @@ export const presentOption = z.object({
   look: z.string(),
   lifespan: presentLifespan.exactOptional(),
   comfort: z.string(),
+  suggested: z.boolean().exactOptional(),
 }) satisfies z.ZodType<C.PresentOption>;
+
+export const presentWaitStage = z.object({ stage: z.string(), words: z.string() }) satisfies z.ZodType<C.PresentWaitStage>;
 
 export const presentSituation = z.object({
   key: z.string(),
   tooth: count,
   title: z.string(),
+  if_wait: z.array(presentWaitStage).exactOptional(),
   options: z.array(presentOption),
 }) satisfies z.ZodType<C.PresentSituation>;
 

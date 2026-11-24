@@ -85,6 +85,9 @@ describe("channel", () => {
 });
 
 describe("window.aarogyam", () => {
+  const openMore = async () => { act(() => { fireEvent.click(screen.getByRole("button", { name: "More" })); }); await screen.findByRole("group", { name: "More options" }); };
+  const moreReady = async () => { await screen.findByRole("button", { name: "More" }); };
+
   it("installs itself and tells the app it is ready", () => {
     expect(window.aarogyam).toBe(api);
     expect(sent).toEqual([{ type: "ready", bundle_version: BUNDLE_VERSION, story_versions: [1] }]);
@@ -96,14 +99,19 @@ describe("window.aarogyam", () => {
     expect(document.querySelector(".mv-present")).not.toBeNull();
     expect(await tooth(21)).toBeTruthy();
     expect([...document.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]);
-    expect(screen.getByRole("button", { name: "How to brush" })).toBeTruthy();
+    await moreReady();
+    expect(screen.queryByText(/^Today: /)).toBeNull();
+    await openMore();
+    expect(screen.getByRole("button", { name: /How to brush/ })).toBeTruthy();
   });
 
-  it("an old call opens the painted map with a style switcher and no Make default", async () => {
+  it("an old call opens the painted map with a More menu (looks) and no Make default", async () => {
     act(() => { api.present(aarav()); });
     await tooth(21);
-    expect(screen.getByRole("button", { name: /Painted smile/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Make default" })).toBeNull();
+    await moreReady();
+    await openMore();
+    expect(screen.getByRole("menuitemradio", { name: /Map \+ list/ }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryByRole("button", { name: /Make this look the default/ })).toBeNull();
   });
 
   it("style and present open the story cards with the studio options", async () => {
@@ -125,15 +133,19 @@ describe("window.aarogyam", () => {
   it("Make default posts the chosen style to the app", async () => {
     act(() => { api.present(aarav()); });
     await tooth(21);
-    act(() => { fireEvent.click(screen.getByRole("button", { name: /Painted smile/ })); });
-    act(() => { fireEvent.click(screen.getByRole("option", { name: /Story cards/ })); });
-    act(() => { fireEvent.click(screen.getByRole("button", { name: "Make default" })); });
+    await moreReady();
+    await openMore();
+    act(() => { fireEvent.click(screen.getByRole("menuitemradio", { name: /Your visit/ })); });
+    await openMore();
+    act(() => { fireEvent.click(screen.getByRole("button", { name: /Make this look the default/ })); });
     expect(last()).toEqual({ type: "make_default", style: "story" });
   });
 
   it("opens on the saved tooth colour and Save colour posts the new one to the app", async () => {
     act(() => { api.present(aarav(), { shade: 70, can_save_shade: true }); });
     await tooth(21);
+    await moreReady();
+    await openMore();
     const slider = screen.getByRole("slider", { name: "Tooth colour" });
     expect(slider).toHaveProperty("value", "70");
     expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
@@ -146,6 +158,8 @@ describe("window.aarogyam", () => {
   it("offers no Save colour unless the app allows it", async () => {
     act(() => { api.present(aarav(), { shade: 70 }); });
     await tooth(21);
+    await moreReady();
+    await openMore();
     act(() => { fireEvent.change(screen.getByRole("slider", { name: "Tooth colour" }), { target: { value: "20" } }); });
     expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
   });
@@ -172,7 +186,9 @@ describe("window.aarogyam", () => {
 
   it("back closes How to brush first", async () => {
     act(() => { api.present(aarav()); });
-    act(() => { fireEvent.click(screen.getByRole("button", { name: "How to brush" })); });
+    await moreReady();
+    await openMore();
+    act(() => { fireEvent.click(screen.getByRole("button", { name: /How to brush/ })); });
     await screen.findByRole("button", { name: "Close" });
     let answer = false;
     act(() => { answer = api.back(); });
@@ -303,21 +319,23 @@ describe("phone parity options", () => {
     }
     await waitFor(() => { expect(document.querySelector(".ps-opts")).not.toBeNull(); });
   };
-  const styles = () => { fireEvent.click(screen.getAllByRole("button", { name: /Painted smile|Story cards/ })[0] ?? document.body); };
+  const more = () => { fireEvent.click(screen.getByRole("button", { name: "More" })); };
 
-  it("no X-rays tab, Own X-ray or Chart without the options", async () => {
+  it("no X-rays tab, Own X-ray or chart group without the options", async () => {
     await open({});
     expect(screen.queryByRole("tab", { name: "X-rays" })).toBeNull();
-    styles();
-    expect(screen.queryByRole("option", { name: /Own X-ray/ })).toBeNull();
-    expect(screen.queryByRole("option", { name: /Chart/ })).toBeNull();
+    await screen.findByRole("button", { name: "More" });
+    more();
+    expect(screen.queryByRole("menuitemradio", { name: /Own X-ray/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Show the chart/ })).toBeNull();
   });
 
   it("ignores bad xrays, chart and discussions", async () => {
     await open({ xrays: "nope", chart: { current: "x" }, discussions: 5 });
     expect(screen.queryByRole("tab", { name: "X-rays" })).toBeNull();
-    styles();
-    expect(screen.queryByRole("option", { name: /Chart/ })).toBeNull();
+    await screen.findByRole("button", { name: "More" });
+    more();
+    expect(screen.queryByRole("button", { name: /Show the chart/ })).toBeNull();
   });
 
   it("the X-rays tab shows the image and the saved pins; a new pin posts save_pins", async () => {
@@ -344,18 +362,22 @@ describe("phone parity options", () => {
     expect(types()).not.toContain("save_pins");
   });
 
-  it("Own X-ray appears in the switcher and draws the picture", async () => {
-    await open({ xrays: xrays() });
-    styles();
-    fireEvent.click(screen.getByRole("option", { name: /Own X-ray/ }));
+  it("Own X-ray is a Story card with the picture, not a look", async () => {
+    await open({ xrays: xrays(), style: "story" });
+    await waitFor(() => { expect(document.querySelector("[data-present-style=story]")).not.toBeNull(); });
+    for (let i = 0; i < 12 && document.querySelector(".ps-xr-card") === null; i++) {
+      act(() => { fireEvent.keyDown(document.querySelector("[data-present-style=story]") ?? document.body, { key: "ArrowRight" }); });
+    }
     expect(await screen.findByRole("img", { name: /OPG from/ })).toBeTruthy();
-    expect(document.querySelector("[data-present-style=xray]")).not.toBeNull();
+    more();
+    expect(screen.queryByRole("menuitemradio", { name: /Own X-ray/ })).toBeNull();
   });
 
-  it("Chart appears with the chart; its look and dentition buttons show", async () => {
+  it("the chart is in More; its look and dentition buttons show", async () => {
     await open({ chart, look: "classic" });
-    styles();
-    fireEvent.click(screen.getByRole("option", { name: /Chart/ }));
+    await screen.findByRole("button", { name: "More" });
+    more();
+    fireEvent.click(screen.getByRole("button", { name: "Show the chart" }));
     await waitFor(() => { expect(document.querySelector(".pc")).not.toBeNull(); });
     expect(document.querySelector(".pc")?.getAttribute("data-look")).toBe("classic");
     fireEvent.click(screen.getByRole("button", { name: "Child" }));

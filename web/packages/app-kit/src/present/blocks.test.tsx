@@ -22,11 +22,11 @@ describe("badges", () => {
 describe("style switcher", () => {
   const options = [...PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta, disabled: isShipped(s.id) ? undefined : "Coming soon", note: s.id === DEFAULT_STYLE ? "Default" : undefined })), { id: "chart", label: "Chart", separate: true }];
 
-  it("lists the five styles in the ranking order, story, painted, own X-ray and 3D smile enabled, then the chart", () => {
+  it("lists the four looks in order, Your visit, Map + list, 3D smile and Face to tooth, then the chart", () => {
     render(<StyleSwitcher options={options} value="painted" onChange={() => undefined} />);
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
     const opts = screen.getAllByRole("option");
-    expect(opts.map((o) => o.textContent.replace(/Coming soon|Beta|Default|✓/g, ""))).toEqual(["Story cards", "Painted smile", "Own X-ray", "3D smile", "Face to tooth", "Chart"]);
+    expect(opts.map((o) => o.textContent.replace(/Coming soon|Beta|Default|✓/g, ""))).toEqual(["Your visit", "Map + list", "3D smile", "Face to tooth", "Chart"]);
     expect(opts.filter((o) => o.getAttribute("aria-disabled") === "true").map((o) => o.id.split("-").pop())).toEqual([]);
     expect(opts[0]?.textContent).toContain("Default");
     expect(opts[1]?.getAttribute("aria-selected")).toBe("true");
@@ -44,7 +44,7 @@ describe("style switcher", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
     const list = screen.getByRole("listbox");
-    for (let i = 0; i < 4; i += 1) fireEvent.keyDown(list, { key: "ArrowDown" });
+    for (let i = 0; i < 3; i += 1) fireEvent.keyDown(list, { key: "ArrowDown" });
     fireEvent.keyDown(list, { key: "Enter" });
     expect(onChange).toHaveBeenLastCalledWith("chart");
     fireEvent.click(screen.getByRole("button", { name: /Style/ }));
@@ -87,30 +87,6 @@ describe("text fallback (§13)", () => {
   });
 });
 
-describe("painted style, tooth colour slider", () => {
-  const render1 = (extra: Record<string, unknown>) =>
-    render(<PaintedStyle model={model()} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} {...extra} />);
-  it("offers Save colour only when the colour differs from the saved one and saving is wired", () => {
-    const onSave = vi.fn();
-    const { unmount } = render1({});
-    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
-    unmount();
-    const clean = render1({ shadeDirty: false, onSaveShade: onSave });
-    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
-    clean.unmount();
-    const noSave = render1({ shadeDirty: true });
-    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
-    noSave.unmount();
-    render1({ shadeDirty: true, onSaveShade: onSave });
-    fireEvent.click(screen.getByRole("button", { name: "Save colour" }));
-    expect(onSave).toHaveBeenCalledTimes(1);
-  });
-  it("disables Save colour while saving", () => {
-    render1({ shadeDirty: true, onSaveShade: () => undefined, savingShade: true });
-    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Save colour" }).disabled).toBe(true);
-  });
-});
-
 describe("painted style", () => {
   it("a dot or a list row opens that tooth; the knobs change no fact", () => {
     const onOpen = vi.fn(), onShade = vi.fn(), onOrientation = vi.fn();
@@ -126,11 +102,10 @@ describe("painted style", () => {
     expect(rows.map((r) => r.tagName)).toEqual(["g", "BUTTON"]);
     fireEvent.click(rows[1] ?? dot);
     expect(onOpen).toHaveBeenLastCalledWith(55);
-    fireEvent.change(screen.getByRole("slider", { name: "Tooth colour" }), { target: { value: "80" } });
-    expect(onShade).toHaveBeenCalledWith(80);
-    fireEvent.click(screen.getByRole("button", { name: "As in a photo" }));
-    expect(onOrientation).toHaveBeenCalledWith("photo");
-    expect(container.textContent).toContain("Colour chosen to look like you");
-    expect(screen.getByRole("button", { name: "As in your mirror" }).getAttribute("aria-pressed")).toBe("true");
+    // the colour slider and "which way round" live in the More menu now
+    expect(screen.queryByRole("slider", { name: "Tooth colour" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "As in a photo" })).toBeNull();
+    expect(onShade).not.toHaveBeenCalled();
+    expect(onOrientation).not.toHaveBeenCalled();
   });
 });

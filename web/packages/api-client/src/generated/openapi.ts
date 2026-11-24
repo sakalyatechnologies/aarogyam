@@ -14424,6 +14424,11 @@ export interface components {
             look: string;
             /** @description How it looks afterwards, in words. */
             looks_like: string;
+            /**
+             * @description True on the one option that is the same work as a treatment already planned or in progress
+             *     on this tooth: show it first as "Your dentist suggests". Absent otherwise.
+             */
+            suggested?: boolean | null;
             /** @description What is done. */
             summary: string;
             /** @description Usual visits. */
@@ -14463,7 +14468,12 @@ export interface components {
         };
         /** @description A recorded situation on one tooth. */
         PresentSituation: {
-            /** @description `deep_decay`, `missing` or `impacted_wisdom` (a plain string; more may come). */
+            /**
+             * @description What waiting usually leads to, in order. General guidance ("Illustration · general guidance");
+             *     absent when there are no words.
+             */
+            if_wait?: components["schemas"]["PresentWaitStage"][] | null;
+            /** @description `deep_decay`, `infection`, `missing` or `impacted_wisdom` (a plain string; more may come). */
             key: string;
             /** @description The usual options. General guidance: show "Usual options · general guidance". */
             options: components["schemas"]["PresentOption"][];
@@ -14484,6 +14494,13 @@ export interface components {
             prices?: components["schemas"]["PresentPrice"][] | null;
             /** @description The recorded situations, by tooth, each with its usual options. */
             situations: components["schemas"]["PresentSituation"][];
+        };
+        /** @description One stage of what waiting usually leads to. */
+        PresentWaitStage: {
+            /** @description Short name of the stage, such as "Usually next". */
+            stage: string;
+            /** @description What the patient reads. */
+            words: string;
         };
         /** @description A filter to count. */
         PreviewAudience: {

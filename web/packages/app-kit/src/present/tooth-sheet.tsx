@@ -90,6 +90,19 @@ export function sheetContent(model: PresentModel, tooth: number): SheetContent {
   };
 }
 
+/**
+ * "Root canal, sitting 4": the treatment already planned or under way on this tooth, from the record only.
+ * A dentist's recommendation is not a plan yet, so a tooth that only has one gets no such line.
+ */
+export function yourTreatment(model: PresentModel, tooth: number): { title: string; sitting?: number; state: "in_progress" | "planned" } | undefined {
+  const record = model.teeth.find((t) => t.tooth === tooth)?.record;
+  const trs = record?.treatments ?? [];
+  const going = trs.find((t) => t.state === "in_progress");
+  if (going !== undefined) return { title: modelTitle(going.model), ...(record?.sitting === undefined ? {} : { sitting: record.sitting }), state: "in_progress" };
+  const plan = record?.recommended === true ? undefined : trs.find((t) => t.state === "planned" && t.recommended !== true);
+  return plan === undefined ? undefined : { title: modelTitle(plan.model), state: "planned" };
+}
+
 interface Art { tooth: ToothArt; shapes: ShapeSet; stages: Partial<Record<StageModel, StageSet>>; neighbour?: ToothArt | undefined; wisdom?: StageSet | undefined }
 
 /** Loads the sheet's art lazily; "failed" lets the sheet stay as text. */
@@ -157,6 +170,7 @@ export interface ToothSheetProps {
 
 export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: ToothSheetProps): ReactElement {
   const c = useMemo(() => sheetContent(model, tooth), [model, tooth]);
+  const mine = useMemo(() => yourTreatment(model, tooth), [model, tooth]);
   const tf: ToothFacts | undefined = model.teeth.find((t) => t.tooth === tooth);
   const record = tf?.record;
   const { art, failed } = useSheetArt(c, tooth);
@@ -225,6 +239,11 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
       </button>}
       <header className="ps-sheet-head">
         <h3 className="ps-sheet-title">{`${c.where} · ${String(tooth)}`}</h3>
+        {mine === undefined ? null : (
+          <p className="ps-your-tx" data-your-treatment={mine.state}>
+            <b>{`Your treatment: ${mine.title}${mine.sitting === undefined ? "" : `, sitting ${String(mine.sitting)}`}${mine.state === "planned" ? ", planned" : ""}`}</b>
+          </p>
+        )}
         {c.facts.length === 0 ? <p className="ps-muted">{c.recorded_tooth ? "Nothing to treat is recorded on this tooth." : "Nothing was recorded for this tooth at this visit. That doesn't mean it is healthy or unhealthy."}</p> : (
           <ul className="ps-sheet-facts">
             {c.facts.map((f) => (
@@ -280,7 +299,7 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
           <IllustrationBadge>Illustration · general guidance</IllustrationBadge>
         </section>
       )}
-      {embedded ? null : <ToothOptions tooth={tooth} />}
+      {embedded ? null : <ToothOptions tooth={tooth} record={record} />}
       {embedded ? null : <Suspense fallback={null}><ToothMaterials tooth={tooth} record={record} /></Suspense>}
       <ProvenanceFooter recorded={recordedWords} illustration={["Tooth shapes and colours are a painting based on your record, not a photo."]} />
     </section>

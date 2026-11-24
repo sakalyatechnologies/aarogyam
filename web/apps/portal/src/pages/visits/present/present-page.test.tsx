@@ -36,10 +36,23 @@ const toothEl = (shell: HTMLElement, n: number): HTMLElement | SVGElement => {
 const WAIT = { timeout: 20_000 };
 const XRAY_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-/** Show patient opens on story cards (painted is one pick away); "Chart" in the style switcher draws the doctor's chart look. */
+/** The header's one "More" menu; opens it unless it already is. */
+async function openMore(shell: HTMLElement) {
+  const more = await within(shell).findByRole("button", { name: "More" }, WAIT);
+  if (more.getAttribute("aria-expanded") !== "true") fireEvent.click(more);
+  await within(shell).findByRole("group", { name: "More options" }, WAIT);
+}
+
+/** Show patient opens on "Your visit" (Map + list is one pick away); More > "Show the chart" draws the doctor's chart look. */
 async function showChart(shell: HTMLElement) {
-  fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
-  fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
+  await openMore(shell);
+  fireEvent.click(within(shell).getByRole("button", { name: "Show the chart" }));
+}
+
+/** More > Look > one of the looks (the menu closes after the pick). */
+async function pickLook(shell: HTMLElement, name: RegExp | string) {
+  await openMore(shell);
+  fireEvent.click(within(shell).getByRole("menuitemradio", { name }));
 }
 
 /** A Sunrise visit; its mouth is the Aarav fixture, with 55's depth left out and a current caries entry on 55. */
@@ -81,7 +94,8 @@ describe("Present mode (§1.12)", () => {
     const { router } = renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     expect(await within(shell).findByRole("heading", { name: /teeth$/ }, WAIT)).toBeTruthy();
-    expect(within(shell).getByRole("button", { name: "How to brush" })).toBeTruthy();
+    expect(shell.querySelector(".pm-bar")).not.toBeNull();
+    expect(within(shell).queryByText(/^Today: /)).toBeNull();
     await showChart(shell);
     await drawn(shell, 32);
     fireEvent.click(toothEl(shell, 21));
@@ -119,7 +133,8 @@ describe("Present mode (§1.12)", () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    await user.click(within(shell).getByRole("button", { name: "How to brush" }));
+    await openMore(shell);
+    await user.click(within(shell).getByRole("button", { name: /How to brush/ }));
     const panel = await screen.findByRole("dialog", { name: /How to brush/ }, WAIT);
     await user.click(within(panel).getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog", { name: /How to brush/ })).toBeNull();
@@ -138,19 +153,23 @@ describe("Present mode (§1.12)", () => {
     expect(within(shell).queryByRole("region", { name: "Summary" })).toBeNull();
     expect(within(shell).queryByText(/not checked yet/)).toBeNull();
     expect(within(shell).queryByRole("button", { name: "How to brush" })).toBeNull();
+    expect(within(shell).queryByRole("button", { name: "More" })).toBeNull();
     await user.click(within(shell).getByRole("button", { name: "Add X-ray or OPG" }));
     expect(await screen.findByRole("dialog", { name: /upload|X-ray/i }, WAIT)).toBeTruthy();
   });
 
-  it("Today: one line for the doctor, and the chip dims every tooth without today's work or findings", async () => {
+  it("Today: one line for the doctor, only in the chart view; Only today dims every tooth without today's work or findings", async () => {
     const user = userEvent.setup();
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    expect(await within(shell).findByText(/^Today: /, undefined, WAIT)).toBeTruthy();
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
+    expect(within(shell).queryByText(/^Today: /)).toBeNull();
+    expect(within(shell).queryByRole("list", { name: "Key" })).toBeNull();
     await showChart(shell);
-    await user.click(within(shell).getByRole("button", { name: "Today" }));
-    expect(within(shell).getByRole("button", { name: "Today" }).getAttribute("aria-pressed")).toBe("true");
+    expect(await within(shell).findByText(/^Today: /, undefined, WAIT)).toBeTruthy();
+    await user.click(within(shell).getByRole("button", { name: /Only today/ }));
+    expect(within(shell).getByRole("button", { name: /Only today/ }).getAttribute("aria-pressed")).toBe("true");
     await drawn(shell, 32);
     expect(toothEl(shell, 21).hasAttribute("data-dim")).toBe(false);
     expect(toothEl(shell, 11).hasAttribute("data-dim")).toBe(true);
@@ -189,16 +208,17 @@ describe("Present mode (§1.12)", () => {
     await user.click(within(shell).getByRole("button", { name: "Back to all teeth" }));
     expect(shell.querySelector(".mv")?.getAttribute("data-screen")).toBe("overview");
     expect(shell.querySelector(".pc")?.getAttribute("data-look")).toBe("classic");
+    await openMore(shell);
     await user.click(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Adult" }));
     expect(await drawn(shell, 32)).toEqual([...ARCHES.adult.upper, ...ARCHES.adult.lower]);
   });
 
-  it("opens on story cards: the map card first, the dots open the tooth sheet; Painted smile is one pick away", async () => {
+  it("opens on Your visit: the map card first, the dots open the tooth sheet; Map + list is one pick away", async () => {
     const user = userEvent.setup();
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    expect(await within(shell).findByRole("button", { name: /^Style\s*Story cards/ }, WAIT)).toBeTruthy();
+    expect(await within(shell).findByRole("button", { name: "More" }, WAIT)).toBeTruthy();
     await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
     expect(shell.querySelector("[data-story-card='mouth']")).not.toBeNull();
     await waitFor(() => { expect([...shell.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]); }, WAIT);
@@ -211,61 +231,35 @@ describe("Present mode (§1.12)", () => {
     if (dot === null) throw new Error("no dot on 21");
     fireEvent.click(dot);
     expect(shell.querySelector("[data-tooth-sheet='21'], [data-story-card^='tooth:']")).not.toBeNull();
-    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
-    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    await pickLook(shell, /Map \+ list/);
     await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
     expect(shell.querySelector(".ps-dot[data-tooth='21']")).not.toBeNull();
   });
 
-  it("the switcher lists the five styles in order, Story cards and Painted ready; Chart shows the chart looks and back", async () => {
+  it("More lists the looks in order, Your visit and Map + list ready, betas apart; the chart shows its looks and back", async () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
-    await waitFor(() => { expect(within(shell).getByRole("option", { name: /Own X-ray/ }).textContent).toContain("No X-ray yet"); }, WAIT);
-    const names = within(shell).getAllByRole("option").map((o) => [o.textContent, o.getAttribute("aria-disabled")]);
-    expect(names).toEqual([
-      ["Story cardsDefault✓", null], ["Painted smile", null], ["Own X-rayNo X-ray yet", "true"],
-      ["3D smileBeta", null], ["Face to toothBeta", null], ["Chart", null],
-    ]);
-    fireEvent.click(within(shell).getByRole("option", { name: "Chart" }));
+    await openMore(shell);
+    const names = within(shell).getAllByRole("menuitemradio").map((o) => [o.textContent, o.getAttribute("aria-checked")]);
+    expect(names).toEqual([["Your visitDefault✓", "true"], ["Map + list", "false"], ["3D smileBeta", "false"], ["Face to toothBeta", "false"]]);
+    expect(within(shell).queryByRole("menuitemradio", { name: /Own X-ray/ })).toBeNull();
+    fireEvent.click(within(shell).getByRole("button", { name: "Show the chart" }));
     expect(within(shell).getByRole("group", { name: "Chart look" })).toBeTruthy();
     await drawn(shell, 32);
-    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
-    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    await pickLook(shell, /Map \+ list/);
     await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
   });
 
-  it("the story cards and the open switcher have no axe violations", async () => {
+  it("the story cards and the open More menu have no axe violations", async () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
     const run = async () => (await axe.run(shell, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } })).violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
     expect(await run()).toEqual([]);
-    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
+    await openMore(shell);
     expect(await run()).toEqual([]);
-  });
-
-  it("Own X-ray: with an X-ray on file it is enabled, shows the image unflipped with Your right on the left, and a finding opens the tooth sheet", async () => {
-    const { path, backend, wrap } = present(true);
-    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
-    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
-    await waitFor(() => { expect(within(shell).getByRole("option", { name: /Own X-ray/ }).getAttribute("aria-disabled")).toBeNull(); }, WAIT);
-    fireEvent.click(within(shell).getByRole("option", { name: /Own X-ray/ }));
-    await waitFor(() => { expect(shell.querySelector("[data-present-style='xray']")).not.toBeNull(); }, WAIT);
-    await waitFor(() => { expect(shell.querySelector(".ps-xray img")).not.toBeNull(); }, WAIT);
-    const img = shell.querySelector(".ps-xray img");
-    expect(img?.getAttribute("src")).toContain("data:image/png");
-    for (const el of shell.querySelectorAll(".ps-xray .xp-stage, .ps-xray .xp-stage *")) expect(el.getAttribute("style") ?? "").not.toMatch(/scale|matrix/i);
-    expect(shell.querySelector('.ps-xr-edge[data-side="left"]')?.textContent).toBe("Your right");
-    expect(shell.querySelector('.ps-xr-edge[data-side="right"]')?.textContent).toBe("Your left");
-    expect(shell.querySelectorAll(".ps-found .ps-badge-rec").length).toBeGreaterThan(0);
-    const open = shell.querySelector(".ps-found-open");
-    if (open === null) throw new Error("no finding");
-    fireEvent.click(open);
-    await waitFor(() => { expect(shell.querySelector("[data-tooth-sheet]")).not.toBeNull(); }, WAIT);
   });
 
   it("story cards add a 'Your X-ray' card only when an X-ray exists", async () => {
@@ -287,11 +281,11 @@ describe("Present mode (§1.12)", () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    const card = await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Decay close to the nerve/ }, WAIT);
+    const card = await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Infection at the root/ }, WAIT);
     fireEvent.click(card);
-    const block = await within(shell).findByRole("region", { name: /Usual options: Decay close to the nerve/ }, WAIT);
-    expect(within(block).getByText("Usual options · general guidance")).toBeTruthy();
-    expect(block.querySelectorAll("[data-option]").length).toBe(5);
+    const block = await within(shell).findByRole("region", { name: /Usual options: Infection at the root/ }, WAIT);
+    expect(block.textContent).toContain("general guidance");
+    expect(block.querySelectorAll("[data-option]").length).toBe(4);
     expect(block.textContent).not.toMatch(/₹|Visit \d/);
   });
 
@@ -299,8 +293,8 @@ describe("Present mode (§1.12)", () => {
     const { path, backend, wrap } = present(false, true);
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    fireEvent.click(await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Decay close to the nerve/ }, WAIT));
-    const block = await within(shell).findByRole("region", { name: /Usual options: Decay close to the nerve/ }, WAIT);
+    fireEvent.click(await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Infection at the root/ }, WAIT));
+    const block = await within(shell).findByRole("region", { name: /Usual options: Infection at the root/ }, WAIT);
     expect(within(shell).queryByRole("button", { name: /^Pinned/ })).toBeNull();
     fireEvent.click(within(block).getByRole("button", { name: "Pin Root canal and cap" }));
     fireEvent.click(within(block).getByRole("button", { name: "Pin Remove the tooth only" }));
@@ -341,18 +335,18 @@ describe("Show patient's saved style (slice 1f)", () => {
     return { ...base, wrap, puts };
   }
 
-  it("Make default saves the style once, then the button goes away and the list marks it Default", async () => {
+  it("Make default saves the look once, then the button goes away and the list marks it Default", async () => {
     const { path, backend, wrap, puts } = withSaved(undefined);
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    expect(within(shell).queryByRole("button", { name: "Make default" })).toBeNull();
-    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
-    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
-    fireEvent.click(await within(shell).findByRole("button", { name: "Make default" }, WAIT));
+    await openMore(shell);
+    expect(within(shell).queryByRole("button", { name: /Make this look the default/ })).toBeNull();
+    fireEvent.click(within(shell).getByRole("menuitemradio", { name: /Map \+ list/ }));
+    await openMore(shell);
+    fireEvent.click(within(shell).getByRole("button", { name: /Make this look the default/ }));
     await waitFor(() => { expect(puts).toEqual(["painted"]); }, WAIT);
-    await waitFor(() => { expect(within(shell).queryByRole("button", { name: "Make default" })).toBeNull(); }, WAIT);
-    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
-    expect(within(shell).getByRole("option", { name: /Painted smile/ }).textContent).toContain("Default");
+    await waitFor(() => { expect(within(shell).queryByRole("button", { name: /Make this look the default/ })).toBeNull(); }, WAIT);
+    expect(within(shell).getByRole("menuitemradio", { name: /Map \+ list/ }).textContent).toContain("Default");
   });
 
   it("opens on the saved style", async () => {
@@ -362,8 +356,8 @@ describe("Show patient's saved style (slice 1f)", () => {
     await waitFor(() => { expect(shell.querySelector("[data-present-style='painted']")).not.toBeNull(); }, WAIT);
   });
 
-  it("falls back to story cards when the saved style is Own X-ray and there is no image", async () => {
-    const { path, backend, wrap } = withSaved("xray");
+  it("opens Your visit when the saved style is the old Own X-ray (now a Story card), image or not", async () => {
+    const { path, backend, wrap } = withSaved("xray", { withXray: true });
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
@@ -374,13 +368,12 @@ describe("Show patient's saved style (slice 1f)", () => {
     const { path, backend, wrap, puts } = withSaved(undefined, { fail: true });
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
-    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
-    fireEvent.click(await within(shell).findByRole("button", { name: "Make default" }, WAIT));
+    await pickLook(shell, /Map \+ list/);
+    await openMore(shell);
+    fireEvent.click(within(shell).getByRole("button", { name: /Make this look the default/ }));
     await waitFor(() => { expect(puts).toEqual(["painted"]); }, WAIT);
-    await waitFor(() => { expect(within(shell).getByRole<HTMLButtonElement>("button", { name: "Make default" }).disabled).toBe(false); }, WAIT);
-    fireEvent.click(within(shell).getByRole("button", { name: /^Style/ }));
-    expect(within(shell).getByRole("option", { name: /Story cards/ }).textContent).toContain("Default");
+    await waitFor(() => { expect(within(shell).getByRole<HTMLButtonElement>("button", { name: /Make this look the default/ }).disabled).toBe(false); }, WAIT);
+    expect(within(shell).getByRole("menuitemradio", { name: /Your visit/ }).textContent).toContain("Default");
   });
 });
 
@@ -401,8 +394,8 @@ describe("Show patient's saved tooth colour", () => {
     };
     renderPortal(base.path, { as: PEOPLE.asha, backend: base.backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    fireEvent.click(await within(shell).findByRole("button", { name: /^Style/ }, WAIT));
-    fireEvent.click(within(shell).getByRole("option", { name: /Painted smile/ }));
+    await pickLook(shell, /Map \+ list/);
+    await openMore(shell);
     const slider = await within(shell).findByRole<HTMLInputElement>("slider", { name: "Tooth colour" }, WAIT);
     return { shell, slider, puts };
   };

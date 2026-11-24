@@ -4710,6 +4710,22 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply(undefined);
         }),
 
+      getOfferReport: (_query, opts) =>
+        respond(S.offerReport, opts?.signal, async () => {
+          const caller = await inClinic("analytics.view");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const mine = (state.offerCodes ?? []).filter((c) => c.clinic_id === caller.clinic.id);
+          const today = clinicToday(caller.clinic);
+          const purposes: string[] = ["patient_offer", "referral", "referrer_reward"];
+          const by_purpose = purposes.map((purpose) => {
+            const codes = mine.filter((c) => c.purpose === purpose);
+            return { purpose, issued: codes.length, redeemed: codes.filter((c) => c.used).length, reversed: 0, discount_paise: 0, revenue_paise: 0 };
+          });
+          return reply({ from: today, to: today, by_purpose, new_patients_referred: 0, by_issuer: [] });
+        }),
+
       getPatientOffers: (id, _invoiceId, opts) =>
         respond(S.patientOffers, opts?.signal, async () => {
           const caller = await inClinicWithAny("billing.read", "payments.collect");

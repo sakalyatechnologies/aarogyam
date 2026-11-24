@@ -3201,6 +3201,27 @@ export const analytics = z.object({
 }) satisfies z.ZodType<C.Analytics>;
 export type Analytics = z.output<typeof analytics>;
 
+/** Offer analytics: counts and paise only, no codes and no patients. */
+export const offerReport = z.object({
+  from: date,
+  to: date,
+  by_purpose: z.array(
+    z.object({
+      purpose: z.string(),
+      issued: count,
+      redeemed: count,
+      reversed: count,
+      discount_paise: paise,
+      revenue_paise: paise.nullable().exactOptional(),
+    }) satisfies z.ZodType<C.OfferPurposeReport>,
+  ),
+  new_patients_referred: count,
+  by_issuer: z.array(
+    z.object({ membership_id: membershipId, issued: count, redeemed: count, overrides: count }) satisfies z.ZodType<C.OfferIssuerReport>,
+  ),
+}) satisfies z.ZodType<C.OfferReport>;
+export type OfferReport = z.output<typeof offerReport>;
+
 // Prescriptions (M5) ----------------------------------------------------------------------------
 
 export const prescriptionId = z.string().min(1).brand<"PrescriptionId">();

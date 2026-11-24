@@ -29,3 +29,14 @@ export function useRangeCollections(range: { from: string; to: string }, enabled
     staleTime: 60_000,
   });
 }
+
+/** Offer analytics for exactly `from` to `to`: counts and paise, never codes or patients. */
+export function useOfferReport(range: { from: string; to: string }) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["offer-report", access.org_id, range.from, range.to],
+    queryFn: ({ signal }) => unwrap(api.getOfferReport({ from: range.from, to: range.to }, { signal })),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  });
+}

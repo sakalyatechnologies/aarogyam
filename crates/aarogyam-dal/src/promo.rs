@@ -880,3 +880,154 @@ pub async fn bill_promo(
     .await?;
     Ok(row)
 }
+
+/// Offer figures for one purpose in a range (ids and counts only).
+#[derive(Debug, Clone)]
+pub struct PurposeFigures {
+    /// `patient_offer`, `referral` or `referrer_reward`.
+    pub purpose: String,
+    /// Codes created in range.
+    pub issued: i64,
+    /// Final redemptions in range.
+    pub redeemed: i64,
+    /// Redemptions reversed in range after being final.
+    pub reversed: i64,
+    /// Σ discount of final redemptions in range.
+    pub discount_paise: i64,
+    /// Σ total of issued, non-void bills with a final redemption in range.
+    pub revenue_paise: i64,
+}
+
+/// One member's counts in a range.
+#[derive(Debug, Clone)]
+pub struct IssuerFigures {
+    /// The member.
+    pub membership_id: Uuid,
+    /// Codes they issued in range.
+    pub issued: i64,
+    /// Final redemptions in range of codes they issued.
+    pub redeemed: i64,
+    /// Final redemptions in range with `override` that they applied.
+    pub overrides: i64,
+}
+
+/// Offer figures per purpose for `[start, end)`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn offer_report(
+    conn: &mut PgConnection,
+    start: OffsetDateTime,
+    end: OffsetDateTime,
+) -> Result<Vec<PurposeFigures>, DbError> {
+    let issued = sqlx::query!(
+        r#"select purpose, count(*) as "n!" from aarogyam.promo_codes
+           where created_at >= $1 and created_at < $2 group by purpose"#,
+        start,
+        end
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    let moved = sqlx::query!(
+        r#"select c.purpose,
+             count(*) filter (where r.redeemed_at >= $1 and r.redeemed_at < $2) as "redeemed!",
+             count(*) filter (where r.redeemed_at is not null and r.reversed_at >= $1 and r.reversed_at < $2) as "reversed!",
+             coalesce(sum(r.discount_paise) filter (where r.status = 'final' and r.redeemed_at >= $1 and r.redeemed_at < $2), 0)::bigint as "discount!",
+             coalesce(sum(app.invoice_total_paise(i)) filter (where r.status = 'final' and r.redeemed_at >= $1
+               and r.redeemed_at < $2 and i.status = 'issued'), 0)::bigint as "revenue!"
+           from aarogyam.promo_redemptions r
+           join aarogyam.promo_codes c on c.org_id = r.org_id and c.id = r.promo_code_id
+           join aarogyam.invoices i on i.org_id = r.org_id and i.id = r.invoice_id
+           where (r.redeemed_at >= $1 and r.redeemed_at < $2) or (r.reversed_at >= $1 and r.reversed_at < $2)
+           group by c.purpose"#,
+        start,
+        end
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    let mut out: Vec<PurposeFigures> = Vec::new();
+    for purpose in ["patient_offer", "referral", "referrer_reward"] {
+        let made = issued.iter().find(|r| r.purpose == purpose);
+        let used = moved.iter().find(|r| r.purpose == purpose);
+        out.push(PurposeFigures {
+            purpose: purpose.to_owned(),
+            issued: made.map_or(0, |r| r.n),
+            redeemed: used.map_or(0, |r| r.redeemed),
+            reversed: used.map_or(0, |r| r.reversed),
+            discount_paise: used.map_or(0, |r| r.discount),
+            revenue_paise: used.map_or(0, |r| r.revenue),
+        });
+    }
+    Ok(out)
+}
+
+/// Patients whose referrer was set through a final referral redemption in range.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn new_patients_referred(
+    conn: &mut PgConnection,
+    start: OffsetDateTime,
+    end: OffsetDateTime,
+) -> Result<i64, DbError> {
+    let n = sqlx::query_scalar!(
+        r#"select count(distinct r.patient_id) as "n!"
+           from aarogyam.promo_redemptions r
+           join aarogyam.promo_codes c on c.org_id = r.org_id and c.id = r.promo_code_id
+           join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id
+           where c.purpose = 'referral' and r.status = 'final'
+             and r.redeemed_at >= $1 and r.redeemed_at < $2
+             and p.referred_by_patient_id = c.patient_id"#,
+        start,
+        end
+    )
+    .fetch_one(conn)
+    .await?;
+    Ok(n)
+}
+
+/// Per-member counts for `[start, end)`.
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn offer_issuers(
+    conn: &mut PgConnection,
+    start: OffsetDateTime,
+    end: OffsetDateTime,
+) -> Result<Vec<IssuerFigures>, DbError> {
+    let rows = sqlx::query!(
+        r#"with made as (
+             select issued_by as m, count(*) as n from aarogyam.promo_codes
+             where created_at >= $1 and created_at < $2 group by issued_by),
+           used as (
+             select c.issued_by as m, count(*) as n
+             from aarogyam.promo_redemptions r
+             join aarogyam.promo_codes c on c.org_id = r.org_id and c.id = r.promo_code_id
+             where r.status = 'final' and r.redeemed_at >= $1 and r.redeemed_at < $2
+             group by c.issued_by),
+           over as (
+             select applied_by as m, count(*) as n from aarogyam.promo_redemptions
+             where status = 'final' and override and applied_by is not null
+               and redeemed_at >= $1 and redeemed_at < $2 group by applied_by)
+           select u.m as "membership_id!", coalesce(made.n, 0) as "issued!",
+                  coalesce(used.n, 0) as "redeemed!", coalesce(over.n, 0) as "overrides!"
+           from (select m from made union select m from used union select m from over) u
+           left join made on made.m = u.m
+           left join used on used.m = u.m
+           left join over on over.m = u.m
+           order by 1"#,
+        start,
+        end
+    )
+    .fetch_all(conn)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|r| IssuerFigures {
+            membership_id: r.membership_id,
+            issued: r.issued,
+            redeemed: r.redeemed,
+            overrides: r.overrides,
+        })
+        .collect())
+}

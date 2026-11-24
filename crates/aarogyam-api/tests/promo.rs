@@ -1230,3 +1230,54 @@ async fn erasing_a_referrer_revokes_their_codes_and_keeps_friends_history() {
     assert_eq!(scalar_i64(&app, history, &friend).await, before);
     app.finish().await;
 }
+
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn the_offer_report_counts_ids_only_and_never_crosses_clinics() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let beta = app.token(BETA_OWNER);
+    let priya = person(&app, ALPHA, &owner, "Priya Sharma", "9876500041").await;
+    let visit = closed_visit(&app, ALPHA, &owner, &priya).await;
+    let (_, made) = give(&app, ALPHA, &owner, &visit, json!({ "patient_offer": {} })).await;
+    let offer = made["patient_offer"]["code"].as_str().unwrap().to_owned();
+    let bill = draft(&app, &owner, &priya, json!({})).await;
+    let bill_id = bill["id"].as_str().unwrap().to_owned();
+    let (_, held) = apply(&app, &assistant, &bill, &offer).await;
+    let shown = held["total_paise"].as_i64().unwrap();
+    assert_eq!(
+        pay(&app, &assistant, &priya, &bill_id, shown).await.0,
+        StatusCode::CREATED
+    );
+
+    let path = "/api/v1/reports/offers";
+    let (status, report) = call(&app, ALPHA, &owner, Method::GET, path, None).await;
+    assert_eq!(status, StatusCode::OK, "{report}");
+    let row = &report["by_purpose"][0];
+    assert_eq!(row["purpose"], "patient_offer");
+    assert_eq!(
+        (
+            row["issued"].as_i64(),
+            row["redeemed"].as_i64(),
+            row["reversed"].as_i64()
+        ),
+        (Some(1), Some(1), Some(0))
+    );
+    assert_eq!(row["discount_paise"], 37_000);
+    assert_eq!(row["revenue_paise"].as_i64().unwrap(), shown);
+    assert_eq!(report["by_issuer"][0]["issued"], 1);
+    assert_eq!(report["by_issuer"][0]["redeemed"], 1);
+    assert_eq!(report["new_patients_referred"], 0);
+    // Counts only: no code and no patient id anywhere.
+    let text = report.to_string();
+    assert!(!text.contains(&offer) && !text.contains(&priya), "{text}");
+
+    // Another clinic sees nothing.
+    let (status, other) = call(&app, BETA, &beta, Method::GET, path, None).await;
+    assert_eq!(status, StatusCode::OK, "{other}");
+    assert_eq!(other["by_purpose"][0]["issued"], 0);
+    assert_eq!(other["by_purpose"][0]["redeemed"], 0);
+    assert_eq!(other["by_issuer"].as_array().unwrap().len(), 0);
+    app.finish().await;
+}

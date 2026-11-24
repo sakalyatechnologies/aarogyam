@@ -27,7 +27,7 @@ import type {
 } from "./schemas.js";
 import type { AudienceFilter, NewAudience, NewCampaign, NewChatMessage, NewConversation, ScheduleCampaign, SendMessages } from "./contract.js";
 import type { ApplyPromoCode, NewVisitOffers, RevokePromoCode } from "./contract.js";
-import type { OfferSettings, PatientOffers, VisitOffers } from "./schemas.js";
+import type { OfferReport, OfferSettings, PatientOffers, VisitOffers } from "./schemas.js";
 import type { HandOff, NewMessagePrefs, NewPatientMessage, NewUiPrefs } from "./contract.js";
 import type { MessagePrefs, MessagePreview, UiPrefs } from "./schemas.js";
 import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDecided } from "./contract.js";
@@ -817,6 +817,8 @@ export interface ApiClient {
   /** Clinic host: takes a code back (`undo` for the giver's Undo, `staff`). Needs `offers.give` (own codes) or `settings.manage`. 409 when already revoked. */
   revokePromoCode(id: string, input: RevokePromoCode, options?: RequestOptions): Promise<ApiResult<undefined>>;
   /** Clinic host: a patient's live codes; with `invoiceId` each says whether the bill's visit recorded its target. Needs `billing.read` or `payments.collect`. */
+  /** Clinic host: offers issued, redeemed and reversed in a range, counts and paise only. Needs `analytics.view`. */
+  getOfferReport(query: Partial<DateRange>, options?: RequestOptions): Promise<ApiResult<OfferReport>>;
   getPatientOffers(id: PatientId, invoiceId?: InvoiceId, options?: RequestOptions): Promise<ApiResult<PatientOffers>>;
   /** Clinic host: puts a code on a draft bill. Needs `billing.write` or `payments.collect`; `override` needs `billing.write`. 404 unknown code; 409 with a `promo_*` reason; 429 after repeated misses. */
   applyInvoicePromo(id: InvoiceId, input: ApplyPromoCode, options?: RequestOptions): Promise<ApiResult<Invoice>>;

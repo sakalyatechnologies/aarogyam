@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { Download, MessageCircle, Share2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { apiErrorOf, MESSAGE_SECTIONS, unwrap, type VisitId, type VisitPatientMessage, type VisitStory } from "@aarogyam/api-client";
+import { apiErrorOf, MESSAGE_SECTIONS, unwrap, type PatientId, type VisitId, type VisitPatientMessage, type VisitStory } from "@aarogyam/api-client";
 import { canShareVideo, pickVideoPath, videoFileName, type VideoPath } from "@aarogyam/app-kit/story-video/support";
 
 import { useClinic } from "../../../clinic.js";
@@ -327,7 +327,7 @@ function Ticks({ visitId, ticked, onChange, video }: {
  * on by default where the share sheet takes a file, off where only a download works (M8). `patientName` labels the
  * video for the doctor only ("V-318 · Aarav"); it never goes into the video or its file name.
  */
-export function WhatsAppSummary({ visitId, compact = false, patientName }: { visitId: VisitId; compact?: boolean; patientName?: string }) {
+export function WhatsAppSummary({ visitId, compact = false, patientName, patientId }: { visitId: VisitId; compact?: boolean; patientName?: string; patientId?: PatientId }) {
   const { api, access, can } = useClinic();
   const allowed = can("clinical.read") && can("patients.contact");
   const queryClient = useQueryClient();
@@ -436,7 +436,7 @@ export function WhatsAppSummary({ visitId, compact = false, patientName }: { vis
           ) : (
             ticks
           )}
-          {compact ? null : <OfferChips visitId={visitId} />}
+          {compact ? null : <OfferChips visitId={visitId} {...(patientId === undefined ? {} : { patientId })} />}
           <PillButton variant={compact ? "ghost" : "primary"} icon={<MessageCircle aria-hidden="true" />} onClick={send} disabled={prepare.isPending}>
             {prepare.isPending ? "Preparing…" : compact ? "Prepare WhatsApp summary" : "Send on WhatsApp"}
           </PillButton>

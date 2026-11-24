@@ -68,4 +68,30 @@ describe("Settings → Offers", () => {
     const result = await axe.run(document.body, AXE);
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   });
+
+  it("adds, edits and removes a limit for a role, and saves by_role", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    renderPortal("/settings?tab=offers", { as: PEOPLE.asha, backend });
+    await screen.findByText("Limits by role");
+    await screen.findByRole("button", { name: "Add a role limit" });
+    await user.click(screen.getByRole("button", { name: "Add a role limit" }));
+    await screen.findByRole("button", { name: /^Remove limits for/ });
+    const highest = screen.getAllByLabelText("Highest percent");
+    const row = highest[highest.length - 1];
+    if (row === undefined) throw new Error("no row");
+    await user.clear(row);
+    await user.type(row, "5");
+    await user.click(screen.getByRole("button", { name: "Save offer settings" }));
+    await waitFor(async () => {
+      const caps = (await saved(backend)).caps.by_role;
+      expect(caps).toHaveLength(1);
+      expect(caps[0]?.max_percent_bps).toBe(500);
+    });
+    await user.click(await screen.findByRole("button", { name: /^Remove limits for/ }));
+    await user.click(screen.getByRole("button", { name: "Save offer settings" }));
+    await waitFor(async () => {
+      expect((await saved(backend)).caps.by_role).toHaveLength(0);
+    });
+  });
 });

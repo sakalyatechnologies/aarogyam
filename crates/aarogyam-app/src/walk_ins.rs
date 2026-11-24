@@ -56,6 +56,8 @@ pub struct NewWalkIn {
     pub reason: Option<String>,
     /// Attach the patient to an existing family.
     pub family_of: Option<FamilyOf>,
+    /// Issue a queue token. `false` registers and records the intake only.
+    pub check_in: bool,
 }
 
 /// What a walk-in did.
@@ -68,7 +70,8 @@ pub struct WalkInView {
     /// The family link made (the existing patient's side), when `family_of` was given.
     pub family_link_id: Option<PatientRelationId>,
     /// The queue token.
-    pub token: TokenView,
+    /// The queue token; absent when the walk-in was not checked in.
+    pub token: Option<TokenView>,
     /// How many allergies were recorded (already active ones are not repeated).
     pub allergies_recorded: u64,
     /// How many conditions were recorded (already active ones are not repeated).
@@ -137,26 +140,30 @@ pub async fn register(
         // The patient was read before the intake: bring the flags up to date without a trip.
         patient.allergy_alert |= recorded.allergies > 0;
         patient.consent_pending &= !recorded.consents.contains(&Purpose::Care);
-        let branch_id = resolve_branch(tx, input.branch_id).await?;
-        let token_id = issue_token(
-            tx,
-            &actor.timezone,
-            branch_id,
-            patient_id,
-            TokenExtras {
-                practitioner_id: input.practitioner_id.map(PractitionerId::uuid),
-                reason,
-                ..TokenExtras::default()
-            },
-            now,
-        )
-        .await?;
-        // A patient this walk-in just registered gets the welcome, queued with the registration
-        // (before the token is read back, so the token shows its welcome status).
-        if registered {
-            crate::auto_messages::welcome(tx, patient_id, token_id).await?;
-        }
-        let token = token_view(tx, token_id, now, today).await?;
+        let token = if input.check_in {
+            let branch_id = resolve_branch(tx, input.branch_id).await?;
+            let token_id = issue_token(
+                tx,
+                &actor.timezone,
+                branch_id,
+                patient_id,
+                TokenExtras {
+                    practitioner_id: input.practitioner_id.map(PractitionerId::uuid),
+                    reason,
+                    ..TokenExtras::default()
+                },
+                now,
+            )
+            .await?;
+            // A patient this walk-in just registered gets the welcome, queued with the
+            // registration (before the token is read back, so it shows its welcome status).
+            if registered {
+                crate::auto_messages::welcome(tx, patient_id, token_id).await?;
+            }
+            Some(token_view(tx, token_id, now, today).await?)
+        } else {
+            None
+        };
         Ok(WalkInView {
             patient,
             registered,
@@ -185,6 +192,7 @@ mod tests {
             intake,
             reason: None,
             family_of: None,
+            check_in: true,
         }
     }
 

@@ -83,6 +83,14 @@ pub struct WalkInRequest {
     /// Why the patient came: plain text, trimmed, at most 200 characters (more is a `400`);
     /// empty means none. Kept on the queue token.
     pub reason: Option<String>,
+    /// Join the queue (the default). `false` registers the patient and records the intake
+    /// only: no queue token, no queue notification, no visit.
+    #[serde(default = "check_in_default")]
+    pub check_in: bool,
+}
+
+fn check_in_default() -> bool {
+    true
 }
 
 /// What a walk-in did.
@@ -95,8 +103,10 @@ pub struct WalkIn {
     /// The family link made, from the existing patient's side; absent without `family_of`.
     #[schema(value_type = Option<String>)]
     pub family_link_id: Option<uuid::Uuid>,
-    /// The queue token issued.
-    pub token: QueueToken,
+    /// The queue token issued. Always present unless `check_in` was false.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false)]
+    pub token: Option<QueueToken>,
     /// How many allergies were recorded.
     pub allergies_recorded: u64,
     /// How many conditions were recorded.
@@ -126,7 +136,7 @@ impl From<WalkInView> for WalkIn {
             patient: view.patient.into(),
             registered: view.registered,
             family_link_id: view.family_link_id.map(PatientRelationId::uuid),
-            token: view.token.into(),
+            token: view.token.map(Into::into),
             allergies_recorded: view.allergies_recorded,
             conditions_recorded: view.conditions_recorded,
             consents_recorded: view
@@ -208,6 +218,7 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
             notice_version: body.notice_version,
         },
         reason: body.reason,
+        check_in: body.check_in,
     })
 }
 
@@ -259,7 +270,7 @@ pub(crate) async fn register(
     tracing::info!(
         event = Event::WalkInRegistered.as_str(),
         patient_id = %view.patient.id.uuid(),
-        queue_token_id = %view.token.row.id,
+        queue_token_id = ?view.token.as_ref().map(|t| t.row.id),
         registered = view.registered,
         "walk-in registered"
     );

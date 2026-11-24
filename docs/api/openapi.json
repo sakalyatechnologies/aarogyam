@@ -48435,7 +48435,6 @@
         "required": [
           "patient",
           "registered",
-          "token",
           "allergies_recorded",
           "conditions_recorded",
           "consents_recorded"
@@ -48483,8 +48482,15 @@
             "description": "Whether the patient was registered by this request."
           },
           "token": {
-            "$ref": "#/components/schemas/QueueToken",
-            "description": "The queue token issued."
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/QueueToken",
+                "description": "The queue token issued. Always present unless `check_in` was false."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -48557,6 +48563,10 @@
               "null"
             ],
             "description": "Branch; the default branch when left out."
+          },
+          "check_in": {
+            "type": "boolean",
+            "description": "Join the queue (the default). `false` registers the patient and records the intake\nonly: no queue token, no queue notification, no visit."
           },
           "conditions": {
             "type": "array",

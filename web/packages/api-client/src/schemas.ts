@@ -4064,7 +4064,8 @@ export type PhoneMatchPage = z.output<typeof phoneMatches>;
 export const walkIn = z.object({
   patient,
   registered: z.boolean(),
-  token: queueToken,
+  /** The queue token; absent only when the request had `check_in: false`. */
+  token: queueToken.exactOptional(),
   allergies_recorded: z.number().int().nonnegative(),
   conditions_recorded: z.number().int().nonnegative(),
   /** The family link made, when `family_of` was given. */

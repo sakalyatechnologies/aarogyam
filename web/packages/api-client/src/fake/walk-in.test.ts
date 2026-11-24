@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ApiClient, ApiResult } from "../index.js";
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
+import { tokenOf } from "./token-of.js";
 
 const NOW = new Date("2026-10-03T05:30:00Z");
 const SUNRISE = "sunrise.localtest.me";
@@ -26,17 +27,17 @@ describe("walk-in fast path (fake)", () => {
     const { as } = setup();
     const desk = as(FARAH);
     const first = value(await desk.registerWalkIn({ patient: { full_name: "Sunita Patil", age_years: 34, sex: "female", phone: "+919876511111" } }));
-    expect(first.token.welcome_status).toBe("queued");
-    const listed = value(await desk.listQueue(undefined)).items.find((t) => t.id === first.token.id);
+    expect(tokenOf(first).welcome_status).toBe("queued");
+    const listed = value(await desk.listQueue(undefined)).items.find((t) => t.id === tokenOf(first).id);
     expect(listed?.welcome_status).toBe("queued");
     expect(listed?.thanks_status).toBeUndefined();
     // The same patient again is not new: no welcome.
     const again = value(await desk.registerWalkIn({ patient_id: first.patient.id }));
-    expect(again.token.welcome_status).toBeUndefined();
+    expect(tokenOf(again).welcome_status).toBeUndefined();
     // Switched off: a new patient gets none.
     value(await as(ASHA).updateNotificationSettings({ welcome: false }));
     const off = value(await desk.registerWalkIn({ patient: { full_name: "Ravi Kulkarni", age_years: 40, sex: "male", phone: "+919876522222" } }));
-    expect(off.token.welcome_status).toBeUndefined();
+    expect(tokenOf(off).welcome_status).toBeUndefined();
   });
 
   it("registers a walk-in with reported allergies and desk consents, then finds them by phone", async () => {
@@ -52,7 +53,7 @@ describe("walk-in fast path (fake)", () => {
     expect(walkIn.registered).toBe(true);
     expect(walkIn.allergies_recorded).toBe(1);
     expect(walkIn.consents_recorded).toEqual(["care"]);
-    expect(walkIn.token.status).toBe("waiting");
+    expect(tokenOf(walkIn).status).toBe("waiting");
 
     const found = value(await desk.lookupPatientsByPhone("98765 11111"));
     expect(found.items.map((m) => m.id)).toEqual([walkIn.patient.id]);
@@ -73,9 +74,9 @@ describe("walk-in fast path (fake)", () => {
     const { as } = setup();
     const desk = as(FARAH);
     const first = value(await desk.registerWalkIn({ patient: { full_name: "Meera Kulkarni" }, reason: "  Toothache " }));
-    expect(first.token.reason).toBe("Toothache");
+    expect(tokenOf(first).reason).toBe("Toothache");
     const blank = value(await desk.registerWalkIn({ patient: { full_name: "Omkar Shinde" }, reason: "   " }));
-    expect(blank.token.reason ?? null).toBeNull();
+    expect(tokenOf(blank).reason ?? null).toBeNull();
     const queued = value(await desk.addWalkIn({ patient_id: first.patient.id, reason: "Cleaning" }));
     expect(queued.reason).toBe("Cleaning");
     const listed = value(await desk.listQueue(undefined)).items.find((t) => t.id === queued.id);
@@ -104,23 +105,23 @@ describe("walk-in fast path (fake)", () => {
     const { as } = setup();
     const walkIn = value(await as(FARAH).registerWalkIn({ patient: { full_name: "Meera Iyer" } }));
     const owner = as(ASHA);
-    const started = value(await owner.startVisitFromQueue(walkIn.token.id));
+    const started = value(await owner.startVisitFromQueue(tokenOf(walkIn).id));
     expect(started.created).toBe(true);
     expect(started.token.status).toBe("in_chair");
-    const again = value(await owner.startVisitFromQueue(walkIn.token.id));
+    const again = value(await owner.startVisitFromQueue(tokenOf(walkIn).id));
     expect(again.created).toBe(false);
     expect(again.visit.id).toBe(started.visit.id);
-    expect((await as(FARAH).startVisitFromQueue(walkIn.token.id)).ok).toBe(false);
+    expect((await as(FARAH).startVisitFromQueue(tokenOf(walkIn).id)).ok).toBe(false);
     value(await owner.closeVisit(started.visit.id));
     const queue = value(await owner.listQueue(undefined));
-    expect(queue.items.find((t) => t.id === walkIn.token.id)?.status).toBe("done");
+    expect(queue.items.find((t) => t.id === tokenOf(walkIn).id)?.status).toBe("done");
   });
 
   it("keeps clinics apart and serves the quick picks to desk and doctor", async () => {
     const { as } = setup();
     const walkIn = value(await as(FARAH).registerWalkIn({ patient: { full_name: "Sunil Rao", phone: "+919876555555" } }));
     const lotus = as(BINA, LOTUS);
-    expect((await lotus.startVisitFromQueue(walkIn.token.id)).ok).toBe(false);
+    expect((await lotus.startVisitFromQueue(tokenOf(walkIn).id)).ok).toBe(false);
     expect(value(await lotus.lookupPatientsByPhone("9876555555")).items).toEqual([]);
     for (const who of [FARAH, ASHA]) {
       const picks = value(await as(who).getQuickPicks());

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ApiClient, ApiResult } from "../index.js";
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
+import { tokenOf } from "./token-of.js";
 
 const NOW = new Date("2026-10-03T05:30:00Z");
 const SUNRISE = "sunrise.localtest.me";
@@ -27,7 +28,7 @@ function errorOf<T>(result: ApiResult<T>): { status: number; code: string } | nu
 
 async function openVisit(as: (who: string, host?: string) => ApiClient, name: string) {
   const walkIn = value(await as(FARAH).registerWalkIn({ patient: { full_name: name } }));
-  return value(await as(ASHA).startVisitFromQueue(walkIn.token.id)).visit;
+  return value(await as(ASHA).startVisitFromQueue(tokenOf(walkIn).id)).visit;
 }
 
 const FIRST = { drug_name: "Amoxicillin", strength: "500 mg", form: "capsule", dose: "1 capsule", frequency: "1-1-1", duration_days: 5 };

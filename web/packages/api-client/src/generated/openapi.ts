@@ -17980,8 +17980,7 @@ export interface components {
             patient: components["schemas"]["Patient"];
             /** @description Whether the patient was registered by this request. */
             registered: boolean;
-            /** @description The queue token issued. */
-            token: components["schemas"]["QueueToken"];
+            token?: components["schemas"]["QueueToken"] | null;
         };
         /** @description A walk-in. */
         WalkInBody: {
@@ -18017,6 +18016,11 @@ export interface components {
             allergies?: string[];
             /** @description Branch; the default branch when left out. */
             branch_id?: string | null;
+            /**
+             * @description Join the queue (the default). `false` registers the patient and records the intake
+             *     only: no queue token, no queue notification, no visit.
+             */
+            check_in?: boolean;
             /**
              * @description Conditions the patient says they have, such as `Diabetes` or `High blood pressure`, each
              *     1 to 300 characters (at most 20). Recorded as patient-reported conditions that show in the

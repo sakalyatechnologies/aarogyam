@@ -110,7 +110,7 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
           load3d={load3d}
           onScreen={(s) => { detail.current = s === "detail"; }}
           overview={view === "story" ? (slot) => (
-            <StorySlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={dark ? "dark" : "light"} load3d={load3d} />
+            <StorySlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} theme={dark ? "dark" : "light"} load3d={load3d} />
           ) : (slot) => (
             <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} shadeDirty={shade !== saved} onSaveShade={saveShade} theme={dark ? "dark" : "light"} />
           )}

@@ -17,6 +17,10 @@ export interface PresentOptions {
   present?: unknown;
   /** Beta style ids to list in the switcher. */
   betas?: string[];
+  /** The patient's saved tooth colour from `GET /patients/{id}/smile-shade` (0 to 100); absent or null opens on the default. */
+  shade?: number | null;
+  /** Offer "Save colour" (the member has clinical.write); the save goes back as `save_shade`. */
+  can_save_shade?: boolean;
 }
 
 export interface AarogyamApi {
@@ -98,7 +102,9 @@ export function installBridge({ container, send = (m) => { post(m); }, loadRende
       const asked = options?.style;
       const style = asked === "painted" || asked === "story" ? asked : studio === undefined ? "painted" : "story";
       const betas = Array.isArray(options?.betas) ? options.betas.filter((b) => typeof b === "string") : [];
-      root.render(<PresentApp key={opened} snapshot={snapshot} dark={dark} send={send} controls={controls} style={style} studio={studio} betas={betas} />);
+      const raw = options?.shade;
+      const shade = typeof raw === "number" && Number.isFinite(raw) ? Math.min(100, Math.max(0, Math.round(raw))) : undefined;
+      root.render(<PresentApp key={opened} snapshot={snapshot} dark={dark} send={send} controls={controls} style={style} studio={studio} betas={betas} savedShade={shade} canSaveShade={options?.can_save_shade === true} />);
     },
     back() {
       return controls.current?.back() ?? false;

@@ -40,7 +40,7 @@ export function needsDepth(snapshot: MouthSnapshot, tooth: number): boolean {
   return t !== undefined && (t.problems ?? []).includes("caries") && t.details?.caries_depth === undefined;
 }
 
-export function PresentApp({ snapshot, dark, send, controls, style, studio, betas = [] }: {
+export function PresentApp({ snapshot, dark, send, controls, style, studio, betas = [], savedShade, canSaveShade = false }: {
   snapshot: MouthSnapshot;
   dark: boolean;
   /** The opening style, also the doctor's saved default. */
@@ -48,6 +48,10 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
   /** The parsed `/visits/{id}/present` JSON; undefined opens without options. */
   studio?: PresentStudio | undefined;
   betas?: readonly string[];
+  /** The patient's saved tooth colour; undefined opens on the default. */
+  savedShade?: number | undefined;
+  /** Offer "Save colour"; the app saves it. */
+  canSaveShade?: boolean;
   send: (m: PageMessage) => void;
   controls: Ref<PresentControls>;
 }): ReactElement {
@@ -55,7 +59,9 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
   const [onlyToday, setOnlyToday] = useState(false);
   const detail = useRef(false);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
-  const [shade, setShade] = useState<Shade>(DEFAULT_SHADE);
+  const [saved, setSaved] = useState<Shade>(savedShade ?? DEFAULT_SHADE);
+  const [shade, setShade] = useState<Shade>(saved);
+  const saveShade = canSaveShade ? () => { send({ type: "save_shade", shade }); setSaved(shade); } : undefined;
   const [view, setView] = useState<PresentStyleId>(style);
   const options = useMemo(() => styleOptions(betas, style), [betas, style]);
   const model = useMemo(() => presentFacts(snapshot), [snapshot]);
@@ -106,7 +112,7 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
           overview={view === "story" ? (slot) => (
             <StorySlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={dark ? "dark" : "light"} load3d={load3d} />
           ) : (slot) => (
-            <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={dark ? "dark" : "light"} />
+            <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} shadeDirty={shade !== saved} onSaveShade={saveShade} theme={dark ? "dark" : "light"} />
           )}
           toothExtras={(tooth) => (needsDepth(snapshot, tooth) ? (
             <button type="button" className="pm-chip pm-depth" onClick={() => { send({ type: "add_depth", tooth }); }}>

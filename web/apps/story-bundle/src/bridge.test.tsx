@@ -131,6 +131,25 @@ describe("window.aarogyam", () => {
     expect(last()).toEqual({ type: "make_default", style: "story" });
   });
 
+  it("opens on the saved tooth colour and Save colour posts the new one to the app", async () => {
+    act(() => { api.present(aarav(), { shade: 70, can_save_shade: true }); });
+    await tooth(21);
+    const slider = screen.getByRole("slider", { name: "Tooth colour" });
+    expect(slider).toHaveProperty("value", "70");
+    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
+    act(() => { fireEvent.change(slider, { target: { value: "40" } }); });
+    act(() => { fireEvent.click(screen.getByRole("button", { name: "Save colour" })); });
+    expect(last()).toEqual({ type: "save_shade", shade: 40 });
+    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
+  });
+
+  it("offers no Save colour unless the app allows it", async () => {
+    act(() => { api.present(aarav(), { shade: 70 }); });
+    await tooth(21);
+    act(() => { fireEvent.change(screen.getByRole("slider", { name: "Tooth colour" }), { target: { value: "20" } }); });
+    expect(screen.queryByRole("button", { name: "Save colour" })).toBeNull();
+  });
+
   it("present takes the JSON as text too, and shows a notice for something that isn't a mouth", () => {
     act(() => { api.present(JSON.stringify(aarav())); });
     expect(screen.getByRole("dialog", { name: "Present mode" }).dataset["mvTheme"]).toBe("light");

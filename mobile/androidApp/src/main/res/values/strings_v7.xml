@@ -95,7 +95,4 @@
     <string name="v7_notif_today">Today</string>
     <string name="v7_notif_earlier">Earlier</string>
     <string name="v7_notif_filter_none">Nothing here for this filter.</string>
-    <string name="v7_plus_walk_in">Walk-in, check in now</string>
-    <string name="v7_plus_add_patient">Add patient only</string>
-    <string name="v7_plus_add_submit">Add patient</string>
 </resources>

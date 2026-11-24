@@ -1,5 +1,6 @@
 package com.aarogyam.staff.api
 
+import com.aarogyam.staff.api.model.SmileShade
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.http.call
@@ -53,4 +54,20 @@ suspend fun ClinicApi.savePresentStyle(style: String): Outcome<JsonObject, ApiEr
         url("api/v1/me/ui-prefs")
         contentType(ContentType.Application.Json)
         setBody(JsonObject(mapOf("present_style" to JsonPrimitive(style))))
+    }
+
+/** `GET /api/v1/patients/{id}/smile-shade`: the patient's saved tooth colour, 0 to 100, or null when never saved. */
+suspend fun ClinicApi.smileShade(patientId: String): Outcome<SmileShade, ApiError> =
+    client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/smile-shade") }
+
+/** `PUT /api/v1/patients/{id}/smile-shade`: saves the tooth colour (0 to 100, clinical.write). */
+suspend fun ClinicApi.saveSmileShade(
+    patientId: String,
+    shade: Int,
+): Outcome<SmileShade, ApiError> =
+    client.call {
+        method = HttpMethod.Put
+        url("api/v1/patients/${patientId.encodeURLPathPart()}/smile-shade")
+        contentType(ContentType.Application.Json)
+        setBody(SmileShade(shade = shade))
     }

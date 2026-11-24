@@ -2,7 +2,10 @@ package com.aarogyam.staff.story
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.savePresentStyle
+import com.aarogyam.staff.api.saveSmileShade
+import com.aarogyam.staff.api.smileShade
 import com.aarogyam.staff.api.uiPrefs
+import com.aarogyam.staff.api.visit
 import com.aarogyam.staff.api.visitMouth
 import com.aarogyam.staff.api.visitPresent
 import com.aarogyam.staff.clinic.ClinicContext
@@ -74,6 +77,8 @@ class PresentStateHolder(
     private var mouth: JsonObject? = null
     private var present: JsonObject? = null
     private var style: String? = null
+    private var patientId: String? = null
+    private var shade: Int? = null
     private var pageReady = false
     private var dark = false
     private var loading = false
@@ -107,6 +112,10 @@ class PresentStateHolder(
                 makeDefault(message.style)
             }
 
+            is PageMessage.SaveShade -> {
+                saveShade(message.shade)
+            }
+
             // Video messages belong to the Done screen's render.
             else -> {}
         }
@@ -134,7 +143,15 @@ class PresentStateHolder(
             // The plan and the saved look are extras: without them the page opens on the painted map.
             val extras = async { clinic.api.visitPresent(visitId) }
             val prefs = async { clinic.api.uiPrefs() }
+            // The visit names the patient, whose saved tooth colour the page opens on.
+            val shadeOf =
+                async {
+                    val patient = patientId ?: (clinic.api.visit(visitId) as? Outcome.Success)?.value?.visit?.patientId
+                    patientId = patient
+                    patient?.let { (clinic.api.smileShade(it) as? Outcome.Success)?.value }
+                }
             val result = clinic.api.visitMouth(visitId)
+            shadeOf.await()?.let { shade = it.shade }
             present = (extras.await() as? Outcome.Success)?.value ?: present
             style = (prefs.await() as? Outcome.Success)
                 ?.value
@@ -162,7 +179,8 @@ class PresentStateHolder(
     private fun show() {
         val snapshot = mouth ?: return
         if (!pageReady || mutableState.value == PresentState.Unsupported) return
-        scriptQueue.trySend(StoryBridge.present(snapshot, dark, style, present))
+        val canSave = patientId != null && "clinical.write" in clinic.permissions
+        scriptQueue.trySend(StoryBridge.present(snapshot, dark, style, present, shade, canSave))
         mutableState.value = PresentState.Showing
     }
 
@@ -173,6 +191,19 @@ class PresentStateHolder(
             when (val saved = clinic.api.savePresentStyle(chosen)) {
                 is Outcome.Success -> log.info("present.style_saved") { code("style", chosen) }
                 is Outcome.Failure -> log.warn("present.style_save_failed") { code("error", saved.error.code.value) }
+            }
+        }
+    }
+
+    /** Saves [chosen] as the patient's tooth colour; the page keeps showing it either way. */
+    private fun saveShade(chosen: Int) {
+        val patient = patientId ?: return
+        if ("clinical.write" !in clinic.permissions) return
+        shade = chosen
+        scope.launch {
+            when (val saved = clinic.api.saveSmileShade(patient, chosen)) {
+                is Outcome.Success -> log.info("present.shade_saved") { id("visit", visitId) }
+                is Outcome.Failure -> log.warn("present.shade_save_failed") { code("error", saved.error.code.value) }
             }
         }
     }

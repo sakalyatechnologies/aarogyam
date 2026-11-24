@@ -129,6 +129,40 @@ class PresentTest {
         }
 
     @Test
+    fun the_saved_tooth_colour_opens_the_page_and_save_colour_needs_clinical_write() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(route, { json(mouth) })
+            backend.on(
+                "$SUNRISE/api/v1/visits/v1",
+                {
+                    json(
+                        """{"visit":{"id":"v1","number":"V-1","patient_id":"p1","status":"open",""" +
+                            """"started_at":"2026-11-23T04:30:00Z","clinician":{"id":"m1","name":"Dr. A"}},""" +
+                            """"notes":[],"procedures":[],"chart_entries":[],"attachments":[],"observations":[]}""",
+                    )
+                },
+            )
+            backend.on("$SUNRISE/api/v1/patients/p1/smile-shade", { json("""{"shade":70}""") })
+            val present = open(backend, permissions = listOf("clinical.read", "clinical.write"))
+            present.onPageMessage("""{"type":"ready","bundle_version":1}""")
+            val script = present.scripts.first()
+            assertTrue(script.contains(""""shade":70,"can_save_shade":true"""), script)
+            present.onPageMessage("""{"type":"save_shade","shade":40}""")
+            com.aarogyam.staff.desk.until {
+                backend.requests.any {
+                    it.url.encodedPath == "/api/v1/patients/p1/smile-shade" && it.method.value == "PUT"
+                }
+            }
+            assertNull(StoryBridge.parse("""{"type":"save_shade","shade":140}"""), "out of range is ignored")
+
+            val reader = open(backend)
+            reader.onPageMessage("""{"type":"ready","bundle_version":1}""")
+            val read = reader.scripts.first()
+            assertTrue(read.contains(""""shade":70""") && "can_save_shade" !in read, read)
+        }
+
+    @Test
     fun show_patient_opens_the_open_visit_else_the_newest() {
         val at =
             com.aarogyam.staff.patients.ClinicMoment(

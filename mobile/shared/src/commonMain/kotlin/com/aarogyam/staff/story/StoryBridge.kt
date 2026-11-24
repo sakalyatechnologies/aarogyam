@@ -45,12 +45,17 @@ object StoryBridge {
         dark: Boolean,
         style: String? = null,
         present: JsonObject? = null,
+        shade: Int? = null,
+        canSaveShade: Boolean = false,
     ): String {
         val options =
             buildJsonObject {
                 put("dark", dark)
                 if (style != null) put("style", style)
                 if (present != null) put("present", present)
+                // The patient's saved tooth colour, and whether "Save colour" is offered (clinical.write).
+                if (shade != null) put("shade", shade)
+                if (canSaveShade) put("can_save_shade", true)
                 // The Beta looks the switcher may offer (founder, 23 Nov): they keep their Beta tag.
                 put("betas", JsonArray(BETAS.map { JsonPrimitive(it) }))
             }
@@ -126,6 +131,10 @@ object StoryBridge {
                 str("style")?.takeIf { it in STYLES }?.let { PageMessage.MakeDefault(it) }
             }
 
+            "save_shade" -> {
+                int("shade")?.takeIf { it in 0..100 }?.let { PageMessage.SaveShade(it) }
+            }
+
             else -> {
                 null
             }
@@ -172,5 +181,10 @@ sealed interface PageMessage {
     /** "Make default" on a look: the app saves it as the doctor's own `present_style`. */
     data class MakeDefault(
         val style: String,
+    ) : PageMessage
+
+    /** "Save colour": the app saves [shade] (0 lightest to 100 deepest) as the patient's tooth colour. */
+    data class SaveShade(
+        val shade: Int,
     ) : PageMessage
 }

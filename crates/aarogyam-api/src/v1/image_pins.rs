@@ -24,6 +24,9 @@ pub struct ImagePin {
     pub x: f32,
     /// Down the image as a fraction of its height, 0 to 1.
     pub y: f32,
+    /// A short note on the pin, at most 80 characters; trimmed, and empty is saved as none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 
 /// An image's pins.
@@ -41,6 +44,7 @@ fn body(pins: Vec<app::Pin>) -> Json<ImagePins> {
                 tooth: i64::from(p.tooth),
                 x: p.x,
                 y: p.y,
+                label: p.label,
             })
             .collect(),
     })
@@ -100,7 +104,11 @@ pub(crate) async fn save(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(input): ApiJson<ImagePins>,
 ) -> Result<Json<ImagePins>, ApiFailure> {
-    let pins: Vec<(i64, f32, f32)> = input.pins.iter().map(|p| (p.tooth, p.x, p.y)).collect();
+    let pins: Vec<(i64, f32, f32, Option<String>)> = input
+        .pins
+        .into_iter()
+        .map(|p| (p.tooth, p.x, p.y, p.label))
+        .collect();
     let saved = app::replace(
         state.db(),
         &request.actor,

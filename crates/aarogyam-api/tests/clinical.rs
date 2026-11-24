@@ -3208,12 +3208,33 @@ async fn image_pins_are_placed_once_and_replaced_as_a_set() {
     assert_eq!(saved["pins"].as_array().unwrap().len(), 2);
 
     // Moving 36 and leaving 46 out: one row moved, one removed.
-    let moved = json!({ "pins": [{ "tooth": 36, "x": 0.3, "y": 0.4 }] });
+    let moved = json!({ "pins": [{ "tooth": 36, "x": 0.3, "y": 0.4, "label": "  decay here  " }] });
     let (_, after) = app
         .send(Method::PUT, ALPHA, &path, Some(&owner), Some(moved))
         .await;
     assert_eq!(after["pins"].as_array().unwrap().len(), 1);
     assert_eq!(after["pins"][0]["tooth"], 36);
+    // The note is trimmed and kept; an empty one is saved as none.
+    assert_eq!(after["pins"][0]["label"], "decay here");
+    let (_, blank) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(json!({ "pins": [{ "tooth": 36, "x": 0.3, "y": 0.4, "label": "   " }] })),
+        )
+        .await;
+    assert!(blank["pins"][0].get("label").is_none());
+    let (_, after) = app
+        .send(
+            Method::PUT,
+            ALPHA,
+            &path,
+            Some(&owner),
+            Some(json!({ "pins": [{ "tooth": 36, "x": 0.3, "y": 0.4, "label": "decay here" }] })),
+        )
+        .await;
     let (_, read) = app
         .send(Method::GET, ALPHA, &path, Some(&owner), None)
         .await;
@@ -3221,6 +3242,7 @@ async fn image_pins_are_placed_once_and_replaced_as_a_set() {
 
     for bad in [
         json!({ "pins": [{ "tooth": 99, "x": 0.5, "y": 0.5 }] }),
+        json!({ "pins": [{ "tooth": 36, "x": 0.5, "y": 0.5, "label": "a".repeat(81) }] }),
         json!({ "pins": [{ "tooth": 36, "x": 1.5, "y": 0.5 }] }),
         json!({ "pins": [{ "tooth": 36, "x": 0.1, "y": 0.5 }, { "tooth": 36, "x": 0.2, "y": 0.5 }] }),
     ] {

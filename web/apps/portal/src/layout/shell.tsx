@@ -19,7 +19,6 @@ import {
   X,
   Wallet,
   KeyRound,
-  Sparkles,
 } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -194,7 +193,6 @@ export function Account({ avatar }: { avatar?: ReactNode } = {}) {
   const auth = useAuth();
   const [open, setOpen] = useState(false);
   const password = usePasswordDialog();
-  const [newLook, setNewLook] = useNewLook();
   const ref = useDismiss(open, () => {
     setOpen(false);
   });
@@ -219,17 +217,6 @@ export function Account({ avatar }: { avatar?: ReactNode } = {}) {
             <b>{session.user.display_name}</b>
             {access.role_name} · {access.name}
           </p>
-          {/* Interim switch for the redesigned screens; the shell work replaces it with a real preference. */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={newLook}
-            onClick={() => {
-              setNewLook(!newLook);
-            }}
-          >
-            <Sparkles aria-hidden="true" /> New look: {newLook ? "On" : "Off"}
-          </button>
           {supportsPassword(auth) ? (
             <button
               type="button"

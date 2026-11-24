@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { queueTokenId, roomId, type ApiClient, type ApiResult } from "../index.js";
 import { createFakeBackend, createFixtures, fakeTokenFor } from "./index.js";
+import { tokenOf } from "./token-of.js";
 
 const NOW = new Date("2026-10-03T05:30:00Z");
 const DAY = "2026-10-03";
@@ -26,13 +27,13 @@ describe("walk-ins on the calendar (fake, same contract as the API)", () => {
   it("lists a visit started from a walk-in token, never one tied to an appointment, and keeps clinics apart", async () => {
     const { as } = setup();
     const walkIn = value(await as(FARAH).registerWalkIn({ patient: { full_name: "Meera Iyer" } }));
-    const visit = value(await as(ASHA).startVisitFromQueue(walkIn.token.id)).visit;
+    const visit = value(await as(ASHA).startVisitFromQueue(tokenOf(walkIn).id)).visit;
 
     const listed = value(await as(FARAH).listWalkIns({ from: DAY, to: DAY })).items;
     const item = listed.find((w) => w.visit_id === visit.id);
     expect(item?.status).toBe("open");
     expect(item?.patient.full_name).toBe("Meera Iyer");
-    expect(item?.token_number).toBe(walkIn.token.token_number);
+    expect(item?.token_number).toBe(tokenOf(walkIn).token_number);
     expect(item?.starts_at).toBe(NOW.toISOString());
     expect(item && "ends_at" in item).toBe(false);
 

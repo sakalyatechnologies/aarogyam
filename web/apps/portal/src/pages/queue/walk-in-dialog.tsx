@@ -70,7 +70,7 @@ export function WalkInDialog({ open, onOpenChange, practitioners }: { open: bool
     setError(undefined);
     register.mutate(request, {
       onSuccess: (done) => {
-        toast.show({ title: `${done.patient.full_name}: token #${String(done.token.token_number)}`, tone: "success" });
+        toast.show({ title: `${done.patient.full_name}: ${done.token === undefined ? "registered" : `token #${String(done.token.token_number)}`}`, tone: "success" });
         close();
       },
       onError: (thrown) => {

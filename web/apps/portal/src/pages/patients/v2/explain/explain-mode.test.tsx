@@ -161,7 +161,7 @@ describe("Explain mode", () => {
   it("keeps pins for the next time: places one, saves the whole set after a pause, and shows it again on reopening", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
-    const saved: { imageId: string; pins: { tooth: number; x: number; y: number }[] }[] = [];
+    const saved: { imageId: string; pins: { tooth: number; x: number; y: number; label?: string | null }[] }[] = [];
     const wrap = (client: ApiClient): ApiClient => ({
       ...client,
       saveImagePins: (id, input, opts) => {
@@ -187,9 +187,10 @@ describe("Explain mode", () => {
     const picker = within(dialog).getByRole("group", { name: "Pin 1" });
     await user.click(within(picker).getByRole("button", { name: "Quadrant 3" }));
     await user.click(within(picker).getByRole("button", { name: "Tooth 36" }));
+    await user.type(within(picker).getByPlaceholderText(/^Label/), "decay here");
     await user.click(within(picker).getByRole("button", { name: "Place pin" }));
     await waitFor(() => { expect(saved).toHaveLength(1); }, WAIT);
-    expect(saved[0]?.pins).toEqual([{ tooth: 36, x: 0.5, y: 0.5 }]);
+    expect(saved[0]?.pins).toEqual([{ tooth: 36, x: 0.5, y: 0.5, label: "decay here" }]);
     expect(within(dialog).queryByText(/Pins not saved/)).toBeNull();
 
     // Another visit: the same image opens with the pin already on it.
@@ -200,7 +201,7 @@ describe("Explain mode", () => {
     Object.defineProperty(next, "naturalWidth", { value: 1000, configurable: true });
     Object.defineProperty(next, "naturalHeight", { value: 1000, configurable: true });
     fireEvent.load(next);
-    await within(again).findByRole("button", { name: "Pin 1: tooth 36" }, WAIT);
+    await within(again).findByRole("button", { name: "Pin 1: tooth 36, decay here" }, WAIT);
   });
 
   it("says 'Pins not saved' quietly when saving fails, and saves on retry", async () => {

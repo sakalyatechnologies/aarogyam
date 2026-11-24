@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.image_pins (id, attachment_id, patient_id, tooth, x, y, label)\n           values ($1, $2, $3, $4, $5, $6, $7)\n           on conflict (org_id, attachment_id, tooth)\n           do update set x = excluded.x, y = excluded.y, label = excluded.label, updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Float4",
+        "Float4",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7646855003783f86e9a9a018adf842db687a1a03d9bf681d41fff4ee13db8839"
+}

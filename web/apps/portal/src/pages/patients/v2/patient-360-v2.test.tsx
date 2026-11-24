@@ -142,21 +142,14 @@ describe("The layout switcher", () => {
   });
 });
 
-describe("The New look switch", () => {
-  it("keeps the old page when off, and swaps to the new one from the account menu", async () => {
+describe("The account menu", () => {
+  it("has no New look switch", async () => {
     const user = userEvent.setup();
-    localStorage.removeItem(NEW_LOOK_KEY);
     const { path, backend } = visitedPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    expect(await screen.findByRole("tablist", { name: "Patient record" })).toBeTruthy();
-    expect(screen.queryByRole("radiogroup", { name: "Layout" })).toBeNull();
-
+    await screen.findByRole("radiogroup", { name: "Layout" });
     await user.click(screen.getByRole("button", { name: /^Account:/ }));
-    const toggle = screen.getByRole("switch", { name: /New look/ });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    await user.click(toggle);
-    expect(await screen.findByRole("radiogroup", { name: "Layout" })).toBeTruthy();
-    expect(localStorage.getItem(NEW_LOOK_KEY)).toBe("1");
+    expect(screen.queryByRole("switch", { name: /New look/ })).toBeNull();
   });
 });
 

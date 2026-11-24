@@ -1999,6 +1999,7 @@ Where each tooth sits on an X-ray or photo in Show patient, placed once and kept
 | `tooth` | `smallint` | FDI 11-48, 51-85; one pin per attachment and tooth |
 | `x` | `real` | across the image as a fraction of its width, 0 to 1, in the image's own orientation (never flipped) |
 | `y` | `real` | down the image as a fraction of its height, 0 to 1 |
+| `label` | `text?` | the doctor's short note on the pin, at most 80 characters (migration 0757) |
 
 Built (migration 0754). A placement aid, not a clinical record: moving a pin updates the row, taking one off deletes it (hence ephemeral, not mutable), and PUT /attachments/{id}/pins replaces the attachment's set. Deleted on erasure.
 

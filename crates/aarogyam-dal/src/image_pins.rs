@@ -14,6 +14,8 @@ pub struct PinRow {
     pub x: f32,
     /// Down the image, 0 to 1.
     pub y: f32,
+    /// The doctor's short note, if any.
+    pub label: Option<String>,
 }
 
 /// The attachment's pins, by tooth.
@@ -26,7 +28,7 @@ pub async fn of_attachment(
 ) -> Result<Vec<PinRow>, DbError> {
     let rows = sqlx::query_as!(
         PinRow,
-        r#"select tooth, x, y from aarogyam.image_pins
+        r#"select tooth, x, y, label from aarogyam.image_pins
            where attachment_id = $1 order by tooth"#,
         attachment_id
     )
@@ -80,16 +82,17 @@ pub async fn upsert(
     pin: &PinRow,
 ) -> Result<(), DbError> {
     sqlx::query!(
-        r#"insert into aarogyam.image_pins (id, attachment_id, patient_id, tooth, x, y)
-           values ($1, $2, $3, $4, $5, $6)
+        r#"insert into aarogyam.image_pins (id, attachment_id, patient_id, tooth, x, y, label)
+           values ($1, $2, $3, $4, $5, $6, $7)
            on conflict (org_id, attachment_id, tooth)
-           do update set x = excluded.x, y = excluded.y, updated_at = now()"#,
+           do update set x = excluded.x, y = excluded.y, label = excluded.label, updated_at = now()"#,
         id,
         attachment_id,
         patient_id,
         pin.tooth,
         pin.x,
-        pin.y
+        pin.y,
+        pin.label
     )
     .execute(conn)
     .await?;

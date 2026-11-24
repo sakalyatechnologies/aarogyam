@@ -284,3 +284,117 @@ describe("render", () => {
     expect(last()).toEqual({ type: "failed", reason: "encode_failed" });
   });
 });
+
+describe("phone parity options", () => {
+  const xrays = (pins?: { tooth: number; x: number; y: number; label?: string }[]) => [
+    { id: "att-1", url: "https://files.test/x1.png", taken_at: "2026-11-02T10:00:00Z", kind: "OPG", ...(pins === undefined ? {} : { pins }) },
+    { id: "att-2", url: "https://files.test/x2.png", kind: "X-ray" },
+  ];
+  const chart = { current: [], history: [], terms: [] };
+  const open = async (options: Parameters<AarogyamApi["present"]>[1]) => {
+    act(() => { api.present(aarav(), options); });
+    await waitFor(() => { expect(document.querySelector(".pm-shell")).not.toBeNull(); });
+  };
+  /** Moves to the story card with the studio options. */
+  const toOptions = async () => {
+    await waitFor(() => { expect(document.querySelector("[data-present-style=story]")).not.toBeNull(); });
+    for (let i = 0; i < 12 && document.querySelector(".ps-opts") === null; i++) {
+      act(() => { fireEvent.keyDown(document.querySelector("[data-present-style=story]") ?? document.body, { key: "ArrowRight" }); });
+    }
+    await waitFor(() => { expect(document.querySelector(".ps-opts")).not.toBeNull(); });
+  };
+  const styles = () => { fireEvent.click(screen.getAllByRole("button", { name: /Painted smile|Story cards/ })[0] ?? document.body); };
+
+  it("no X-rays tab, Own X-ray or Chart without the options", async () => {
+    await open({});
+    expect(screen.queryByRole("tab", { name: "X-rays" })).toBeNull();
+    styles();
+    expect(screen.queryByRole("option", { name: /Own X-ray/ })).toBeNull();
+    expect(screen.queryByRole("option", { name: /Chart/ })).toBeNull();
+  });
+
+  it("ignores bad xrays, chart and discussions", async () => {
+    await open({ xrays: "nope", chart: { current: "x" }, discussions: 5 });
+    expect(screen.queryByRole("tab", { name: "X-rays" })).toBeNull();
+    styles();
+    expect(screen.queryByRole("option", { name: /Chart/ })).toBeNull();
+  });
+
+  it("the X-rays tab shows the image and the saved pins; a new pin posts save_pins", async () => {
+    await open({ xrays: xrays([{ tooth: 21, x: 0.3, y: 0.4, label: "crack" }]) });
+    fireEvent.click(screen.getByRole("tab", { name: "X-rays" }));
+    const img = await screen.findByRole("img", { name: /OPG from/ });
+    expect(img.getAttribute("src")).toBe("https://files.test/x1.png");
+    expect(screen.getByRole("button", { name: "Pin 1: tooth 21, crack" })).toBeTruthy();
+    const wrap = screen.getByTestId("pinnable-xray");
+    wrap.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 50, right: 100, bottom: 50, x: 0, y: 0, toJSON: () => ({}) });
+    fireEvent.click(wrap, { clientX: 50, clientY: 25 });
+    fireEvent.click(screen.getByRole("button", { name: "1" }));
+    fireEvent.click(screen.getByRole("button", { name: "11" }));
+    expect(last()).toEqual({ type: "save_pins", attachment_id: "att-1", pins: [{ tooth: 21, x: 0.3, y: 0.4, label: "crack" }, { tooth: 11, x: 0.5, y: 0.5 }] });
+    fireEvent.click(screen.getByRole("button", { name: "Clear pins" }));
+    expect(last()).toEqual({ type: "save_pins", attachment_id: "att-1", pins: [] });
+  });
+
+  it("can_write false shows pins but cannot change them", async () => {
+    await open({ xrays: xrays([{ tooth: 21, x: 0.3, y: 0.4 }]), can_write: false });
+    fireEvent.click(screen.getByRole("tab", { name: "X-rays" }));
+    await screen.findByRole("button", { name: "Pin 1: tooth 21" });
+    expect(screen.queryByRole("button", { name: "Clear pins" })).toBeNull();
+    expect(types()).not.toContain("save_pins");
+  });
+
+  it("Own X-ray appears in the switcher and draws the picture", async () => {
+    await open({ xrays: xrays() });
+    styles();
+    fireEvent.click(screen.getByRole("option", { name: /Own X-ray/ }));
+    expect(await screen.findByRole("img", { name: /OPG from/ })).toBeTruthy();
+    expect(document.querySelector("[data-present-style=xray]")).not.toBeNull();
+  });
+
+  it("Chart appears with the chart; its look and dentition buttons show", async () => {
+    await open({ chart, look: "classic" });
+    styles();
+    fireEvent.click(screen.getByRole("option", { name: /Chart/ }));
+    await waitFor(() => { expect(document.querySelector(".pc")).not.toBeNull(); });
+    expect(document.querySelector(".pc")?.getAttribute("data-look")).toBe("classic");
+    fireEvent.click(screen.getByRole("button", { name: "Child" }));
+    await waitFor(() => { expect(document.querySelector(".pc")?.getAttribute("data-dentition")).toBe("child"); });
+  });
+
+  it("pinning an option, then Save in What we discussed, posts save_discussion", async () => {
+    await open({ style: "story", present: fakePresentStudio(aarav()), discussions: [] });
+    await toOptions();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Pin / })[0] ?? document.body);
+    fireEvent.click(await screen.findByRole("button", { name: /^Pinned \(1\)/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: "What we discussed" }));
+    fireEvent.click(screen.getByLabelText(/Send to the patient/));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const m = last();
+    expect(m).toMatchObject({ type: "save_discussion", send_to_patient: true });
+    expect(m?.type === "save_discussion" && m.options.length).toBe(1);
+  });
+
+  it("can_write false saves no discussion", async () => {
+    await open({ style: "story", present: fakePresentStudio(aarav()), can_write: false });
+    await toOptions();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Pin / })[0] ?? document.body);
+    fireEvent.click(await screen.findByRole("button", { name: /^Pinned \(1\)/ }));
+    fireEvent.click(await screen.findByRole("tab", { name: "What we discussed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(types()).not.toContain("save_discussion");
+    expect(screen.getByText("Your role can't save this.")).toBeTruthy();
+  });
+
+  it("shows Prices when the studio carries them, unless can_see_prices is false", async () => {
+    const base = fakePresentStudio(aarav());
+    const key = base.situations[0]?.options[0]?.key ?? "x";
+    const present = { ...base, prices: [{ option_key: key, from_paise: 150000 }] };
+    await open({ style: "story", present });
+    await toOptions();
+    expect(screen.getByRole("button", { name: "Prices" })).toBeTruthy();
+    act(() => { api.present(aarav(), { style: "story", present, can_see_prices: false }); });
+    await toOptions();
+    expect(screen.queryByRole("button", { name: "Prices" })).toBeNull();
+  });
+});

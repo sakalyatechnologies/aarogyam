@@ -17,7 +17,18 @@
     "./story-video/support": "./src/story-video/support.ts",
     "./present/brushing-panel": "./src/present/brushing-panel.tsx",
     "./present/deck": "./src/present/deck.tsx",
-    "./hold-to-exit.css": "./src/present/hold-to-exit.css"
+    "./hold-to-exit.css": "./src/present/hold-to-exit.css",
+    "./chart/odontogram-model": "./src/present/chart/odontogram-model.ts",
+    "./chart/tooth-svg": "./src/present/chart/tooth-svg.tsx",
+    "./chart/health-model": "./src/present/chart/health-model.ts",
+    "./chart/tooth-chart": "./src/present/chart/tooth-chart.tsx",
+    "./chart/long-press": "./src/present/chart/long-press.ts",
+    "./chart/present-chart": "./src/present/chart/present-chart.tsx",
+    "./chart/types": "./src/present/chart/types.ts",
+    "./chart/odontogram.css": "./src/present/chart/odontogram.css",
+    "./chart/tooth-chart.css": "./src/present/chart/tooth-chart.css",
+    "./chart/present-chart.css": "./src/present/chart/present-chart.css",
+    "./present/xray-pins": "./src/present/xray-pins.tsx"
   },
   "scripts": {
     "typecheck": "tsc -p ."

@@ -1,22 +1,35 @@
 // Present mode on the phone (design §1.12 "Phone parity"): the portal's Show patient shell around the
 // same MouthView, fed the `/visits/{id}/mouth` JSON by the app. It opens on the painted map, the web's
-// default style (present-studio-design slice 1a), drawn from the same facts; the chart look needs the
-// dental chart, which the bridge doesn't carry. No API calls: "Add depth" and Exit go
-// back to the app over the bridge, which owns saving and leaving.
+// default style (present-studio-design slice 1a), drawn from the same facts. With the options the app
+// passes it also has the web's X-rays tab and Own X-ray style (`xrays`), the doctor's chart look (`chart`),
+// pinned options with "What we discussed" and its Save. No API calls: "Add depth", pin edits, discussions
+// and Exit go back to the app over the bridge, which owns saving and leaving.
 import { Brush } from "lucide-react";
 import { Suspense, lazy, useImperativeHandle, useMemo, useRef, useState, type ReactElement, type Ref } from "react";
 
-import type { MouthSnapshot, PresentStudio } from "@aarogyam/api-client";
+import type { DentalChart, MouthSnapshot, PresentDiscussion, PresentStudio } from "@aarogyam/api-client";
+import type { ChartDentition, ChartLook } from "@aarogyam/app-kit/chart/types";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import {
-  DEFAULT_SHADE, HoldToExit, PRESENT_STYLES, PaintedSlot, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts,
+  DEFAULT_SHADE, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts, usePins,
   type Orientation, type PresentStyleId, type Shade, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
+import type { XrayPin } from "@aarogyam/app-kit/present/xray-pins";
+import "@aarogyam/app-kit/chart/odontogram.css";
+import "@aarogyam/app-kit/chart/tooth-chart.css";
+import "@aarogyam/app-kit/chart/present-chart.css";
 
 import type { PageMessage } from "./channel.js";
+import type { XrayInput } from "./options.js";
+import type { XrayPins } from "./xrays-view.js";
 
 const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
 const BrushingPanel = lazy(() => import("@aarogyam/app-kit/present/brushing-panel").then((m) => ({ default: m.BrushingPanel })));
+const PinnedDeck = lazy(() => import("@aarogyam/app-kit/present/deck").then((m) => ({ default: m.PinnedDeck })));
+const PresentChart = lazy(() => import("@aarogyam/app-kit/chart/present-chart").then((m) => ({ default: m.PresentChart })));
+const XraysTab = lazy(() => import("./xrays-view.js").then((m) => ({ default: m.XraysTab })));
+const OwnXraySlot = lazy(() => import("./xrays-view.js").then((m) => ({ default: m.OwnXraySlot })));
+const StoryXrayPicture = lazy(() => import("./xrays-view.js").then((m) => ({ default: m.StoryXrayPicture })));
 
 /** What native's `back()` asks of the screen; the page answers whether it went back. */
 export interface PresentControls {
@@ -25,13 +38,20 @@ export interface PresentControls {
 
 export const isStyle = (v: unknown): v is PresentStyleId => PRESENT_STYLES.some((s) => s.id === v);
 
-/** Own X-ray needs the portal's attachments and signed links, so the phone offers story, painted and any beta the app lists. */
-export function styleOptions(betas: readonly string[], saved: PresentStyleId): SwitcherOption[] {
+/** A Show patient style, or the doctor's chart look (only when the app passed the chart). */
+type View = PresentStyleId | "chart";
+const LOOKS: readonly { value: ChartLook; label: string }[] = [{ value: "rows", label: "Rows" }, { value: "arch", label: "3D arch" }, { value: "classic", label: "Classic" }];
+const DENTITIONS: readonly { value: ChartDentition; label: string }[] = [{ value: "adult", label: "Adult" }, { value: "child", label: "Child" }];
+
+/** Story, painted and any beta the app lists; Own X-ray when the app passed X-rays, Chart when it passed the chart. */
+export function styleOptions(betas: readonly string[], saved: PresentStyleId, has: { xray?: boolean; chart?: boolean } = {}): SwitcherOption[] {
   const ids = new Set<PresentStyleId>(["story", "painted"]);
   for (const b of betas) if (isStyle(b) && b !== "xray") ids.add(b);
-  return PRESENT_STYLES.filter((x) => ids.has(x.id)).map((x) => ({
+  if (has.xray === true) ids.add("xray");
+  const options: SwitcherOption[] = PRESENT_STYLES.filter((x) => ids.has(x.id)).map((x) => ({
     id: x.id, label: x.label, beta: x.beta, note: x.id === saved ? "Default" : undefined, disabled: isShipped(x.id) ? undefined : "Coming soon",
   }));
+  return has.chart === true ? [...options, { id: "chart", label: "Chart", separate: true }] : options;
 }
 
 /** Caries recorded without a depth: the app records it (§1.13), so the chip only names the tooth. */
@@ -40,7 +60,41 @@ export function needsDepth(snapshot: MouthSnapshot, tooth: number): boolean {
   return t !== undefined && (t.problems ?? []).includes("caries") && t.details?.caries_depth === undefined;
 }
 
-export function PresentApp({ snapshot, dark, send, controls, style, studio, betas = [], savedShade, canSaveShade = false }: {
+/** The Pinned chip: the deck, compare and "What we discussed"; Save posts one `save_discussion` per scenario. */
+function PinnedGate({ studio, saved, canWrite, send }: { studio: PresentStudio | undefined; saved: readonly PresentDiscussion[]; canWrite: boolean; send: (m: PageMessage) => void }): ReactElement | null {
+  const pins = usePins();
+  const [open, setOpen] = useState(false);
+  const [notice, setNotice] = useState<string | undefined>(undefined);
+  if (pins === undefined || (pins.pins.length === 0 && !open)) return null;
+  const labels = new Map(studio?.situations.flatMap((s) => s.options.map((o) => [o.key, o.label] as const)));
+  return (
+    <>
+      <button type="button" className="pm-chip" onClick={() => { setOpen(true); }}>{`Pinned (${String(pins.pins.length)})`}</button>
+      {open ? (
+        <Suspense fallback={null}>
+          <PinnedDeck
+            onClose={() => { setOpen(false); setNotice(undefined); }}
+            saved={saved}
+            labelOf={(key) => labels.get(key) ?? key}
+            onSave={(drafts) => {
+              if (!canWrite) {
+                setNotice("Your role can't save this.");
+                return;
+              }
+              for (const d of drafts) {
+                send({ type: "save_discussion", tooth: d.tooth, situation: d.situation, options: d.options, send_to_patient: d.send === true });
+              }
+              setNotice("Saved");
+            }}
+          />
+          {notice === undefined ? null : <p role="status" className="pm-wait">{notice}</p>}
+        </Suspense>
+      ) : null}
+    </>
+  );
+}
+
+export function PresentApp({ snapshot, dark, send, controls, style, studio, betas = [], savedShade, canSaveShade = false, xrays, chart, look: askedLook, dentition: askedDentition, discussions = [], canWrite = true }: {
   snapshot: MouthSnapshot;
   dark: boolean;
   /** The opening style, also the doctor's saved default. */
@@ -52,6 +106,16 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
   savedShade?: number | undefined;
   /** Offer "Save colour"; the app saves it. */
   canSaveShade?: boolean;
+  /** The patient's X-rays the app fetched; undefined means no X-rays tab. */
+  xrays?: readonly XrayInput[] | undefined;
+  /** The dental chart; undefined means no Chart in the switcher. */
+  chart?: DentalChart | undefined;
+  look?: ChartLook | undefined;
+  dentition?: ChartDentition | undefined;
+  /** What was already saved as discussed for this visit. */
+  discussions?: readonly PresentDiscussion[] | undefined;
+  /** false when the member can't save pins or discussions. */
+  canWrite?: boolean | undefined;
   send: (m: PageMessage) => void;
   controls: Ref<PresentControls>;
 }): ReactElement {
@@ -62,9 +126,21 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
   const [saved, setSaved] = useState<Shade>(savedShade ?? DEFAULT_SHADE);
   const [shade, setShade] = useState<Shade>(saved);
   const saveShade = canSaveShade ? () => { send({ type: "save_shade", shade }); setSaved(shade); } : undefined;
-  const [view, setView] = useState<PresentStyleId>(style);
-  const options = useMemo(() => styleOptions(betas, style), [betas, style]);
+  const [view, setView] = useState<View>(style);
+  const [tab, setTab] = useState<"teeth" | "xrays">("teeth");
+  const [look, setLook] = useState<ChartLook>(askedLook ?? "rows");
+  const [dentition, setDentition] = useState<ChartDentition>(askedDentition ?? "adult");
+  const [edited, setEdited] = useState<ReadonlyMap<string, readonly XrayPin[]>>(new Map());
+  const hasXray = xrays !== undefined && xrays.length > 0;
+  const options = useMemo(() => styleOptions(betas, style, { xray: hasXray, chart: chart !== undefined }), [betas, style, hasXray, chart]);
   const model = useMemo(() => presentFacts(snapshot), [snapshot]);
+  const pins: XrayPins = {
+    of: (id) => edited.get(id) ?? xrays?.find((x) => x.id === id)?.pins ?? [],
+    set: canWrite ? (id, next) => {
+      setEdited(new Map(edited).set(id, next));
+      send({ type: "save_pins", attachment_id: id, pins: next.map((p) => ({ tooth: p.tooth, x: p.x, y: p.y, ...(p.label == null ? {} : { label: p.label }) })) });
+    } : undefined,
+  };
   preloadArt(snapshot);
   useImperativeHandle(controls, () => ({
     back: () => {
@@ -79,40 +155,70 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
       return true;
     },
   }), [brushing]);
+  const theme = dark ? "dark" : "light";
+  const wait = <p role="status" className="pm-wait">Loading…</p>;
   return (
     <StudioProvider studio={studio}>
-    <div className="pm-shell mv-theme" data-mv-theme={dark ? "dark" : "light"} role="dialog" aria-modal="true" aria-label="Present mode">
+    <PinsProvider>
+    <div className="pm-shell mv-theme" data-mv-theme={theme} role="dialog" aria-modal="true" aria-label="Present mode">
       <header className="pm-bar">
         <div className="pm-who">
           Show patient
           <small>The same mouth view as the patient's page</small>
         </div>
-        <StyleSwitcher options={options} value={view} onChange={(v) => { if (isStyle(v) && isShipped(v)) setView(v); }} />
-        {view !== style && (view === "story" || view === "painted" || view === "smile3d" || view === "face") ? (
+        {xrays === undefined ? null : (
+          <div className="pm-tabs" role="tablist" aria-label="Show">
+            {(["teeth", "xrays"] as const).map((t) => (
+              <button key={t} type="button" role="tab" className="pm-tab" aria-selected={tab === t} onClick={() => { setTab(t); }}>{t === "teeth" ? "Teeth" : "X-rays"}</button>
+            ))}
+          </div>
+        )}
+        {tab === "teeth" ? <StyleSwitcher options={options} value={view} onChange={(v) => { if (v === "chart") { if (chart !== undefined) setView("chart"); } else if (isStyle(v) && isShipped(v)) setView(v); }} /> : null}
+        {tab === "teeth" && view !== style && (view === "story" || view === "painted" || view === "smile3d" || view === "face") ? (
           <button type="button" className="pm-chip" onClick={() => { send({ type: "make_default", style: view }); }}>
             Make default
           </button>
         ) : null}
+        {tab === "teeth" && view === "chart" ? (
+          <div className="pm-tabs" role="group" aria-label="Chart look">
+            {LOOKS.map((l) => <button key={l.value} type="button" className="pm-tab" aria-pressed={look === l.value} onClick={() => { setLook(l.value); }}>{l.label}</button>)}
+          </div>
+        ) : null}
+        {tab === "teeth" && view === "chart" ? (
+          <div className="pm-tabs" role="group" aria-label="Dentition">
+            {DENTITIONS.map((d) => <button key={d.value} type="button" className="pm-tab" aria-pressed={dentition === d.value} onClick={() => { setDentition(d.value); }}>{d.label}</button>)}
+          </div>
+        ) : null}
         <button type="button" className="pm-chip pm-today" aria-pressed={onlyToday} onClick={() => { setOnlyToday(!onlyToday); }}>
           Today
         </button>
-        <button type="button" className="pm-chip pm-brushchip" onClick={() => { setBrushing(true); }}>
-          <Brush aria-hidden="true" />
-          How to brush
-        </button>
+        {tab === "teeth" ? (
+          <button type="button" className="pm-chip pm-brushchip" onClick={() => { setBrushing(true); }}>
+            <Brush aria-hidden="true" />
+            How to brush
+          </button>
+        ) : null}
+        {tab === "teeth" ? <PinnedGate studio={studio} saved={discussions} canWrite={canWrite} send={send} /> : null}
         <HoldToExit onExit={() => { send({ type: "exit" }); }} />
       </header>
-      <div className="pm-body">
+      <div className="pm-body" hidden={tab !== "teeth"}>
         <MouthView
           snapshot={snapshot}
           mode="present"
           filter={onlyToday ? "today" : undefined}
           load3d={load3d}
           onScreen={(s) => { detail.current = s === "detail"; }}
-          overview={view === "story" ? (slot) => (
-            <StorySlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} theme={dark ? "dark" : "light"} load3d={load3d} />
+          overview={view === "chart" && chart !== undefined ? (slot) => (
+            <Suspense fallback={wait}><PresentChart look={look} dentition={dentition} chart={chart} planItems={[]} slot={slot} /></Suspense>
+          ) : view === "xray" && hasXray ? () => (
+            <Suspense fallback={wait}><OwnXraySlot model={model} xrays={xrays} pins={pins} /></Suspense>
+          ) : view === "story" ? (slot) => (
+            <StorySlot
+              model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} theme={theme} load3d={load3d}
+              xray={hasXray && xrays[0] !== undefined ? <Suspense fallback={wait}><StoryXrayPicture xray={xrays[0]} /></Suspense> : undefined}
+            />
           ) : (slot) => (
-            <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} shadeDirty={shade !== saved} onSaveShade={saveShade} theme={dark ? "dark" : "light"} />
+            <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} shadeDirty={shade !== saved} onSaveShade={saveShade} theme={theme} />
           )}
           toothExtras={(tooth) => (needsDepth(snapshot, tooth) ? (
             <button type="button" className="pm-chip pm-depth" onClick={() => { send({ type: "add_depth", tooth }); }}>
@@ -121,12 +227,18 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
           ) : null)}
         />
       </div>
+      {tab === "xrays" && xrays !== undefined ? (
+        <div className="pm-body pm-body-xrays">
+          <Suspense fallback={wait}><XraysTab xrays={xrays} pins={pins} /></Suspense>
+        </div>
+      ) : null}
       {brushing ? (
         <Suspense fallback={null}>
           <BrushingPanel band={brushingBand(snapshot)} name={undefined} onClose={() => { setBrushing(false); }} />
         </Suspense>
       ) : null}
     </div>
+    </PinsProvider>
     </StudioProvider>
   );
 }

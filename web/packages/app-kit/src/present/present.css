@@ -302,3 +302,17 @@ div.ps-found-item { cursor: default; }
 .pd-pen[data-on="false"] { pointer-events: none; }
 .pd-pen[data-on="true"] { cursor: crosshair; }
 @media (max-width: 700px) { .pd-sides { grid-template-columns: 1fr; } }
+
+/* Own X-ray with the doctor's pins, for hosts that bring the picture (the phone page): xray-pins.tsx */
+.ps-pinx-wrap { position: relative; display: block; width: fit-content; max-width: 100%; margin: 0 auto; touch-action: manipulation; }
+.ps-pinx-pin { position: absolute; z-index: 3; translate: -50% -50%; min-width: 44px; min-height: 44px; padding: 0; border-radius: 999px; border: 2px solid #fff; background: var(--mv-brand, #0b6e5b); color: var(--mv-on-brand, #fff); font: 700 16px/1 system-ui, sans-serif; cursor: pointer; }
+.ps-pinx-pin[data-active] { scale: 1.25; background: #e11d48; }
+.ps-pinx-pin[data-pending] { opacity: .7; pointer-events: none; display: inline-grid; place-items: center; }
+.ps-pinx-label { position: absolute; left: 100%; top: 50%; translate: 6px -50%; white-space: nowrap; padding: 2px 10px; border-radius: 999px; background: rgb(0 0 0 / 70%); color: #fff; font-size: 14px; font-weight: 600; }
+.ps-pinx-pick { display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: var(--mv-card); border: 1px solid var(--mv-line); }
+.ps-pinx-name input { min-height: 44px; font: inherit; padding: 0 12px; border-radius: 10px; border: 1px solid var(--mv-line); background: var(--mv-card); color: var(--mv-text); }
+.ps-pinx-clear { justify-self: start; }
+.pm-pinned-list { display: grid; gap: 6px; }
+.pm-pinned-list h3 { margin: 0; font-size: 1.1rem; }
+.pm-pinned-list ol { margin: 0; padding-left: 1.4em; display: grid; gap: 4px; }
+.pm-pinned-list li[data-active] { font-weight: 700; }

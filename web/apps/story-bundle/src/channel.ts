@@ -16,7 +16,11 @@ export type PageMessage =
   /** The doctor tapped "Make default"; the app saves it, the page never calls the API. */
   | { type: "make_default"; style: "story" | "painted" | "smile3d" | "face" }
   /** The doctor tapped "Save colour": 0 (lightest) to 100 (deepest); the app PUTs `/patients/{id}/smile-shade`. */
-  | { type: "save_shade"; shade: number };
+  | { type: "save_shade"; shade: number }
+  /** The doctor changed the pins on an X-ray (the whole set, empty = cleared); the app PUTs `/attachments/{attachment_id}/pins` with `{pins}`. Needs the `xrays` option. */
+  | { type: "save_pins"; attachment_id: string; pins: { tooth: number; x: number; y: number; label?: string }[] }
+  /** "Save" in What we discussed, one message per tooth and situation; the app POSTs the body unchanged to `/visits/{id}/present-discussions`. `send_to_patient` is the row's "Send to the patient" tick (slice 2f). */
+  | { type: "save_discussion"; tooth: number; situation: string; options: { key: string; preferred: boolean }[]; send_to_patient: boolean };
 
 /** Short codes only: never patient data (rule 6). */
 export type FailReason = "bad_story" | "unsupported_version" | "no_encoder" | "cancelled" | "encode_failed" | "busy";

@@ -125,7 +125,7 @@ describe("Present mode (§1.12)", () => {
     expect(screen.queryByRole("dialog", { name: /How to brush/ })).toBeNull();
   });
 
-  it("one mode: Teeth and X-rays tabs; X-rays shows Explain mode's image, chart and summary with an upload", async () => {
+  it("one mode: Teeth and X-rays tabs; X-rays shows the image and pins with an upload, and no doctor chart or health counts", async () => {
     const user = userEvent.setup();
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
@@ -133,8 +133,10 @@ describe("Present mode (§1.12)", () => {
     const tabs = within(within(shell).getByRole("tablist", { name: "Show" }));
     expect(tabs.getByRole("tab", { name: "Teeth" }).getAttribute("aria-selected")).toBe("true");
     await user.click(tabs.getByRole("tab", { name: "X-rays" }));
-    expect(await within(shell).findByRole("region", { name: "Image" }, WAIT)).toBeTruthy();
-    expect(within(shell).getByRole("region", { name: "Chart" })).toBeTruthy();
+    expect(await within(shell).findByRole("button", { name: "Add X-ray or OPG" }, WAIT)).toBeTruthy();
+    expect(within(shell).queryByRole("region", { name: "Chart" })).toBeNull();
+    expect(within(shell).queryByRole("region", { name: "Summary" })).toBeNull();
+    expect(within(shell).queryByText(/not checked yet/)).toBeNull();
     expect(within(shell).queryByRole("button", { name: "How to brush" })).toBeNull();
     await user.click(within(shell).getByRole("button", { name: "Add X-ray or OPG" }));
     expect(await screen.findByRole("dialog", { name: /upload|X-ray/i }, WAIT)).toBeTruthy();

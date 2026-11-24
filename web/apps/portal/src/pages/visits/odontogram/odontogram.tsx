@@ -3,7 +3,7 @@ import { Minus, MoreHorizontal, Plus } from "lucide-react";
 
 import type { DentalChart, PatientId, PlanItem, ToothSurface } from "@aarogyam/api-client";
 
-import "./odontogram.css";
+import "@aarogyam/app-kit/chart/odontogram.css";
 import {
   ARCHES,
   EMPTY_STATE,

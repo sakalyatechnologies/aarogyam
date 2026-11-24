@@ -198,6 +198,11 @@
     <string name="dk_iv_reason">Reason for visit</string>
     <string name="dk_iv_reminders">Send appointment reminders</string>
     <string name="dk_iv_save">Save and add to queue</string>
+    <string name="dk_iv_end_check_in">Check in now</string>
+    <string name="dk_iv_end_book">Book appointment</string>
+    <string name="dk_iv_end_save_only">Just save</string>
+    <string name="dk_iv_saved">Patient saved</string>
+    <string name="dk_iv_open_profile">Open profile</string>
     <string name="dk_iv_save_hint">Registers the patient and gives a token</string>
     <string name="dk_iv_sex">Sex</string>
     <string name="dk_iv_sign">Patient\'s signature</string>

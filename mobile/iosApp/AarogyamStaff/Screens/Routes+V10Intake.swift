@@ -11,8 +11,8 @@ enum RoutesV10Intake {
     /// The new-patient form; `phone` is prefilled when the desk already typed it, and `family` lists the people on that
     /// number the patient can be linked to. `onDone` runs after "Next patient".
     static func screen(graph: AppGraph, clinic: ClinicContext, phone: String?, family: [DeskFamilyAnchor] = [],
-                       onDone: @escaping () -> Void) -> some View {
-        IntakeV10Screen(graph: graph, clinic: clinic, phone: phone, family: family, onDone: onDone)
+                       ends: IntakeEnds = IntakeEnds(), onDone: @escaping () -> Void) -> some View {
+        IntakeV10Screen(graph: graph, clinic: clinic, phone: phone, family: family, ends: ends, onDone: onDone)
     }
 }
 

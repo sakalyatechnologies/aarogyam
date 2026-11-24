@@ -34,11 +34,16 @@ sealed interface IntakeSubmitError {
 /** The patient was registered and queued; [filesQueued] files wait for upload, [filesRefused] could not be saved. */
 data class IntakeDone(
     val patientId: String,
-    val tokenId: String,
-    val tokenNumber: Int,
+    /** The queue token; null when the patient was saved without checking in ([next] is not [IntakeNext.CheckIn]). */
+    val tokenId: String?,
+    val tokenNumber: Int?,
     val filesQueued: Int,
     val filesRefused: Refusal? = null,
+    val next: IntakeNext = IntakeNext.CheckIn,
 )
+
+/** How a new patient's intake ends: in the queue now, saved to book a visit, or only saved. */
+enum class IntakeNext { CheckIn, Book, SaveOnly }
 
 /** Everything the desk entered, plus reference data and the result. Patient data: never logged. */
 data class IntakeForm(

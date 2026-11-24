@@ -73,7 +73,8 @@ class DeskLookupStateHolder(
 
             is Outcome.Success -> {
                 if (found.value.items.isEmpty()) {
-                    mutableState.value = DeskLookupState.Idle
+                    // Nobody by that name or digits: one search box serves new patients too.
+                    mutableState.value = DeskLookupState.NoMatch(query, listOf(DeskAction.NewPatient(query)))
                     return
                 }
                 val today = todaysStates()
@@ -111,7 +112,7 @@ class DeskLookupStateHolder(
             when (val result = clinic.api.registerWalkIn(request)) {
                 is Outcome.Success -> {
                     log.info("desk.checked_in") { id("patient_id", patientId) }
-                    mutableState.value = DeskLookupState.CheckedIn(patientId, result.value.token.tokenNumber)
+                    mutableState.value = DeskLookupState.CheckedIn(patientId, result.value.token?.tokenNumber ?: 0)
                 }
 
                 is Outcome.Failure -> {

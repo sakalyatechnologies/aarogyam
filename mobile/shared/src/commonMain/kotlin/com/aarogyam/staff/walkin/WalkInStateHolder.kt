@@ -115,12 +115,13 @@ class WalkInStateHolder(
                     val done = result.value
                     log.info("walkin.registered") {
                         id("patient_id", done.patient.id)
-                        id("queue_token_id", done.token.id)
+                        done.token?.let { id("queue_token_id", it.id) }
                     }
                     mutableState.value =
                         WalkInState.Done(
                             done.patient.fullName,
-                            done.token.tokenNumber,
+                            // A check-in always has a token; 0 only if the server ever leaves it out.
+                            done.token?.tokenNumber ?: 0,
                             done.registered,
                             done.patient.id,
                         )

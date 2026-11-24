@@ -24,6 +24,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.jsonObject
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -119,6 +120,41 @@ class IntakeFormHolderTest {
         assertEquals(IntakeProblem.Invalid, validate(base.copy(dateOfBirth = "1986-13-45"), TODAY)[IntakeField.Birth])
         assertEquals(IntakeProblem.Invalid, validate(base.copy(age = "150"), TODAY)[IntakeField.Birth])
     }
+
+    @Test
+    fun save_only_registers_without_a_token_and_says_how_it_ended() =
+        runTest {
+            val backend = FakeBackend()
+            // The server leaves `token` out when check_in is false.
+            val saved =
+                kotlinx.serialization.json
+                    .JsonObject(
+                        kotlinx.serialization.json.Json
+                            .parseToJsonElement(walkInJson())
+                            .jsonObject - "token",
+                    ).toString()
+            backend.on(WALK_INS, { json(saved, HttpStatusCode.Created) })
+            val holder = holder(backend)
+            holder.fillValid()
+            holder.save(IntakeNext.SaveOnly)
+            holder.state.first { it.done != null }
+            val done = assertNotNull(holder.state.value.done)
+            assertEquals(IntakeNext.SaveOnly, done.next)
+            assertNull(done.tokenId)
+            assertTrue(""""check_in":false""" in backend.walkInBody())
+        }
+
+    @Test
+    fun checking_in_leaves_check_in_out_of_the_request() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(WALK_INS, { json(walkInJson(), HttpStatusCode.Created) })
+            val holder = holder(backend)
+            holder.fillValid()
+            holder.saveAndQueue()
+            holder.state.first { it.done != null }
+            assertTrue("check_in" !in backend.walkInBody())
+        }
 
     @Test
     fun an_online_save_makes_one_walk_in_request_then_two_file_entries() =

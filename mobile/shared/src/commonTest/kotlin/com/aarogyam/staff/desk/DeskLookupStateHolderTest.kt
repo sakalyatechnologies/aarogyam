@@ -147,6 +147,17 @@ class DeskLookupStateHolderTest {
         }
 
     @Test
+    fun a_name_that_finds_no_one_offers_a_new_patient() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/patients/search", { json(patientListJson()) })
+            val holder = holder(backend)
+            holder.search("Zara")
+            val none = assertIs<DeskLookupState.NoMatch>(holder.settled())
+            assertEquals(listOf<DeskAction>(DeskAction.NewPatient("Zara")), none.actions)
+        }
+
+    @Test
     fun a_name_or_four_digits_list_patients_while_typing_with_check_in_only() =
         runTest {
             val backend = FakeBackend()

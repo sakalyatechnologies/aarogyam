@@ -10,13 +10,21 @@ struct IntakeV10Screen: View {
     let clinic: ClinicContext
     let phone: String?
     var family: [DeskFamilyAnchor] = []
+    var ends: IntakeEnds = IntakeEnds()
     let onDone: () -> Void
 
     var body: some View {
         ScreenHost(make: { graph.intakeForm(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, form in
-            IntakeV10Form(holder: holder, form: form, phone: phone, family: family, onDone: onDone)
+            IntakeV10Form(holder: holder, form: form, phone: phone, family: family, ends: ends, onDone: onDone)
         }
     }
+}
+
+/// What the form may do after saving a new patient besides checking them in: book a visit ([onBook], shown with
+/// appointments.write) and open the saved patient ([onOpen]). Without them only "Check in now" shows.
+struct IntakeEnds {
+    var onBook: ((_ patientId: String, _ name: String) -> Void)?
+    var onOpen: ((_ patientId: String) -> Void)?
 }
 
 struct IntakeV10Form: View {
@@ -24,6 +32,7 @@ struct IntakeV10Form: View {
     let form: IntakeForm
     let phone: String?
     var family: [DeskFamilyAnchor] = []
+    var ends: IntakeEnds = IntakeEnds()
     let onDone: () -> Void
     @Environment(\.skTheme) private var theme
     @State private var useAge = false
@@ -56,11 +65,11 @@ struct IntakeV10Form: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
-            if form.done == nil {
-                GlassWideButton(title: iv("iv.save"), systemImage: "checkmark", loading: form.submitting) { holder.saveAndQueue() }
-                    .accessibilityHint(iv("iv.save.hint"))
-                    .padding(.horizontal, 16).padding(.vertical, 8)
-            }
+            if form.done == nil { endButtons }
+        }
+        .onChange(of: form.done) { _, done in
+            // "Book appointment": the patient is saved; the booking sheet opens on them.
+            if let done, done.next == .book { ends.onBook?(done.patientId, form.name) }
         }
         .onAppear {
             if let phone, form.phone.isEmpty { holder.setPhone(typed: phone) }
@@ -197,15 +206,44 @@ struct IntakeV10Form: View {
         }
     }
 
+    /// How the intake ends: check in now (primary), or save the patient to book a visit, or just save them.
+    private var endButtons: some View {
+        VStack(spacing: 8) {
+            if ends.onBook == nil && ends.onOpen == nil {
+                GlassWideButton(title: iv("iv.save"), systemImage: "checkmark", loading: form.submitting) { holder.saveAndQueue() }
+                    .accessibilityHint(iv("iv.save.hint"))
+            } else {
+                GlassWideButton(title: iv("iv.end.check_in"), systemImage: "checkmark", loading: form.submitting) { holder.saveAndQueue() }
+                    .accessibilityHint(iv("iv.save.hint"))
+                HStack(spacing: 8) {
+                    if ends.onBook != nil {
+                        SkPillButton(iv("iv.end.book"), variant: .tonal, wide: true) { holder.save(next: .book) }
+                            .disabled(form.submitting)
+                    }
+                    SkPillButton(iv("iv.end.save_only"), variant: .tonal, wide: true) { holder.save(next: .saveOnly) }
+                        .disabled(form.submitting)
+                }
+            }
+        }
+        .padding(.horizontal, 16).padding(.vertical, 8)
+    }
+
     private func doneCard(_ done: IntakeDone) -> some View {
         VStack(spacing: 16) {
             SkCheckDraw()
-            Text(String(format: iv("iv.done"), Int(done.tokenNumber))).font(.title2.weight(.heavy)).multilineTextAlignment(.center)
+            if let token = done.tokenNumber {
+                Text(String(format: iv("iv.done"), token.intValue)).font(.title2.weight(.heavy)).multilineTextAlignment(.center)
+            } else {
+                Text(iv("iv.saved")).font(.title2.weight(.heavy)).multilineTextAlignment(.center)
+            }
             if done.filesQueued > 0 {
                 Text(String(format: iv("iv.done.files"), Int(done.filesQueued))).font(.footnote)
             }
             if done.filesRefused != nil {
                 Text(iv("iv.done.refused")).font(.footnote.weight(.semibold)).foregroundStyle(theme.roles.error.color)
+            }
+            if done.tokenNumber == nil, let open = ends.onOpen {
+                SkPillButton(iv("iv.open_profile"), variant: .tonal, wide: true) { open(done.patientId) }
             }
             GlassWideButton(title: iv("iv.next")) {
                 holder.reset(); photoPreview = nil; library = nil; clearToken += 1; useAge = false; onDone()

@@ -77,7 +77,13 @@ interface IntakeFormHolder {
     )
 
     /** Validates, then sends one request and queues the files. A second tap while sending is ignored. */
-    fun saveAndQueue()
+    fun saveAndQueue() = save(IntakeNext.CheckIn)
+
+    /**
+     * As [saveAndQueue], ending as [next]: [IntakeNext.CheckIn] gives a queue token; the others register the
+     * patient with the same intake (allergies, consents, family) but no token (`check_in: false`).
+     */
+    fun save(next: IntakeNext)
 
     /** A clean form for the next patient, keeping the reference data. */
     fun reset()
@@ -182,7 +188,7 @@ internal class IntakeFormStateHolder(
         relation: String,
     ) = edit { copy(familyOf = patientId?.let { FamilyOf(it, relation) }) }
 
-    override fun saveAndQueue() {
+    override fun save(next: IntakeNext) {
         refreshFlags()
         val form = mutable.value
         if (form.submitting || form.done != null) return
@@ -193,7 +199,7 @@ internal class IntakeFormStateHolder(
         val runner = runner()
         val files = files()
         if (runner == null || files == null) return edit { copy(submitError = IntakeSubmitError.NotWired) }
-        val request = buildRequest(form)
+        val request = buildRequest(form, next == IntakeNext.CheckIn)
         edit { copy(errors = emptyMap(), submitError = null, submitting = true) }
         scope.launch {
             val family = form.familyOf?.let { FamilyOfFields(it.patientId, it.relation) }
@@ -202,7 +208,7 @@ internal class IntakeFormStateHolder(
                     val done = result.value
                     log.info("intake.registered") {
                         id("patient_id", done.patient.id)
-                        id("queue_token_id", done.token.id)
+                        done.token?.let { id("queue_token_id", it.id) }
                     }
                     val queued = queueFiles(runner, files, done.patient.id, done.consents.orEmpty().map { it.id })
                     clearBytes()
@@ -212,10 +218,11 @@ internal class IntakeFormStateHolder(
                             done =
                                 IntakeDone(
                                     done.patient.id,
-                                    done.token.id,
-                                    done.token.tokenNumber,
+                                    done.token?.id,
+                                    done.token?.tokenNumber,
                                     queued.first,
                                     queued.second,
+                                    next,
                                 ),
                         )
                     }
@@ -238,7 +245,10 @@ internal class IntakeFormStateHolder(
     }
 
     /** The one request: the existing walk-in builder, plus what the intake adds. */
-    private fun buildRequest(form: IntakeForm): com.aarogyam.staff.api.model.WalkInRequest {
+    private fun buildRequest(
+        form: IntakeForm,
+        checkIn: Boolean,
+    ): com.aarogyam.staff.api.model.WalkInRequest {
         val legacy =
             WalkInForm(
                 mobile = form.phone,
@@ -260,7 +270,9 @@ internal class IntakeFormStateHolder(
                     email = form.email.trim().takeIf { it.isNotEmpty() },
                 ),
             noticeId = form.notice?.id,
-            reason = form.reason.trim().takeIf { ServerCaps.walkInReason && it.isNotEmpty() },
+            reason = form.reason.trim().takeIf { checkIn && ServerCaps.walkInReason && it.isNotEmpty() },
+            // Omitted when checking in (the server's default), so an older server sees the same request.
+            checkIn = if (checkIn) null else false,
         )
     }
 

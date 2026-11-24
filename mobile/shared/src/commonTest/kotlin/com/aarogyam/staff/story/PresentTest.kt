@@ -43,7 +43,7 @@ class PresentTest {
             val script = present.scripts.first()
             assertEquals(PresentState.Showing, present.state.value)
             assertTrue(script.startsWith("window.aarogyam.present({"), script)
-            assertTrue(script.endsWith(""", {"dark":false})"""), script)
+            assertTrue(script.endsWith(""", {"dark":false,"betas":["smile3d","face"]})"""), script)
             assertTrue("\\u2028" in script && " " !in script, "a line separator is escaped for the script")
             val sent =
                 script
@@ -53,7 +53,7 @@ class PresentTest {
                     .replace("\\u2028", " ")
             assertEquals(Json.parseToJsonElement(mouth).jsonObject, Json.parseToJsonElement(sent).jsonObject)
             present.setDark(true)
-            assertTrue(present.scripts.first().endsWith(""", {"dark":true})"""))
+            assertTrue(present.scripts.first().endsWith(""", {"dark":true,"betas":["smile3d","face"]})"""))
         }
 
     @Test

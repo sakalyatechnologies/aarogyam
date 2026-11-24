@@ -187,6 +187,6 @@ class DeskFeed(
             )
         val done = (clinic.api.registerWalkIn(request) as? Outcome.Success)?.value ?: return null
         refresh()
-        return done.token.tokenNumber
+        return done.token?.tokenNumber
     }
 }

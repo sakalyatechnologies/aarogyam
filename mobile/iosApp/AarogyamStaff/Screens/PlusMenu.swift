@@ -15,25 +15,10 @@ struct PlusMenu: View {
     @Binding var walkIn: Bool
     @Binding var plus: PlusChoice?
 
-    private var canBook: Bool { permissions.contains("appointments.write") }
-    private var canAdd: Bool { permissions.contains("patients.write") }
-
+    // One "+" (founder, 23 Nov): it opens the one search, which finds the patient or starts a new one, and from
+    // there checks in, books or just saves. No menu of separate flows.
     var body: some View {
-        if canBook || canAdd {
-            Menu {
-                Button { walkIn = true } label: { Label { Text("t7.plus.walk_in", tableName: "TodayV7") } icon: { Image(systemName: "person.badge.clock") } }
-                if canAdd {
-                    Button { plus = .addPatient } label: { Label { Text("t7.plus.add_patient", tableName: "TodayV7") } icon: { Image(systemName: "person.badge.plus") } }
-                }
-                if canBook {
-                    Button { plus = .book } label: { Label { Text("t7.book.action", tableName: "TodayV7") } icon: { Image(systemName: "calendar.badge.plus") } }
-                }
-            } label: {
-                Label { Text("v7.action.walk_in") } icon: { V7Icon.image("plus") }
-            }
-        } else {
-            Button { walkIn = true } label: { Label { Text("v7.action.walk_in") } icon: { V7Icon.image("plus") } }
-        }
+        Button { walkIn = true } label: { Label { Text("v7.action.walk_in") } icon: { V7Icon.image("plus") } }
     }
 }
 

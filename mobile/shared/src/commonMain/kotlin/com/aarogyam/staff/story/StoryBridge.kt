@@ -1,6 +1,7 @@
 package com.aarogyam.staff.story
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -50,12 +51,17 @@ object StoryBridge {
                 put("dark", dark)
                 if (style != null) put("style", style)
                 if (present != null) put("present", present)
+                // The Beta looks the switcher may offer (founder, 23 Nov): they keep their Beta tag.
+                put("betas", JsonArray(BETAS.map { JsonPrimitive(it) }))
             }
         return "window.aarogyam.present(${call(mouth)}, ${call(options)})"
     }
 
-    /** The Show patient looks the page knows; smile3d and face stay hidden until the server says they're live. */
-    val STYLES: Set<String> = setOf("story", "painted", "xray")
+    /** The Show patient looks the page knows, Beta ones included. */
+    val STYLES: Set<String> = setOf("story", "painted", "xray", "smile3d", "face")
+
+    /** Beta looks offered in the switcher; 3D smile falls back to painted on devices that can't draw it. */
+    val BETAS: List<String> = listOf("smile3d", "face")
 
     /** Goes "Back to all teeth"; the page answers true, or false at the overview so the screen leaves. */
     const val BACK: String = "window.aarogyam.back()"

@@ -196,6 +196,11 @@
     <string name="dk_iv_reason">आने का कारण</string>
     <string name="dk_iv_reminders">अपॉइंटमेंट रिमाइंडर भेजें</string>
     <string name="dk_iv_save">सहेजें और कतार में जोड़ें</string>
+    <string name="dk_iv_end_check_in">अभी चेक इन करें</string>
+    <string name="dk_iv_end_book">अपॉइंटमेंट बुक करें</string>
+    <string name="dk_iv_end_save_only">सिर्फ़ सेव करें</string>
+    <string name="dk_iv_saved">मरीज़ सेव हो गया</string>
+    <string name="dk_iv_open_profile">प्रोफ़ाइल खोलें</string>
     <string name="dk_iv_save_hint">मरीज़ को दर्ज करता है और टोकन देता है</string>
     <string name="dk_iv_sex">लिंग</string>
     <string name="dk_iv_sign">मरीज़ के हस्ताक्षर</string>

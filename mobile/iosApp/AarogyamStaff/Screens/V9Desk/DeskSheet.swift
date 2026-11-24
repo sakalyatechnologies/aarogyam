@@ -53,9 +53,16 @@ struct DeskSheet: View {
                         )
                     }
                 case .form(let phone, let family):
-                    ScreenHost(make: { graph.walkIn(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                        DeskFormScreen(holder: holder, state: state, phone: phone, family: family)
-                    }
+                    // The one intake form: check in now, or save to book a visit, or just save (founder, 23 Nov).
+                    RoutesV10Intake.screen(
+                        graph: graph, clinic: clinic, phone: phone.isEmpty ? nil : phone, family: family ?? [],
+                        ends: IntakeEnds(
+                            onBook: clinic.permissions.contains("appointments.write")
+                                ? { booking = DeskPayTarget(patientId: $0, name: $1) } : nil,
+                            onOpen: { path.append(PatientRoute(id: $0)) }
+                        ),
+                        onDone: { mode = .lookup }
+                    )
                 }
             }
             .safeAreaInset(edge: .top, alignment: .leading) { OutboxBadge(graph: graph).padding(.horizontal, SkSpacing.l) }

@@ -35,6 +35,7 @@ import com.aarogyam.staff.walkin.IntakeDone
 import com.aarogyam.staff.walkin.IntakeField
 import com.aarogyam.staff.walkin.IntakeForm
 import com.aarogyam.staff.walkin.IntakeFormHolder
+import com.aarogyam.staff.walkin.IntakeNext
 import com.aarogyam.staff.walkin.IntakeProblem
 import com.aarogyam.staff.walkin.IntakeSubmitError
 import com.sakalya.mobile.design.Spacing
@@ -58,10 +59,13 @@ fun IntakeScreen(
     phone: String?,
     family: List<DeskFamilyAnchor>,
     onDone: () -> Unit,
+    ends: IntakeEnds = IntakeEnds(),
 ) {
     val form by holder.state.collectAsStateWithLifecycle()
     LaunchedEffect(holder) { if (phone != null && form.phone.isEmpty()) holder.setPhone(phone) }
     val done = form.done
+    // "Book appointment": the patient is saved; the booking sheet opens on them.
+    LaunchedEffect(done) { if (done?.next == IntakeNext.Book) ends.onBook?.invoke(done.patientId, form.name) }
     Column(
         Modifier
             .fillMaxSize()
@@ -70,12 +74,12 @@ fun IntakeScreen(
             .padding(Spacing.ML.dp),
     ) {
         if (done != null) {
-            DoneCard(done) {
+            DoneCard(done, ends) {
                 holder.reset()
                 onDone()
             }
         } else {
-            IntakeFields(holder, form, family)
+            IntakeFields(holder, form, family, ends)
         }
     }
 }
@@ -85,6 +89,7 @@ private fun IntakeFields(
     holder: IntakeFormHolder,
     form: IntakeForm,
     family: List<DeskFamilyAnchor>,
+    ends: IntakeEnds,
 ) {
     var clearToken by remember { mutableIntStateOf(0) }
     var photo by remember { mutableStateOf<ByteArray?>(null) }
@@ -128,12 +133,7 @@ private fun IntakeFields(
         if (form.showReason) {
             Field(form, IntakeField.Reason, stringResource(R.string.dk_iv_reason), form.reason, holder::setReason)
         }
-        SkButton(
-            stringResource(R.string.dk_iv_save),
-            onClick = holder::saveAndQueue,
-            enabled = !form.submitting,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        IntakeEndButtons(holder, form, ends)
     }
 }
 
@@ -336,14 +336,25 @@ private fun IntakeFamily(
 @Composable
 private fun DoneCard(
     done: IntakeDone,
+    ends: IntakeEnds,
     onNext: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(Spacing.XL.dp), verticalArrangement = Arrangement.spacedBy(Spacing.M.dp)) {
+        val token = done.tokenNumber
         Text(
-            stringResource(R.string.dk_iv_done, done.tokenNumber),
+            if (token != null) stringResource(R.string.dk_iv_done, token) else stringResource(R.string.dk_iv_saved),
             style = SkTypography.title,
             color = SkTheme.colors.text.color,
         )
+        val open = ends.onOpen
+        if (token == null && open != null) {
+            SkButton(
+                stringResource(R.string.dk_iv_open_profile),
+                onClick = { open(done.patientId) },
+                variant = SkButtonVariant.Secondary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         if (done.filesQueued > 0) DeskMutedText(stringResource(R.string.dk_iv_done_files, done.filesQueued))
         if (done.filesRefused != null) DeskErrorText(stringResource(R.string.dk_iv_done_refused))
         SkButton(stringResource(R.string.dk_iv_next), onClick = onNext, modifier = Modifier.fillMaxWidth())

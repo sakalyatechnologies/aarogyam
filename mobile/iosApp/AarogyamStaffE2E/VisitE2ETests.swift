@@ -159,9 +159,9 @@ final class VisitE2ETests: XCTestCase {
             "AAROGYAM_DEV_CLINIC": "sunrise",
         ]
         // A dev sign-in sometimes stops at the welcome screen on a first launch (as in StoreScreensTests): try again.
-        for _ in 0..<3 {
+        for attempt in 0..<3 {
             app.launch()
-            if app.tabBars.firstMatch.waitForExistence(timeout: 25) { break }
+            if app.tabBars.firstMatch.waitForExistence(timeout: 25) || attempt == 2 { break }
             app.terminate()
         }
         let notNow = app.buttons["Not now"]

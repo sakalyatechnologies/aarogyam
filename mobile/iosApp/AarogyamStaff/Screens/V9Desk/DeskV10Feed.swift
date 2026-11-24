@@ -136,7 +136,7 @@ final class DeskV10Feed {
     /// Checks `patientId` in with `doctorId` (or the server's default when nil); the token number, or nil on failure.
     func checkIn(patientId: String, doctorId: String?) async -> Int? {
         let request = WalkInRequest(
-            allergies: nil, branchId: nil, conditions: nil,
+            allergies: nil, branchId: nil, checkIn: nil, conditions: nil,
             consents: [DeskConsentFields(method: "verbal", purpose: "care")], familyOf: nil,
             noKnownAllergies: nil, noticeId: nil, noticeVersion: nil,
             patient: nil, patientId: patientId, practitionerId: doctorId, reason: nil
@@ -144,7 +144,7 @@ final class DeskV10Feed {
         guard let answer = try? await clinic.api.registerWalkIn(request: request, familyOf: nil),
               case .success(let ok) = onEnum(of: answer), let done = ok.value as? WalkIn else { return nil }
         await refresh()
-        return Int(done.token.tokenNumber)
+        return done.token.map { Int($0.tokenNumber) }
     }
 
     // MARK: dates

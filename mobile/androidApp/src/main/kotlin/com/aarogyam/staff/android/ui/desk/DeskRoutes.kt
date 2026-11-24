@@ -10,7 +10,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -24,6 +27,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.BarAction
 import com.aarogyam.staff.android.ui.LoadingIndicator
 import com.aarogyam.staff.android.ui.StatusBarTone
+import com.aarogyam.staff.android.ui.patient.BookSheet
 import com.aarogyam.staff.android.ui.patient.openPatient
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.api.queue
@@ -115,12 +119,25 @@ fun NavGraphBuilder.deskDestinations(
                     SkPillButton(stringResource(R.string.dk_d9_back), nav::popBackStack, variant = SkPillVariant.Tonal)
                 },
             )
+            var booking by remember { mutableStateOf<DeskPayTarget?>(null) }
+            // The one intake form: check in now, or save to book a visit, or just save (founder, 23 Nov).
             IntakeScreen(
                 rememberHolder { graph.intakeForm(open, it) },
                 phone,
                 IntakeFamilyStash.people,
                 onDone = nav::popBackStack,
+                ends =
+                    IntakeEnds(
+                        onBook =
+                            if ("appointments.write" in open.permissions) {
+                                { id, name -> booking = DeskPayTarget(id, name) }
+                            } else {
+                                null
+                            },
+                        onOpen = nav::openPatient,
+                    ),
             )
+            booking?.let { target -> BookSheet(graph, open, target.patientId, target.name) { booking = null } }
         }
     }
     composable(

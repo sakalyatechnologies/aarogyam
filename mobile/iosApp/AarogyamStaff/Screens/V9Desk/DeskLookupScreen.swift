@@ -88,7 +88,7 @@ struct DeskLookupScreen: View {
                 Text(dv("d9.lookup.none.message")).font(.subheadline).foregroundStyle(r.onSurfaceVariant.color)
                     .padding(.horizontal, GroupedSizes.rowPaddingH).padding(.top, 12).padding(.bottom, 4)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                DeskActionRow(title: dv("d9.lookup.new"), systemImage: "person.badge.plus") { onNewPatient(none.phone) }
+                DeskActionRow(title: dv("d9.lookup.new"), systemImage: "person.badge.plus") { onNewPatient(DeskPhone.newPatientPhone(none.phone)) }
             }
         case .matches(let found):
             GroupedHeader(dvf("d9.lookup.profiles", found.profiles.count))

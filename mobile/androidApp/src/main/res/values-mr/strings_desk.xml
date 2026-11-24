@@ -196,6 +196,11 @@
     <string name="dk_iv_reason">येण्याचे कारण</string>
     <string name="dk_iv_reminders">अपॉइंटमेंट स्मरणपत्रे पाठवा</string>
     <string name="dk_iv_save">जतन करा आणि रांगेत जोडा</string>
+    <string name="dk_iv_end_check_in">आता चेक इन करा</string>
+    <string name="dk_iv_end_book">अपॉइंटमेंट बुक करा</string>
+    <string name="dk_iv_end_save_only">फक्त सेव्ह करा</string>
+    <string name="dk_iv_saved">रुग्ण सेव्ह झाला</string>
+    <string name="dk_iv_open_profile">प्रोफाइल उघडा</string>
     <string name="dk_iv_save_hint">रुग्णाची नोंद करते आणि टोकन देते</string>
     <string name="dk_iv_sex">लिंग</string>
     <string name="dk_iv_sign">रुग्णाची सही</string>

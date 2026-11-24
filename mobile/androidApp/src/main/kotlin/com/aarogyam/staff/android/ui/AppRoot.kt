@@ -167,6 +167,8 @@ private fun Signed(graph: AppGraph) {
                     clinicalDestinations(graph, { clinic }, nav)
                     shellDestinations(graph, { clinic }, nav)
                 }
+                PushTapEffect(graph, nav, session is SessionState.SignedIn, target == Routes.MAIN)
+                if (target == Routes.MAIN) PushPrompt(graph)
                 // The live banner shows over every screen of the signed-in app (iOS `RoutesV10Live.hook`).
                 clinic?.takeIf { target == Routes.MAIN }?.let { open ->
                     LiveBannerOverlay(open) { nav.popBackStack(Routes.MAIN, inclusive = false) }

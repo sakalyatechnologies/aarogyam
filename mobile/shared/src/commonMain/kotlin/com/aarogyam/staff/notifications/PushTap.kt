@@ -26,6 +26,10 @@ data class PushTap(
                 href = text(userInfo["href"]),
             )
 
+        /** Like [of], but null when none of the four fields is there (a launch that is not from a push). */
+        fun ofOrNull(values: Map<*, *>): PushTap? =
+            of(values).takeIf { it.kind != null || it.orgId != null || it.notificationId != null || it.href != null }
+
         /** `/queue` is the desk board or the doctor's waiting list, `/tasks` My tasks, `/labs` Labs. */
         fun screenFor(href: String?): PushScreen {
             val path =

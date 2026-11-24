@@ -60,6 +60,26 @@ class PushRegistrationTest {
         }
 
     @Test
+    fun anFcmTokenKeepsItsCase() =
+        runTest {
+            val backend = FakeBackend()
+            val graph = testGraph(backend, backgroundScope)
+            val id = graph.push.installationId
+            backend.on("$route/$id", { json("", HttpStatusCode.NoContent) })
+            graph.push.setFcmToken(" AbC:xYz ")
+            signIn(graph, backend)
+            backend.waitFor("PUT", 1)
+            val body =
+                backend
+                    .devices()
+                    .single()
+                    .body
+                    .toByteArray()
+                    .decodeToString()
+            assertTrue(""""token":"AbC:xYz"""" in body, body)
+        }
+
+    @Test
     fun sendsTheTokenOnceSignedInAndAgainOnlyWhenItChanges() =
         runTest {
             val backend = FakeBackend()

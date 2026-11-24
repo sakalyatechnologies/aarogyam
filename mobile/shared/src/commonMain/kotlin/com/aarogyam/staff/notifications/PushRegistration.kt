@@ -77,6 +77,14 @@ class PushRegistration(
         publish()
     }
 
+    /** The FCM token from Android: case matters, so it is only trimmed. */
+    fun setFcmToken(value: String) {
+        val clean = value.trim()
+        if (clean.isEmpty()) return
+        token = clean
+        publish()
+    }
+
     /**
      * The app's language (`en`, `hi` or `mr`, any region); anything else counts as `en`. The server
      * takes a tag like `hi-IN`, so the language is always sent with India's region.

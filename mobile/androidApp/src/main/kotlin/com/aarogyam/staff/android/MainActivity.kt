@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import com.aarogyam.staff.AppForeground
+import com.aarogyam.staff.android.push.PushInbox
 import com.aarogyam.staff.android.ui.AppRoot
 import com.aarogyam.staff.android.ui.auth.PendingInvite
 
@@ -24,12 +25,14 @@ class MainActivity : AppCompatActivity() {
         // Transparent bars; StatusBarTone picks light or dark icons for the screen underneath.
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT))
         PendingInvite.handle(intent)
+        PushInbox.handle(intent)
         setContent { AppRoot((application as AarogyamApp).graph) }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         PendingInvite.handle(intent)
+        PushInbox.handle(intent)
     }
 
     // Polls run only while the app is on screen (AppForeground); stopped means in the background.

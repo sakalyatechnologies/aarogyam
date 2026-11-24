@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="push_channel_name">क्लिनिक अलर्ट</string>
+    <string name="push_ask_title">अलर्ट चालू करें?</string>
+    <string name="push_ask_message">मरीज़ के इंतज़ार में होने, टास्क का समय होने या लैब रिपोर्ट आने पर Aarogyam आपको बताएगा।</string>
+    <string name="push_ask_allow">अनुमति दें</string>
+    <string name="push_ask_later">अभी नहीं</string>
+</resources>

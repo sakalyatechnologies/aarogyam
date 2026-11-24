@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,9 +26,11 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.push.PushInbox
 import com.aarogyam.staff.android.ui.clinical.ExpensesPage
 import com.aarogyam.staff.android.ui.clinical.openExpenses
 import com.aarogyam.staff.android.ui.desk.openDeskBoard
@@ -93,6 +96,14 @@ fun MainScreen(
     val select = { key: String ->
         tab = Tab.valueOf(key)
         barVisible = true
+    }
+    // A tapped Today or Tasks alert selects the Today tab.
+    val showToday by PushInbox.showToday.collectAsStateWithLifecycle()
+    LaunchedEffect(showToday) {
+        if (showToday) {
+            PushInbox.requestToday(false)
+            if (Tab.Today in navModel.tabs) select(Tab.Today.name)
+        }
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= RAIL_FROM

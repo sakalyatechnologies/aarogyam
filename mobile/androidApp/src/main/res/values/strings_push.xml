@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="push_channel_name">Clinic alerts</string>
+    <string name="push_ask_title">Turn on alerts?</string>
+    <string name="push_ask_message">Aarogyam can tell you when a patient is waiting, a task is due or a lab result arrives.</string>
+    <string name="push_ask_allow">Allow</string>
+    <string name="push_ask_later">Not now</string>
+</resources>

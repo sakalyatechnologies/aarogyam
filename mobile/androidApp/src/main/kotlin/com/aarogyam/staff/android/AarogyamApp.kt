@@ -5,6 +5,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.device.FilesDirOutboxFile
 import com.aarogyam.staff.android.device.SharedPreferencesStore
+import com.aarogyam.staff.android.push.AarogyamMessagingService
+import com.aarogyam.staff.android.push.PushInbox
 import com.aarogyam.staff.android.ui.applyAppearance
 import com.aarogyam.staff.android.ui.visit.AndroidDictation
 import com.aarogyam.staff.config.AppConfig
@@ -44,6 +46,7 @@ class AarogyamApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AarogyamMessagingService.ensureChannel(this)
         // Light or dark as picked in More, before the first screen draws.
         applyAppearance(AppearancePreference.stored(SharedPreferencesStore(this)))
         val config =
@@ -70,6 +73,11 @@ class AarogyamApp : Application() {
             // The app's language (or the phone's) goes with the device registration at sign-in.
             val chosen = AppCompatDelegate.getApplicationLocales().toLanguageTags()
             graph?.push?.setLocale(chosen.ifEmpty { Locale.getDefault().toLanguageTag() })
+            if (graph != null) {
+                // The FCM token (a refreshed one arrives through the service) goes to the server once signed in.
+                launch { PushInbox.token.collect { it?.let(graph.push::setFcmToken) } }
+                PushInbox.fetchToken(this@AarogyamApp)
+            }
             mutableGraph.value = graph?.let(GraphState::Ready) ?: GraphState.NotConfigured
         }
     }

@@ -40,6 +40,14 @@
         <!-- Firebase Analytics: no advertising ID, no ad personalisation signals. -->
         <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
         <meta-data android:name="google_analytics_default_allow_ad_personalization_signals" android:value="false" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="clinic_alerts" />
+        <service
+            android:name=".push.AarogyamMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <activity
             android:name=".MainActivity"
             android:exported="true"

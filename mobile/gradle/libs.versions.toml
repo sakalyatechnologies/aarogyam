@@ -45,6 +45,7 @@ exifinterface = { module = "androidx.exifinterface:exifinterface", version = "1.
 webkit = { module = "androidx.webkit:webkit", version = "1.14.0" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 firebase-crashlytics = { module = "com.google.firebase:firebase-crashlytics" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 zxing-core = { module = "com.google.zxing:core", version = "3.5.3" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }

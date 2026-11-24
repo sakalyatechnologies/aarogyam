@@ -22,6 +22,12 @@ class PushTapTest {
     }
 
     @Test
+    fun aLaunchWithoutPushFieldsIsNotATap() {
+        assertNull(PushTap.ofOrNull(mapOf("google.message_id" to "x", "other" to 1)))
+        assertEquals(PushScreen.Labs, PushTap.ofOrNull(mapOf("href" to "/labs"))?.screen)
+    }
+
+    @Test
     fun missingOrNonTextFieldsAreNullAndNeverThrow() {
         val tap = PushTap.of(mapOf("kind" to 5, "org_id" to " ", "href" to null))
         assertNull(tap.kind)

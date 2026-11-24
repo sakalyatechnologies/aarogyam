@@ -41,6 +41,10 @@ export interface SupabaseAuthApi {
     data: { session: SupabaseSession | null };
     error: SupabaseError | null;
   }>;
+  signInWithOAuth(credentials: {
+    provider: "google" | "apple";
+    options: { redirectTo?: string };
+  }): Promise<{ error: SupabaseError | null }>;
   getSession(): Promise<{ data: { session: SupabaseSession | null } }>;
   onAuthStateChange(callback: (event: string, session: SupabaseSession | null) => void): {
     data: { subscription: { unsubscribe(): void } };
@@ -91,7 +95,11 @@ export interface SupabaseAuthOptions {
    * code-only flow, such as in tests.
    */
   redirectTo?: string;
+  /** Where to ask which social sign-ins are on (`/auth/v1/settings`). Omit and none are offered. */
+  settings?: { url: string; anonKey: string; fetch?: typeof fetch };
 }
+
+const OAUTH_PROVIDERS = ["google", "apple"] as const;
 
 /** Wraps Supabase's auth client in the `EmailCodeAuthClient` boundary. */
 export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOptions = {}): EmailCodeAuthClient {
@@ -110,9 +118,51 @@ export function createSupabaseAuth(api: SupabaseAuthApi, options: SupabaseAuthOp
     },
   );
 
+  let providers: Promise<readonly ("google" | "apple")[]> | undefined;
+  const loadProviders = async (): Promise<readonly ("google" | "apple")[]> => {
+    const settings = options.settings;
+    if (settings === undefined) {
+      return [];
+    }
+    try {
+      const response = await (settings.fetch ?? fetch)(`${settings.url.replace(/\/+$/, "")}/auth/v1/settings`, {
+        headers: { apikey: settings.anonKey },
+      });
+      if (!response.ok) {
+        return [];
+      }
+      const body: unknown = await response.json();
+      const external: unknown = typeof body === "object" && body !== null && "external" in body ? body.external : undefined;
+      if (typeof external !== "object" || external === null) {
+        return [];
+      }
+      return OAUTH_PROVIDERS.filter((name) => name in external && Reflect.get(external, name) === true);
+    } catch {
+      return [];
+    }
+  };
+
   return {
     kind: "email_code",
     getState: store.get,
+    oauthProviders: () => (providers ??= loadProviders()),
+    signInWithOAuth: async (provider) => {
+      try {
+        const { error } = await api.signInWithOAuth({
+          provider,
+          options: options.redirectTo === undefined ? {} : { redirectTo: options.redirectTo },
+        });
+        if (error === null) {
+          return { ok: true };
+        }
+        if (isRateLimited(error)) {
+          return failed("rate_limited", AUTH_MESSAGES.rateLimited);
+        }
+        return isNetworkFailure(error) ? failed("network", AUTH_MESSAGES.network) : failed("rejected", AUTH_MESSAGES.socialRejected);
+      } catch {
+        return failed("network", AUTH_MESSAGES.network);
+      }
+    },
     subscribe: store.subscribe,
     getAccessToken: async () => {
       const { data } = await api.getSession();
@@ -359,5 +409,6 @@ export function createSupabaseAuthClient(config: SupabaseConfig): EmailCodeAuthC
   });
   // `completeRedirect` reads the callback URL itself, so Supabase's own listener never races it.
   const redirectTo = typeof window === "undefined" ? undefined : `${window.location.origin}/auth/callback`;
-  return createSupabaseAuth(supabase.auth, redirectTo === undefined ? {} : { redirectTo });
+  const settings = { url: config.url, anonKey: config.anonKey };
+  return createSupabaseAuth(supabase.auth, redirectTo === undefined ? { settings } : { redirectTo, settings });
 }

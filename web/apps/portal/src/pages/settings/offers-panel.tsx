@@ -5,6 +5,7 @@ import { apiErrorOf, paise, unwrap, type OfferSettings } from "@aarogyam/api-cli
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { Field, Select, TextInput, useToast } from "@sakalya/ui";
 
+import { useRoles } from "../../queries.js";
 import { MkCard, Toggle } from "../../components/mk/index.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
 import { useClinic } from "../../clinic.js";
@@ -70,6 +71,61 @@ function CapsFields({ title, caps, onChange }: { title: string; caps: Caps; onCh
       <NumberField label="Longest validity (days)" unit="days" value={caps.max_valid_days} onValue={(v) => { onChange({ ...caps, max_valid_days: v }); }} />
       <NumberField label="Most one code may take off (₹)" unit="rupees" value={caps.max_discount_paise} onValue={(v) => { onChange({ ...caps, max_discount_paise: paise.parse(v) }); }} />
     </fieldset>
+  );
+}
+
+type RoleCaps = OfferSettings["caps"]["by_role"][number];
+
+/** "Limits by role": one row of the four limits per role, added from the roles that have none yet. The owner has its own limits above. */
+function RoleLimits({ rows, defaults, onChange }: { rows: RoleCaps[]; defaults: Caps; onChange: (next: RoleCaps[]) => void }) {
+  const roles = useRoles();
+  const all = (roles.data?.items ?? []).filter((r) => r.key !== "owner");
+  const nameOf = (id: string) => all.find((r) => r.id === id)?.name ?? "Role";
+  const free = all.filter((r) => !rows.some((row) => row.role_id === r.id));
+  const [pick, setPick] = useState("");
+  const chosen = free.some((r) => r.id === pick) ? pick : (free[0]?.id ?? "");
+  return (
+    <div style={{ marginTop: 12 }}>
+      <b>Limits by role</b>
+      {rows.length === 0 ? <p className="mk-hint">No role has its own limits.</p> : null}
+      {rows.map((row) => (
+        <div key={row.role_id}>
+          <CapsFields
+            title={nameOf(row.role_id)}
+            caps={row}
+            onChange={(next) => {
+              onChange(rows.map((r) => (r.role_id === row.role_id ? { ...next, role_id: row.role_id } : r)));
+            }}
+          />
+          <button
+            type="button"
+            className="mk-btn"
+            aria-label={`Remove limits for ${nameOf(row.role_id)}`}
+            onClick={() => {
+              onChange(rows.filter((r) => r.role_id !== row.role_id));
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      {free.length === 0 ? null : (
+        <div style={{ display: "flex", gap: 8, alignItems: "end", marginTop: 8 }}>
+          <Field label="Role">
+            <Select options={free.map((r) => ({ value: r.id, label: r.name }))} value={chosen} onValueChange={setPick} />
+          </Field>
+          <button
+            type="button"
+            className="mk-btn"
+            onClick={() => {
+              onChange([...rows, { ...defaults, role_id: chosen }]);
+            }}
+          >
+            Add a role limit
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -145,6 +201,7 @@ function OffersForm({ saved, queryKey }: { saved: OfferSettings; queryKey: reado
       <MkCard title="Limits" hint="The most a person can give. Roles with their own row keep it.">
         <CapsFields title="Everyone by default" caps={draft.caps.default} onChange={(next) => { setDraft({ ...draft, caps: { ...draft.caps, default: next } }); }} />
         <CapsFields title="Owner" caps={draft.caps.owner} onChange={(next) => { setDraft({ ...draft, caps: { ...draft.caps, owner: next } }); }} />
+        <RoleLimits rows={draft.caps.by_role} defaults={draft.caps.default} onChange={(next) => { setDraft({ ...draft, caps: { ...draft.caps, by_role: next } }); }} />
         <div style={{ marginTop: 12 }}>
           <button
             type="button"

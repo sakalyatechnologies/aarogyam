@@ -1,10 +1,14 @@
 // The pinned deck (present-studio-design §10, slice 2e): the options the doctor pinned, one at a time (swipe or arrow keys),
 // two side by side, and "What we discussed" with "Patient prefers" and Save. The pen draws over the picture in memory only:
 // it is never saved or sent. Loaded on demand (`@aarogyam/app-kit/present/deck`) so the Present route stays within its budget.
-import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactElement } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactElement } from "react";
 
 import { OPTION_ROWS } from "./options.js";
 import { scenarioOf, usePins, type Pinned } from "./pins.js";
+
+// a discussed braces or aligners item has no situation card: its steps show under the saved line
+const CaseFor = lazy(() => import("./case.js").then((m) => ({ default: m.CaseForOption })));
+const ORTHO_KEYS = ["braces", "orthodontic_fixed", "aligners"];
 
 /** One scenario to save: the options discussed for a situation on a tooth. */
 export interface DiscussionDraft {
@@ -187,6 +191,7 @@ export function PinnedDeck({ onClose, onSave, saving = false, saved = [], labelO
                   {saved.map((s) => (
                     <li key={`${s.situation}:${String(s.tooth ?? 0)}`}>
                       {`${s.tooth == null ? "" : `Tooth ${String(s.tooth)}: `}${s.options.map((o) => `${labelOf(o.key)}${o.preferred === true ? " (patient prefers)" : ""}`).join(", ")}`}
+                      {s.options.filter((o) => ORTHO_KEYS.includes(o.key)).map((o) => <Suspense key={o.key} fallback={null}><CaseFor optionKey={o.key} situationKey={s.situation} /></Suspense>)}
                     </li>
                   ))}
                 </ul>

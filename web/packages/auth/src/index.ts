@@ -12,6 +12,7 @@ export {
   type MfaEnrolment,
   type MfaResult,
   type MfaStatus,
+  type OAuthProvider,
 } from "./auth-client.js";
 export { createDevAuth, createParentDomainStorage, personInToken, type DevAuthOptions } from "./dev-auth.js";
 export { AuthProvider, useAuth, useAuthState, useCompleteAuthRedirect, type AuthProviderProps } from "./react.js";

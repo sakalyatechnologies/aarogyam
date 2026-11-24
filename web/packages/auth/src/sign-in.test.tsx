@@ -39,6 +39,41 @@ function stubAuth(responses: { request?: AuthOutcome; verify?: AuthOutcome; pass
   return { auth, requestCode, verifyCode, signInWithPassword, setPassword };
 }
 
+describe("EmailCodeSignIn social sign-in", () => {
+  it("hides the buttons when nothing is enabled or the client cannot do it", async () => {
+    const none = stubAuth().auth;
+    render(<EmailCodeSignIn auth={{ ...none, oauthProviders: () => Promise.resolve([]), signInWithOAuth: () => Promise.resolve({ ok: true }) }} />);
+    await act(() => Promise.resolve());
+    expect(screen.queryByRole("button", { name: /continue with/i })).toBeNull();
+    cleanup();
+    render(<EmailCodeSignIn auth={none} />);
+    await act(() => Promise.resolve());
+    expect(screen.queryByRole("button", { name: /continue with/i })).toBeNull();
+  });
+
+  it("shows the enabled provider and signs in through it", async () => {
+    const user = userEvent.setup();
+    const signInWithOAuth = vi.fn(() => Promise.resolve({ ok: true as const }));
+    const auth = { ...stubAuth().auth, oauthProviders: () => Promise.resolve(["google"] as const), signInWithOAuth };
+    render(<EmailCodeSignIn auth={auth} />);
+    await user.click(await screen.findByRole("button", { name: "Continue with Google" }));
+    expect(signInWithOAuth).toHaveBeenCalledWith("google");
+    expect(screen.queryByRole("button", { name: "Continue with Apple" })).toBeNull();
+  });
+
+  it("shows the message when the provider cannot be started", async () => {
+    const user = userEvent.setup();
+    const auth = {
+      ...stubAuth().auth,
+      oauthProviders: () => Promise.resolve(["apple"] as const),
+      signInWithOAuth: () => Promise.resolve({ ok: false as const, code: "rejected" as const, message: AUTH_MESSAGES.socialRejected }),
+    };
+    render(<EmailCodeSignIn auth={auth} />);
+    await user.click(await screen.findByRole("button", { name: "Continue with Apple" }));
+    expect(await screen.findByText(AUTH_MESSAGES.socialRejected)).toBeTruthy();
+  });
+});
+
 describe("EmailCodeSignIn", () => {
   it("rejects a malformed email without calling the service", async () => {
     const user = userEvent.setup();

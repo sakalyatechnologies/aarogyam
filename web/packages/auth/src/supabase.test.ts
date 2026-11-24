@@ -23,6 +23,7 @@ function stubApi(overrides: Partial<SupabaseAuthApi> = {}) {
     signOut: vi.fn(() => Promise.resolve({ error: null })),
     getUser: vi.fn(() => Promise.resolve({ data: { user: { id: "u1" } }, error: null })),
     signInWithPassword: vi.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+    signInWithOAuth: vi.fn(() => Promise.resolve({ error: null })),
     updateUser: vi.fn(() => Promise.resolve({ error: null })),
     mfa: {
       getAuthenticatorAssuranceLevel: vi.fn(() => Promise.resolve({ data: { currentLevel: "aal1" as const, nextLevel: "aal1" as const }, error: null })),
@@ -47,6 +48,45 @@ const apiError = (status: number | undefined, code?: string, name = "AuthApiErro
   message: "upstream detail that must not be shown",
   status,
   code,
+});
+
+describe("social sign-in", () => {
+  const settingsResponse = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status }));
+
+  it("offers only the providers the auth service has switched on", async () => {
+    const { api } = stubApi();
+    const fetchSpy = vi.fn(() => settingsResponse({ external: { google: true, apple: false, github: true } }));
+    const auth = createSupabaseAuth(api, { settings: { url: "https://x.supabase.co/", anonKey: "anon", fetch: fetchSpy } });
+    expect(await auth.oauthProviders?.()).toEqual(["google"]);
+    await auth.oauthProviders?.();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).toHaveBeenCalledWith("https://x.supabase.co/auth/v1/settings", { headers: { apikey: "anon" } });
+  });
+
+  it("offers none when the settings cannot be read", async () => {
+    const { api } = stubApi();
+    const failing = createSupabaseAuth(api, {
+      settings: { url: "https://x.supabase.co", anonKey: "anon", fetch: vi.fn(() => Promise.reject(new Error("offline"))) },
+    });
+    expect(await failing.oauthProviders?.()).toEqual([]);
+    const refused = createSupabaseAuth(api, {
+      settings: { url: "https://x.supabase.co", anonKey: "anon", fetch: vi.fn(() => settingsResponse({}, 500)) },
+    });
+    expect(await refused.oauthProviders?.()).toEqual([]);
+  });
+
+  it("sends the same return address as the email link", async () => {
+    const signInWithOAuth = vi.fn(() => Promise.resolve({ error: null }));
+    const { api } = stubApi({ signInWithOAuth });
+    const auth = createSupabaseAuth(api, { redirectTo: "https://sakalya.example/auth/callback" });
+    expect(await auth.signInWithOAuth?.("google")).toEqual({ ok: true });
+    expect(signInWithOAuth).toHaveBeenCalledWith({ provider: "google", options: { redirectTo: "https://sakalya.example/auth/callback" } });
+  });
+
+  it("maps a refusal to a plain message", async () => {
+    const { api } = stubApi({ signInWithOAuth: vi.fn(() => Promise.resolve({ error: apiError(400, "validation_failed") })) });
+    expect(await createSupabaseAuth(api).signInWithOAuth?.("apple")).toEqual({ ok: false, code: "rejected", message: AUTH_MESSAGES.socialRejected });
+  });
 });
 
 describe("createSupabaseAuth", () => {

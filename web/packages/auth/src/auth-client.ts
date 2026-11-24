@@ -83,7 +83,13 @@ export interface EmailCodeAuthClient extends AuthClientBase {
   verifyTokenHash: (tokenHash: string) => Promise<AuthOutcome>;
   /** The authenticator-app second step. */
   mfa: MfaClient;
+  /** Which social sign-ins the auth service has switched on. Resolves to [] when none, or when it can't be asked. */
+  oauthProviders?: () => Promise<readonly OAuthProvider[]>;
+  /** Sends the browser to the provider; the person returns to `/auth/callback`, which `completeRedirect` finishes. */
+  signInWithOAuth?: (provider: OAuthProvider) => Promise<AuthOutcome>;
 }
+
+export type OAuthProvider = "google" | "apple";
 
 /** Where a person stands with the authenticator-app (TOTP) second step. */
 export type MfaStatus =
@@ -121,6 +127,7 @@ export const AUTH_MESSAGES = {
   invalidCode: "That code is wrong or has expired. Check the email, or send a new code.",
   invalidCredentials: "That email or password is wrong. Check them, or email yourself a code instead.",
   weakPassword: "Choose a longer or less guessable password.",
+  socialRejected: "We couldn't start that sign-in. Try again, or use an email code instead.",
   passwordRejected: "We couldn't save that password. Sign in again with an email code, then try once more.",
 } as const;
 

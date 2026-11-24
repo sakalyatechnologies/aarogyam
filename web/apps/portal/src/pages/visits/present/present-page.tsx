@@ -207,10 +207,10 @@ export function PresentPage() {
                   <OwnXraySlot model={model} patientId={patientId} visitId={visitId} load3d={load3d} />
                 </Suspense>
               ) : view === "face" ? (slot) => (
-                <FaceSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} />
+                <FaceSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} {...shadeSave} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} />
               ) : view === "story" ? (slot) => (
                 <StorySlot
-                  model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d}
+                  model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} shade={shade} view={paintedView} onView={setPaintedView} load3d={load3d}
                   xray={hasXray === true && patientId !== undefined ? (
                     <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}><StoryXray patientId={patientId} visitId={visitId} /></Suspense>
                   ) : undefined}

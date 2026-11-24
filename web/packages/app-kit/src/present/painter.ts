@@ -65,6 +65,8 @@ export interface PaintTooth {
   /** A wisdom tooth painted without an eruption record ("Example, not your tooth"). */
   example: boolean;
   xl: number; xr: number; top: number; bot: number; h: number; z: number; sc: number; cej: number; turn: number;
+  /** A crown tipped about its centre, in radians (the example arch's crowding only). */
+  tilt?: number;
 }
 
 export interface SmileScene {
@@ -223,6 +225,7 @@ function toothXf(ctx: CanvasRenderingContext2D, t: PaintTooth, base: DOMMatrix, 
   const [cx, cy, cw, ch] = boxOf(c);
   const w = t.xr - t.xl, h = t.bot - t.top;
   ctx.setTransform(base);
+  if (t.tilt !== undefined) { const mx = (t.xl + t.xr) / 2, my = (t.top + t.bot) / 2; ctx.translate(mx, my); ctx.rotate(t.tilt); ctx.translate(-mx, -my); }
   // a partly erupted crown sits half under the gum
   const sink = t.partial ? h * .45 * (t.arch === "u" ? -1 : 1) : 0;
   ctx.translate(t.xl, t.top + sink);
@@ -231,6 +234,15 @@ function toothXf(ctx: CanvasRenderingContext2D, t: PaintTooth, base: DOMMatrix, 
   if (t.arch === "u") { ctx.translate(0, ch); ctx.scale(1, -1); }
   ctx.translate(-cx, -cy);
   return { cx, cy, cw, ch, unit: cw / w };
+}
+
+/** Runs `draw` with the tooth's own crown outline and its units per millimetre, in that tooth's transform. */
+export function onCrown(ctx: CanvasRenderingContext2D, base: DOMMatrix, t: PaintTooth, atlas: FrontAtlas, draw: (outline: Path2D, unit: number) => void) {
+  const c = atlas[t.type];
+  ctx.save();
+  const { unit } = toothXf(ctx, t, base, c);
+  draw(path(c.crown), unit);
+  ctx.restore();
 }
 
 function paintTooth(ctx: CanvasRenderingContext2D, base: DOMMatrix, t: PaintTooth, atlas: FrontAtlas, o: PaintOptions) {

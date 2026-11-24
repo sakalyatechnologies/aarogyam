@@ -10,7 +10,7 @@ import { FactList, ProvenanceFooter, RecordBadge } from "./blocks.js";
 import type { FactItem, Orientation, PresentModel } from "./model.js";
 import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
 import { PaintedMap, type PaintedView } from "./painted.js";
-import { DEFAULT_SHADE } from "./painter.js";
+import { DEFAULT_SHADE, type Shade } from "./painter.js";
 import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
 import { SituationOptions, useStudio } from "./options.js";
 import type { PresentStudio } from "@aarogyam/api-client";
@@ -54,6 +54,8 @@ export interface StoryProps {
   stacked?: boolean | undefined;
   /** The patient's own X-ray, drawn by the host (it needs the signed link). The "Your X-ray" card exists only when this is given. */
   xray?: ReactNode;
+  /** The tooth colour (0 to 100), the patient's saved one when the host has it. */
+  shade?: Shade | undefined;
 }
 
 const SWIPE = 60;
@@ -166,7 +168,7 @@ export function StoryStyle(props: StoryProps): ReactElement {
   );
 }
 
-function MouthCard({ model, orientation, onOrientation, theme, view, setView, open }: StoryProps & { view: PaintedView; setView: (v: PaintedView) => void; open: (t: number) => void }): ReactElement {
+function MouthCard({ model, orientation, onOrientation, theme, view, setView, open, shade }: StoryProps & { view: PaintedView; setView: (v: PaintedView) => void; open: (t: number) => void }): ReactElement {
   const hidden = bitingSideProblems(model);
   return (
     <>
@@ -187,7 +189,7 @@ function MouthCard({ model, orientation, onOrientation, theme, view, setView, op
           <b>Open wide to see {hidden.length === 1 ? "it" : "them"}</b>
         </button>
       ) : null}
-      {view === "wide" ? <OpenWide model={model} orientation={orientation} theme={theme} onOpen={open} /> : <PaintedMap model={model} orientation={orientation} shade={DEFAULT_SHADE} theme={theme} onOpen={open} />}
+      {view === "wide" ? <OpenWide model={model} orientation={orientation} theme={theme} onOpen={open} /> : <PaintedMap model={model} orientation={orientation} shade={shade ?? DEFAULT_SHADE} theme={theme} onOpen={open} />}
       <ProvenanceFooter recorded={["The dots come from this visit's record."]} illustration={["Tooth shapes and colours are a painting based on your record, not a photo."]} />
     </>
   );

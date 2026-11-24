@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 
-import { apiErrorOf, unwrap, type IssuedCode, type OfferPresets, type VisitId } from "@aarogyam/api-client";
+import { apiErrorOf, unwrap, type IssuedCode, type OfferPresets, type PatientId, type VisitId } from "@aarogyam/api-client";
 
 import { useClinic } from "../../../clinic.js";
+import { usePlans } from "../../treatment-plans/queries.js";
 import { PillButton } from "./kit.js";
 
 const VALID_DAYS = [7, 30, 60, 90] as const;
@@ -30,7 +31,7 @@ function shortDate(day: string): string {
  * are hidden without `offers.give` or when the clinic switched that kind off. The message itself reads the codes on
  * the server, so Send needs nothing from here. Codes stay on screen only; they are never put in a URL or a log.
  */
-export function OfferChips({ visitId }: { visitId: VisitId }) {
+export function OfferChips({ visitId, patientId }: { visitId: VisitId; patientId?: PatientId }) {
   const { api, access, can } = useClinic();
   const allowed = can("offers.give") && can("clinical.read");
   const queryClient = useQueryClient();
@@ -100,6 +101,7 @@ export function OfferChips({ visitId }: { visitId: VisitId }) {
       {editing && data.patient_offer == null ? (
         <EditOffer
           presets={presets}
+          patientId={patientId}
           busy={busy}
           onGive={(terms) => {
             issue.mutate({ patient_offer: terms }, { onSuccess: () => { setEditing(false); } });
@@ -115,13 +117,19 @@ export function OfferChips({ visitId }: { visitId: VisitId }) {
   );
 }
 
+/** The words for what a code is aimed at, e.g. `the crown on 21`. */
+function aimWords(code: IssuedCode): string | undefined {
+  const words = code.applies_to?.["words"];
+  return typeof words === "string" && words.trim() !== "" ? words : undefined;
+}
+
 function IssuedChip({ code, busy, onUndo }: { code: IssuedCode; busy: boolean; onUndo: () => void }) {
   const what = code.purpose === "referral" ? "Referral" : "Offer";
   return (
     <span className="p360-chip" role="status" style={{ display: "inline-flex", gap: 8, alignItems: "center", cursor: "default" }}>
       <span>
         ✓ {code.code}
-        <span className="mk-hint"> · {what} {offerAmount(code.kind, code.value)} till {shortDate(code.valid_to)}</span>
+        <span className="mk-hint"> · {what} {offerAmount(code.kind, code.value)}{aimWords(code) === undefined ? "" : ` for ${aimWords(code) ?? ""}`} till {shortDate(code.valid_to)}</span>
       </span>
       <button type="button" className="p360-chip" disabled={busy} onClick={onUndo} aria-label={`Undo ${what.toLowerCase()} ${code.code}`}>
         Undo
@@ -131,7 +139,12 @@ function IssuedChip({ code, busy, onUndo }: { code: IssuedCode; busy: boolean; o
 }
 
 /** The Edit sheet: percent or rupees, the value, and how long it lasts. No free text. */
-function EditOffer({ presets, busy, onGive }: { presets: OfferPresets; busy: boolean; onGive: (terms: { kind: string; value: number; valid_days: number }) => void }) {
+function EditOffer({ presets, patientId, busy, onGive }: { presets: OfferPresets; patientId: PatientId | undefined; busy: boolean; onGive: (terms: { kind: string; value: number; valid_days: number; plan_item_id?: string }) => void }) {
+  const plans = usePlans(patientId);
+  const [aim, setAim] = useState("");
+  const open = (plans.data?.items ?? [])
+    .flatMap((plan) => plan.items)
+    .filter((item) => item.status === "proposed" || item.status === "accepted");
   const id = useId();
   const [kind, setKind] = useState(presets.offer_kind);
   const [amount, setAmount] = useState(String(presets.offer_value / 100));
@@ -188,7 +201,26 @@ function EditOffer({ presets, busy, onGive }: { presets: OfferPresets; busy: boo
           ))}
         </select>
       </label>
-      <PillButton variant="primary" disabled={!valid || busy} onClick={() => { onGive({ kind, value, valid_days: days }); }}>
+      {open.length === 0 ? null : (
+        <label htmlFor={`${id}-for`} className="mk-hint">
+          For
+          <select
+            id={`${id}-for`}
+            value={aim}
+            onChange={(event) => {
+              setAim(event.target.value);
+            }}
+          >
+            <option value="">The next treatment</option>
+            {open.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.tooth == null ? item.name : `${item.name} on ${String(item.tooth)}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <PillButton variant="primary" disabled={!valid || busy} onClick={() => { onGive({ kind, value, valid_days: days, ...(aim === "" ? {} : { plan_item_id: aim }) }); }}>
         Give offer
       </PillButton>
       {valid ? null : (

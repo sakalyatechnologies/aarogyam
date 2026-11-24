@@ -112,7 +112,7 @@ export function Celebration({ finished, patient, onClose }: { finished: Finished
         <span className="p360-cele-ok" role="status">
           <CheckCircle2 aria-hidden="true" /> Visit {finished.visit.number} closed{finished.noteSigned ? " and the note signed" : ""}
         </span>
-        <WhatsAppSummary visitId={finished.visit.id} patientName={displayName(patient.full_name).split(" ")[0] ?? ""} />
+        <WhatsAppSummary visitId={finished.visit.id} patientId={patient.id} patientName={displayName(patient.full_name).split(" ")[0] ?? ""} />
         {finished.rx === undefined ? null : <RxLink rx={finished.rx} />}
         <div className="p360-cele-foot">
           {follow !== null && can("appointments.write") ? (

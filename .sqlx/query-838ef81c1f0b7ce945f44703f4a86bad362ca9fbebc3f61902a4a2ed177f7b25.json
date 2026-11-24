@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.purpose,\n             count(*) filter (where r.redeemed_at >= $1 and r.redeemed_at < $2) as \"redeemed!\",\n             count(*) filter (where r.redeemed_at is not null and r.reversed_at >= $1 and r.reversed_at < $2) as \"reversed!\",\n             coalesce(sum(r.discount_paise) filter (where r.status = 'final' and r.redeemed_at >= $1 and r.redeemed_at < $2), 0)::bigint as \"discount!\",\n             coalesce(sum(app.invoice_total_paise(i)) filter (where r.status = 'final' and r.redeemed_at >= $1\n               and r.redeemed_at < $2 and i.status = 'issued'), 0)::bigint as \"revenue!\"\n           from aarogyam.promo_redemptions r\n           join aarogyam.promo_codes c on c.org_id = r.org_id and c.id = r.promo_code_id\n           join aarogyam.invoices i on i.org_id = r.org_id and i.id = r.invoice_id\n           where (r.redeemed_at >= $1 and r.redeemed_at < $2) or (r.reversed_at >= $1 and r.reversed_at < $2)\n           group by c.purpose",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "purpose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.promo_codes",
+            "name": "purpose"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "redeemed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "reversed!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "discount!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "revenue!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "838ef81c1f0b7ce945f44703f4a86bad362ca9fbebc3f61902a4a2ed177f7b25"
+}

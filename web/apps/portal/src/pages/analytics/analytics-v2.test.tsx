@@ -98,6 +98,27 @@ describe("Analytics (New look)", () => {
     expect(within(heat).getAllByRole("columnheader")).toHaveLength(2);
   });
 
+  it("shows the Offers card with counts per kind and says so when there are none", async () => {
+    const wrap = (client: ApiClient): ApiClient => {
+      const real = client.getOfferReport.bind(client);
+      client.getOfferReport = async (...args) => {
+        const result = await real(...args);
+        if (result.ok) {
+          result.value.by_purpose = [{ purpose: "patient_offer", issued: 4, redeemed: 3, reversed: 1, discount_paise: 120000 as never, revenue_paise: null }];
+          result.value.new_patients_referred = 2;
+        }
+        return result;
+      };
+      return client;
+    };
+    renderPortal("/analytics", { as: PEOPLE.asha, wrap });
+    await screen.findByRole("heading", { name: "Offers" });
+    const row = (await screen.findByRole("rowheader", { name: "Patient offers" })).closest("tr");
+    if (row === null) throw new Error("no row");
+    expect(within(row).getAllByRole("cell").slice(0, 3).map((c) => c.textContent)).toEqual(["4", "3", "1"]);
+    expect(screen.getByText(/2 new patients came through a friend's code/)).toBeTruthy();
+  });
+
   it("shows an empty state, not a heatmap, when the report has no occupancy", async () => {
     renderPortal("/analytics", { as: PEOPLE.asha, wrap: withReport((r) => { r.occupancy = { by_chair_hour: [], by_weekday_hour: [] }; }) });
     await screen.findByRole("heading", { name: "Chair occupancy" });

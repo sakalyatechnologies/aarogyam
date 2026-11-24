@@ -5003,6 +5003,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Offer analytics for a range. */
+        get: operations["getOfferReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/pending": {
         parameters: {
             query?: never;
@@ -12922,6 +12939,26 @@ export interface components {
             /** @description Weekday by hour, chairs added; for the weekday-by-hour heatmap. */
             by_weekday_hour: components["schemas"]["WeekdayHour"][];
         };
+        /** @description One member's counts. */
+        OfferIssuerReport: {
+            /**
+             * Format: int64
+             * @description Codes they issued.
+             */
+            issued: number;
+            /** @description The member. */
+            membership_id: string;
+            /**
+             * Format: int64
+             * @description Final redemptions with an override that they applied.
+             */
+            overrides: number;
+            /**
+             * Format: int64
+             * @description Final redemptions of codes they issued.
+             */
+            redeemed: number;
+        };
         /** @description The clinic's presets, lowered to the caller's caps. */
         OfferPresets: {
             /**
@@ -12977,6 +13014,52 @@ export interface components {
              * @description Its value.
              */
             referral_value: number;
+        };
+        /** @description One purpose's figures. */
+        OfferPurposeReport: {
+            /**
+             * Format: int64
+             * @description Σ discount of final redemptions, in paise.
+             */
+            discount_paise: number;
+            /**
+             * Format: int64
+             * @description Codes created in the range.
+             */
+            issued: number;
+            /** @description `patient_offer`, `referral` or `referrer_reward`. */
+            purpose: string;
+            /**
+             * Format: int64
+             * @description Final redemptions in the range.
+             */
+            redeemed: number;
+            /**
+             * Format: int64
+             * @description Σ total of issued, non-void bills carrying a final redemption; null without `finance.view`.
+             */
+            revenue_paise?: number | null;
+            /**
+             * Format: int64
+             * @description Final redemptions reversed in the range.
+             */
+            reversed: number;
+        };
+        /** @description Offer analytics: counts and paise only, no codes and no patients. Clinic-only. */
+        OfferReport: {
+            /** @description Per member. */
+            by_issuer: components["schemas"]["OfferIssuerReport"][];
+            /** @description Per purpose. */
+            by_purpose: components["schemas"]["OfferPurposeReport"][];
+            /** @description First clinic day. */
+            from: string;
+            /**
+             * Format: int64
+             * @description Patients whose referrer was recorded through a redemption in range.
+             */
+            new_patients_referred: number;
+            /** @description Last clinic day, included. */
+            to: string;
         };
         /**
          * @description The clinic's offer settings (`org_settings.billing.offers`). Every key is optional on read
@@ -34013,6 +34096,51 @@ export interface operations {
                 content?: never;
             };
             /** @description The role lacks finance.view */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getOfferReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description First clinic day, `YYYY-MM-DD` (default: 29 days before `to`). */
+                from: string | null;
+                /** @description Last clinic day, included (default: today). */
+                to: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferReport"];
+                };
+            };
+            /** @description A bad date or range */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks analytics.view */
             403: {
                 headers: {
                     [name: string]: unknown;

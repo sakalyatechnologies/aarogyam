@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(distinct r.patient_id) as \"n!\"\n           from aarogyam.promo_redemptions r\n           join aarogyam.promo_codes c on c.org_id = r.org_id and c.id = r.promo_code_id\n           join aarogyam.patients p on p.org_id = r.org_id and p.id = r.patient_id\n           where c.purpose = 'referral' and r.status = 'final'\n             and r.redeemed_at >= $1 and r.redeemed_at < $2\n             and p.referred_by_patient_id = c.patient_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "n!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "cb23d30a7c562bf033895bbe23df956e18ef11c23b3bd72c8d1467ab2d5a812a"
+}

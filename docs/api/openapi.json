@@ -16267,6 +16267,66 @@
         ]
       }
     },
+    "/api/v1/reports/offers": {
+      "get": {
+        "tags": [
+          "reports"
+        ],
+        "summary": "Offer analytics for a range.",
+        "operationId": "getOfferReport",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "path",
+            "description": "First clinic day, `YYYY-MM-DD` (default: 29 days before `to`).",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "to",
+            "in": "path",
+            "description": "Last clinic day, included (default: today).",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OfferReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date or range"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks analytics.view"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/reports/pending": {
       "get": {
         "tags": [
@@ -36415,6 +36475,37 @@
           }
         }
       },
+      "OfferIssuerReport": {
+        "type": "object",
+        "description": "One member's counts.",
+        "required": [
+          "membership_id",
+          "issued",
+          "redeemed",
+          "overrides"
+        ],
+        "properties": {
+          "issued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Codes they issued."
+          },
+          "membership_id": {
+            "type": "string",
+            "description": "The member."
+          },
+          "overrides": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Final redemptions with an override that they applied."
+          },
+          "redeemed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Final redemptions of codes they issued."
+          }
+        }
+      },
       "OfferPresets": {
         "type": "object",
         "description": "The clinic's presets, lowered to the caller's caps.",
@@ -36496,6 +36587,91 @@
             "type": "integer",
             "format": "int64",
             "description": "Its value."
+          }
+        }
+      },
+      "OfferPurposeReport": {
+        "type": "object",
+        "description": "One purpose's figures.",
+        "required": [
+          "purpose",
+          "issued",
+          "redeemed",
+          "reversed",
+          "discount_paise"
+        ],
+        "properties": {
+          "discount_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Σ discount of final redemptions, in paise."
+          },
+          "issued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Codes created in the range."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "`patient_offer`, `referral` or `referrer_reward`."
+          },
+          "redeemed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Final redemptions in the range."
+          },
+          "revenue_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Σ total of issued, non-void bills carrying a final redemption; null without `finance.view`."
+          },
+          "reversed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Final redemptions reversed in the range."
+          }
+        }
+      },
+      "OfferReport": {
+        "type": "object",
+        "description": "Offer analytics: counts and paise only, no codes and no patients. Clinic-only.",
+        "required": [
+          "from",
+          "to",
+          "by_purpose",
+          "new_patients_referred",
+          "by_issuer"
+        ],
+        "properties": {
+          "by_issuer": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferIssuerReport"
+            },
+            "description": "Per member."
+          },
+          "by_purpose": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OfferPurposeReport"
+            },
+            "description": "Per purpose."
+          },
+          "from": {
+            "type": "string",
+            "description": "First clinic day."
+          },
+          "new_patients_referred": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Patients whose referrer was recorded through a redemption in range."
+          },
+          "to": {
+            "type": "string",
+            "description": "Last clinic day, included."
           }
         }
       },

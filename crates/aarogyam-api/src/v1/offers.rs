@@ -5,7 +5,8 @@
 use aarogyam_app::promo as app;
 use aarogyam_domain::ids::{EncounterId, InvoiceId, PatientId};
 use aarogyam_domain::permission::require::{
-    BillingRead, BillingWrite, ClinicalRead, OffersGive, PaymentsCollect, SettingsManage,
+    AnalyticsView, BillingRead, BillingWrite, ClinicalRead, OffersGive, PaymentsCollect,
+    SettingsManage,
 };
 use aarogyam_domain::promo::DiscountKind;
 use axum::extract::State;
@@ -31,6 +32,7 @@ pub(crate) fn routes() -> Router<AppState> {
         .route("/visits/{id}/offers", get(visit_offers).post(issue))
         .route("/promo-codes/{id}/revoke", post(revoke))
         .route("/patients/{id}/offers", get(patient_offers))
+        .route("/reports/offers", get(report))
         .route("/invoices/{id}/promo", post(apply).delete(remove))
 }
 
@@ -43,6 +45,7 @@ pub(crate) fn routes() -> Router<AppState> {
     issue,
     revoke,
     patient_offers,
+    report,
     apply,
     remove
 ))]
@@ -547,4 +550,122 @@ pub(crate) async fn remove(
     )
     .await?;
     Ok(Json(view.into()))
+}
+
+/// Query of `GET /reports/offers`.
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
+pub struct OfferReportParams {
+    /// First clinic day, `YYYY-MM-DD` (default: 29 days before `to`).
+    pub from: Option<String>,
+    /// Last clinic day, included (default: today).
+    pub to: Option<String>,
+}
+
+/// One purpose's figures.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OfferPurposeReport {
+    /// `patient_offer`, `referral` or `referrer_reward`.
+    pub purpose: String,
+    /// Codes created in the range.
+    pub issued: i64,
+    /// Final redemptions in the range.
+    pub redeemed: i64,
+    /// Final redemptions reversed in the range.
+    pub reversed: i64,
+    /// Σ discount of final redemptions, in paise.
+    pub discount_paise: i64,
+    /// Σ total of issued, non-void bills carrying a final redemption; null without `finance.view`.
+    pub revenue_paise: Option<i64>,
+}
+
+/// One member's counts.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OfferIssuerReport {
+    /// The member.
+    #[schema(value_type = String)]
+    pub membership_id: Uuid,
+    /// Codes they issued.
+    pub issued: i64,
+    /// Final redemptions of codes they issued.
+    pub redeemed: i64,
+    /// Final redemptions with an override that they applied.
+    pub overrides: i64,
+}
+
+/// Offer analytics: counts and paise only, no codes and no patients. Clinic-only.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct OfferReport {
+    /// First clinic day.
+    pub from: String,
+    /// Last clinic day, included.
+    pub to: String,
+    /// Per purpose.
+    pub by_purpose: Vec<OfferPurposeReport>,
+    /// Patients whose referrer was recorded through a redemption in range.
+    pub new_patients_referred: i64,
+    /// Per member.
+    pub by_issuer: Vec<OfferIssuerReport>,
+}
+
+/// Offer analytics for a range.
+#[utoipa::path(
+    get,
+    path = "/api/v1/reports/offers",
+    operation_id = "getOfferReport",
+    tag = "reports",
+    params(OfferReportParams),
+    security(("bearer" = [])),
+    responses(
+        (status = 200, body = OfferReport),
+        (status = 400, description = "A bad date or range"),
+        (status = 401, description = "Not signed in"),
+        (status = 403, description = "The role lacks analytics.view")
+    )
+)]
+pub(crate) async fn report(
+    State(state): State<AppState>,
+    Require { request, .. }: Require<AnalyticsView>,
+    ApiQuery(params): ApiQuery<OfferReportParams>,
+) -> Result<Json<OfferReport>, ApiFailure> {
+    let from = params
+        .from
+        .map(|t| super::parse_day("from", &t))
+        .transpose()?;
+    let to = params.to.map(|t| super::parse_day("to", &t)).transpose()?;
+    let r = app::offer_report(
+        state.db(),
+        &request.actor,
+        request.request_id,
+        from,
+        to,
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    Ok(Json(OfferReport {
+        from: r.from.to_string(),
+        to: r.to.to_string(),
+        by_purpose: r
+            .by_purpose
+            .into_iter()
+            .map(|p| OfferPurposeReport {
+                purpose: p.purpose,
+                issued: p.issued,
+                redeemed: p.redeemed,
+                reversed: p.reversed,
+                discount_paise: p.discount_paise,
+                revenue_paise: r.money_visible.then_some(p.revenue_paise),
+            })
+            .collect(),
+        new_patients_referred: r.new_patients_referred,
+        by_issuer: r
+            .by_issuer
+            .into_iter()
+            .map(|i| OfferIssuerReport {
+                membership_id: i.membership_id,
+                issued: i.issued,
+                redeemed: i.redeemed,
+                overrides: i.overrides,
+            })
+            .collect(),
+    }))
 }

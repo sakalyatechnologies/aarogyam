@@ -401,7 +401,7 @@ export function createPageInsights(range: C.MetricsRange, now: Date): C.PageInsi
   const span = range === "30d" ? 30 : range === "7d" ? 7 : 2;
   const page = (app: string, route: string, index: number): C.PageStat => {
     const views = route === "/settings" ? 3 : Math.round((300 - index * 30) * span * (0.7 + random.next() * 0.6));
-    const avg = 20_000 + random.next() * 200_000 - index * 8_000;
+    const avg = Math.max(5_000, 20_000 + random.next() * 200_000 - index * 8_000);
     const shown = views >= 5;
     return { app, route, views, visible_ms: shown ? Math.round(views * avg) : null, avg_visible_ms: shown ? Math.round(avg) : null };
   };

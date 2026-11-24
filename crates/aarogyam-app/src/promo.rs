@@ -1145,3 +1145,58 @@ pub(crate) async fn rehold(
                    invoice_id = %new_invoice, status = "held", "offer held again on re-bill");
     Ok(())
 }
+
+/// The offer report: counts and paise, never codes or patients.
+#[derive(Debug)]
+pub struct OfferReport {
+    /// First clinic day.
+    pub from: Date,
+    /// Last clinic day, included.
+    pub to: Date,
+    /// Per purpose.
+    pub by_purpose: Vec<dal::PurposeFigures>,
+    /// Whether `revenue_paise` is filled in (`finance.view`).
+    pub money_visible: bool,
+    /// Patients referred through a redemption in range.
+    pub new_patients_referred: i64,
+    /// Per member.
+    pub by_issuer: Vec<dal::IssuerFigures>,
+}
+
+/// Offer analytics for a range (default the last 30 days).
+///
+/// # Errors
+/// [`AppError::Denied`] without `analytics.view`; [`AppError::Invalid`] for a bad range.
+pub async fn offer_report(
+    db: &Db,
+    actor: &ClinicActor,
+    request_id: Option<Uuid>,
+    from: Option<Date>,
+    to: Option<Date>,
+    now: OffsetDateTime,
+) -> Result<OfferReport, AppError> {
+    actor.require(Permission::AnalyticsView)?;
+    let money = actor.permissions.allows(Permission::FinanceView);
+    let to = to.unwrap_or_else(|| clinic_today(actor.timezone.as_str(), now));
+    let from = from.unwrap_or(to - Duration::days(29));
+    let days = (to - from).whole_days();
+    if !(0..731).contains(&days) {
+        return Err(AppError::invalid(
+            "from",
+            "must be within 731 days before to",
+        ));
+    }
+    let (start, end) = day_range(actor.timezone.as_str(), from, to);
+    db.scoped(&scope(actor, request_id), async |tx| {
+        let by_purpose = dal::offer_report(tx.conn(), start, end).await?;
+        Ok(OfferReport {
+            from,
+            to,
+            by_purpose,
+            money_visible: money,
+            new_patients_referred: dal::new_patients_referred(tx.conn(), start, end).await?,
+            by_issuer: dal::offer_issuers(tx.conn(), start, end).await?,
+        })
+    })
+    .await
+}

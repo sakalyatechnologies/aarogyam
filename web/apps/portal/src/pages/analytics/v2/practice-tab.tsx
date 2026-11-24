@@ -10,6 +10,7 @@ import { AGE_LABEL, REFERRAL_LABEL, VISIT_LABEL, WEEKDAY, busyGrid, hourLabel, i
 import { DonutCard } from "../breakdown-charts.js";
 import { ChairChart, PatientMixChart } from "../chair-charts.js";
 import { useAnalytics } from "../queries.js";
+import { OffersCard } from "./offers-card.js";
 import type { RangeWindow } from "./range.js";
 import { Tile } from "./tiles.js";
 
@@ -29,10 +30,10 @@ export function PracticeTab({ win }: { win: RangeWindow }) {
   if (isEmpty(report.data)) {
     return <Empty art="chart" title="Nothing to show yet">Charts fill in once the clinic has visits in this range.</Empty>;
   }
-  return <Practice report={report.data} updating={report.isPlaceholderData} />;
+  return <Practice report={report.data} updating={report.isPlaceholderData} win={win} />;
 }
 
-function Practice({ report, updating }: { report: Analytics; updating: boolean }) {
+function Practice({ report, updating, win }: { report: Analytics; updating: boolean; win: RangeWindow }) {
   const animate = useReducedMotion() !== true;
   const rows = periodRows(report);
   const t = totals(report);
@@ -74,6 +75,9 @@ function Practice({ report, updating }: { report: Analytics; updating: boolean }
         </div>
         <div className="an2-cell an2-w12">
           <ChairHoursCard report={report} />
+        </div>
+        <div className="an2-cell an2-w12">
+          <OffersCard win={win} />
         </div>
         <div className="an2-cell an2-w4">
           <DonutCard title="Age" hint="Patients seen, by age" area="an-age" data={report.patients.age_bands} labels={AGE_LABEL} unit="patients" animate={animate} />

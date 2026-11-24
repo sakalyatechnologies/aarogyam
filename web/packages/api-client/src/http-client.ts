@@ -159,6 +159,7 @@ import {
   visitPatientMessage,
   visitOffers,
   patientOffers,
+  offerReport,
   offerSettings,
   messagePreview,
   messagePrefs,
@@ -611,6 +612,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "POST", path: `/api/v1/visits/${encodeURIComponent(id)}/offers`, schema: visitOffers, body: input, signal: opts?.signal }),
     revokePromoCode: (id, input, opts) =>
       call({ method: "POST", path: `/api/v1/promo-codes/${encodeURIComponent(id)}/revoke`, schema: voidResponse, body: input, signal: opts?.signal }),
+    getOfferReport: (query, opts) =>
+      call({ method: "GET", path: "/api/v1/reports/offers", schema: offerReport, query: { from: query.from, to: query.to }, signal: opts?.signal }),
     getPatientOffers: (id, invoiceId, opts) =>
       call({
         method: "GET",

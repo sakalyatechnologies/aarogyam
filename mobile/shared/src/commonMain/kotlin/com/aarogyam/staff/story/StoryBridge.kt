@@ -4,6 +4,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -47,6 +48,11 @@ object StoryBridge {
         present: JsonObject? = null,
         shade: Int? = null,
         canSaveShade: Boolean = false,
+        xrays: JsonArray? = null,
+        chart: JsonObject? = null,
+        discussions: JsonObject? = null,
+        canWrite: Boolean = true,
+        canSeePrices: Boolean = true,
     ): String {
         val options =
             buildJsonObject {
@@ -56,6 +62,13 @@ object StoryBridge {
                 // The patient's saved tooth colour, and whether "Save colour" is offered (clinical.write).
                 if (shade != null) put("shade", shade)
                 if (canSaveShade) put("can_save_shade", true)
+                // Bridge v3: X-rays with signed links and pins, the dental chart, saved discussions.
+                if (!xrays.isNullOrEmpty()) put("xrays", xrays)
+                if (chart != null) put("chart", chart)
+                if (discussions != null) put("discussions", discussions)
+                // The page defaults both to true, so only a "no" is sent.
+                if (!canWrite) put("can_write", false)
+                if (!canSeePrices) put("can_see_prices", false)
                 // The Beta looks the switcher may offer (founder, 23 Nov): they keep their Beta tag.
                 put("betas", JsonArray(BETAS.map { JsonPrimitive(it) }))
             }
@@ -135,10 +148,37 @@ object StoryBridge {
                 int("shade")?.takeIf { it in 0..100 }?.let { PageMessage.SaveShade(it) }
             }
 
+            "save_pins" -> {
+                val id = str("attachment_id")?.takeIf { it.isNotBlank() }
+                val pins = (body["pins"] as? JsonArray)?.takeIf { it.size <= MAX_PINS && it.all(::validPin) }
+                if (id == null || pins == null) null else PageMessage.SavePins(id, pins)
+            }
+
+            "save_discussion" -> {
+                val valid =
+                    int("tooth") != null && !str("situation").isNullOrBlank() &&
+                        (body["options"] as? JsonArray)?.all { o ->
+                            o is JsonObject && (o["key"] as? JsonPrimitive)?.contentOrNull != null &&
+                                (o["preferred"] as? JsonPrimitive)?.booleanOrNull != null
+                        } == true
+                if (valid) PageMessage.SaveDiscussion(JsonObject(body.filterKeys { it != "type" })) else null
+            }
+
             else -> {
                 null
             }
         }
+    }
+
+    /** The most pins one X-ray may carry. */
+    private const val MAX_PINS = 200
+
+    /** A pin is `{tooth, x, y, label?}` with x and y as fractions of the image. */
+    private fun validPin(pin: kotlinx.serialization.json.JsonElement): Boolean {
+        val o = pin as? JsonObject ?: return false
+
+        fun fraction(key: String) = (o[key] as? JsonPrimitive)?.doubleOrNull?.let { it in 0.0..1.0 } == true
+        return (o["tooth"] as? JsonPrimitive)?.intOrNull != null && fraction("x") && fraction("y")
     }
 }
 
@@ -186,5 +226,16 @@ sealed interface PageMessage {
     /** "Save colour": the app saves [shade] (0 lightest to 100 deepest) as the patient's tooth colour. */
     data class SaveShade(
         val shade: Int,
+    ) : PageMessage
+
+    /** The doctor edited the pins on an X-ray: the whole set for [attachmentId], `[]` clears. */
+    data class SavePins(
+        val attachmentId: String,
+        val pins: JsonArray,
+    ) : PageMessage
+
+    /** "Save" in What we discussed: [body] is the message minus its type, as the API takes it. */
+    data class SaveDiscussion(
+        val body: JsonObject,
     ) : PageMessage
 }

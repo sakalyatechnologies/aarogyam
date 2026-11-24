@@ -22,6 +22,7 @@ private struct PresentBody: View {
     let holder: PresentStateHolder
     let state: PresentState
     @State private var webView: WKWebView?
+    @State private var toast: String?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var scheme
     @Environment(\.skTheme) private var theme
@@ -38,6 +39,16 @@ private struct PresentBody: View {
             .skGlassButton()
             .accessibilityLabel(CL("c.present.back"))
             .padding(.leading, SkSpacing.l)
+            if let toast {
+                Text(toast)
+                    .font(.callout)
+                    .foregroundStyle(theme.roles.onSurface.color)
+                    .padding(SkSpacing.l)
+                    .background(.regularMaterial, in: Capsule())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, SkSpacing.l)
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
         }
         .task(id: webView == nil) {
             guard let webView else { return }
@@ -45,7 +56,16 @@ private struct PresentBody: View {
         }
         .task {
             for await event in holder.events {
-                if case .exit = onEnum(of: event) { dismiss() }
+                switch onEnum(of: event) {
+                case .exit: dismiss()
+                case .visitClosed:
+                    toast = CL("c.present.visit_closed")
+                    Task {
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        toast = nil
+                    }
+                default: break
+                }
             }
         }
         .onAppear { holder.setDark(dark: scheme == .dark) }

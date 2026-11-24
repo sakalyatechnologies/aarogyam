@@ -48,6 +48,29 @@
         }
       }
     },
+    "c.present.visit_closed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This visit is closed; the change wasn't saved."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह विज़िट बंद है; बदलाव सहेजा नहीं गया।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ही भेट बंद आहे; बदल जतन झाला नाही."
+          }
+        }
+      }
+    },
     "c.present.unsupported": {
       "extractionState": "manual",
       "localizations": {

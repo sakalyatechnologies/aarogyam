@@ -43,7 +43,12 @@ class PresentTest {
             val script = present.scripts.first()
             assertEquals(PresentState.Showing, present.state.value)
             assertTrue(script.startsWith("window.aarogyam.present({"), script)
-            assertTrue(script.endsWith(""", {"dark":false,"betas":["smile3d","face"]})"""), script)
+            assertTrue(
+                script.endsWith(
+                    """, {"dark":false,"can_write":false,"can_see_prices":false,"betas":["smile3d","face"]})""",
+                ),
+                script,
+            )
             assertTrue("\\u2028" in script && " " !in script, "a line separator is escaped for the script")
             val sent =
                 script
@@ -53,7 +58,11 @@ class PresentTest {
                     .replace("\\u2028", " ")
             assertEquals(Json.parseToJsonElement(mouth).jsonObject, Json.parseToJsonElement(sent).jsonObject)
             present.setDark(true)
-            assertTrue(present.scripts.first().endsWith(""", {"dark":true,"betas":["smile3d","face"]})"""))
+            assertTrue(
+                present.scripts.first().endsWith(
+                    """, {"dark":true,"can_write":false,"can_see_prices":false,"betas":["smile3d","face"]})""",
+                ),
+            )
         }
 
     @Test
@@ -160,6 +169,115 @@ class PresentTest {
             reader.onPageMessage("""{"type":"ready","bundle_version":1}""")
             val read = reader.scripts.first()
             assertTrue(read.contains(""""shade":70""") && "can_save_shade" !in read, read)
+        }
+
+    private val visitJson =
+        """{"visit":{"id":"v1","number":"V-1","patient_id":"p1","status":"open",""" +
+            """"started_at":"2026-11-23T04:30:00Z",""" +
+            """"clinician":{"id":"m1","name":"Dr. A"}},"notes":[],"procedures":[],"chart_entries":[],""" +
+            """"attachments":[],"observations":[]}"""
+
+    private fun bridgeBackend(): FakeBackend {
+        val backend = FakeBackend()
+        backend.on(route, { json(mouth) })
+        backend.on("$SUNRISE/api/v1/visits/v1", { json(visitJson) })
+        backend.on(
+            "$SUNRISE/api/v1/patients/p1/attachments",
+            {
+                json(
+                    """{"items":[""" +
+                        """{"id":"a-old","kind":"xray","mime_type":"image/jpeg",""" +
+                        """"created_at":"2026-11-01T00:00:00Z"},""" +
+                        """{"id":"a-doc","kind":"report","mime_type":"application/pdf",""" +
+                        """"created_at":"2026-11-22T00:00:00Z"},""" +
+                        """{"id":"a-here","kind":"xray","mime_type":"image/png","visit_id":"v1",""" +
+                        """"created_at":"2026-10-01T00:00:00Z"}]}""",
+                )
+            },
+        )
+        backend.on("$SUNRISE/api/v1/attachments/a-here/pins", { json("""{"pins":[{"tooth":36,"x":0.5,"y":0.25}]}""") })
+        backend.on("$SUNRISE/api/v1/attachments/a-old/pins", { json("""{"pins":[]}""") })
+        backend.on(
+            "$SUNRISE/api/v1/attachments/a-here/download",
+            { json("""{"url":"/api/v1/attachments/a-here/content?t=s1","expires_at":"x"}""") },
+        )
+        backend.on(
+            "$SUNRISE/api/v1/attachments/a-old/download",
+            { json("""{"url":"/api/v1/attachments/a-old/content?t=s2","expires_at":"x"}""") },
+        )
+        backend.on("$SUNRISE/api/v1/patients/p1/dental-chart", { json("""{"teeth":[]}""") })
+        backend.on("$SUNRISE/api/v1/visits/v1/present-discussions", { json("""{"discussions":[{"tooth":36}]}""") })
+        return backend
+    }
+
+    @Test
+    fun the_xrays_chart_and_discussions_reach_the_page_and_a_reader_cannot_write() =
+        runTest {
+            val backend = bridgeBackend()
+            val present = open(backend, permissions = listOf("clinical.read", "clinical.write", "billing.read"))
+            present.onPageMessage("""{"type":"ready","bundle_version":1}""")
+            val script = present.scripts.first()
+            assertTrue(
+                script.indexOf(""""id":"a-here"""") in 0 until script.indexOf(""""id":"a-old""""),
+                "this visit's X-ray first",
+            )
+            assertTrue(""""pins":[{"tooth":36,"x":0.5,"y":0.25}]""" in script, script)
+            assertTrue("a-doc" !in script, "only X-rays go")
+            assertTrue(""""chart":{"teeth":[]}""" in script, script)
+            assertTrue(""""discussions":{"discussions":[{"tooth":36}]}""" in script, script)
+            assertTrue("can_write" !in script && "can_see_prices" !in script, script)
+
+            val reader = open(backend)
+            reader.onPageMessage("""{"type":"ready","bundle_version":1}""")
+            val read = reader.scripts.first()
+            assertTrue(""""can_write":false""" in read && """"can_see_prices":false""" in read, read)
+            reader.onPageMessage("""{"type":"save_pins","attachment_id":"a-here","pins":[]}""")
+            reader.onPageMessage(
+                """{"type":"save_discussion","tooth":36,"situation":"decay","options":[],"send_to_patient":false}""",
+            )
+            kotlinx.coroutines.delay(1_500)
+            val writes = backend.requests.filter { it.method.value in setOf("PUT", "POST") }
+            assertTrue(writes.none { "pins" in it.url.encodedPath || "discussions" in it.url.encodedPath })
+        }
+
+    @Test
+    fun save_pins_is_coalesced_and_save_discussion_posts_and_a_409_says_the_visit_is_closed() =
+        runTest {
+            val backend = bridgeBackend()
+            backend.on("$SUNRISE/api/v1/visits/v1/present-discussions", {
+                if (it.method.value == "POST") {
+                    apiError(HttpStatusCode.Conflict, "conflict")
+                } else {
+                    json("""{"discussions":[]}""")
+                }
+            })
+            val present = open(backend, permissions = listOf("clinical.read", "clinical.write"))
+            present.onPageMessage("""{"type":"ready","bundle_version":1}""")
+            present.scripts.first()
+            present.onPageMessage(
+                """{"type":"save_pins","attachment_id":"a-here","pins":[{"tooth":11,"x":0.1,"y":0.2}]}""",
+            )
+            present.onPageMessage(
+                """{"type":"save_pins","attachment_id":"a-here","pins":[{"tooth":12,"x":0.3,"y":0.4}]}""",
+            )
+            present.onPageMessage(
+                """{"type":"save_discussion","tooth":36,"situation":"decay",""" +
+                    """"options":[{"key":"filling","preferred":true}],"send_to_patient":true}""",
+            )
+            assertEquals(PresentEvent.VisitClosed, present.events.first())
+            kotlinx.coroutines.delay(1_500)
+            com.aarogyam.staff.desk
+                .until { backend.requests.any { it.method.value == "PUT" } }
+            val puts = backend.requests.filter { it.method.value == "PUT" && it.url.encodedPath.endsWith("/pins") }
+            assertEquals(1, puts.size, "two edits, one PUT")
+            val post = backend.requests.single { it.method.value == "POST" && "discussions" in it.url.encodedPath }
+            assertEquals("/api/v1/visits/v1/present-discussions", post.url.encodedPath)
+
+            assertNull(
+                StoryBridge.parse("""{"type":"save_pins","attachment_id":"a","pins":[{"tooth":11,"x":3,"y":0.2}]}"""),
+            )
+            assertNull(StoryBridge.parse("""{"type":"save_pins","pins":[]}"""))
+            assertNull(StoryBridge.parse("""{"type":"save_discussion","tooth":36,"options":[]}"""))
         }
 
     @Test

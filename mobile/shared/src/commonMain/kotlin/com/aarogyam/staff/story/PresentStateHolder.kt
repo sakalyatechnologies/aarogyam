@@ -1,6 +1,8 @@
 package com.aarogyam.staff.story
 
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.saveAttachmentPins
+import com.aarogyam.staff.api.savePresentDiscussion
 import com.aarogyam.staff.api.savePresentStyle
 import com.aarogyam.staff.api.saveSmileShade
 import com.aarogyam.staff.api.smileShade
@@ -12,14 +14,17 @@ import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -49,6 +54,9 @@ sealed interface PresentEvent {
     data class AddDepth(
         val tooth: Int,
     ) : PresentEvent
+
+    /** A save was refused because the visit is closed: tell the doctor it wasn't saved. */
+    data object VisitClosed : PresentEvent
 }
 
 /**
@@ -79,6 +87,12 @@ class PresentStateHolder(
     private var style: String? = null
     private var patientId: String? = null
     private var shade: Int? = null
+    private var extras = PresentExtras()
+
+    /** The newest pins per X-ray, kept so a later redraw (dark mode) shows them before the server round trip. */
+    private val pinEdits = mutableMapOf<String, JsonArray>()
+    private val pinJobs = mutableMapOf<String, Job>()
+    private var showJob: Job? = null
     private var pageReady = false
     private var dark = false
     private var loading = false
@@ -116,6 +130,14 @@ class PresentStateHolder(
                 saveShade(message.shade)
             }
 
+            is PageMessage.SavePins -> {
+                savePins(message.attachmentId, message.pins)
+            }
+
+            is PageMessage.SaveDiscussion -> {
+                saveDiscussion(message.body)
+            }
+
             // Video messages belong to the Done screen's render.
             else -> {}
         }
@@ -144,14 +166,19 @@ class PresentStateHolder(
             val extras = async { clinic.api.visitPresent(visitId) }
             val prefs = async { clinic.api.uiPrefs() }
             // The visit names the patient, whose saved tooth colour the page opens on.
-            val shadeOf =
+            val patientOf =
                 async {
                     val patient = patientId ?: (clinic.api.visit(visitId) as? Outcome.Success)?.value?.visit?.patientId
                     patientId = patient
-                    patient?.let { (clinic.api.smileShade(it) as? Outcome.Success)?.value }
+                    patient
                 }
+            val shadeOf =
+                async { patientOf.await()?.let { (clinic.api.smileShade(it) as? Outcome.Success)?.value } }
+            // X-rays, chart and discussions: each part that fails is simply left out.
+            val extrasOf = async { patientOf.await()?.let { PresentExtras.fetch(clinic, visitId, it) } }
             val result = clinic.api.visitMouth(visitId)
             shadeOf.await()?.let { shade = it.shade }
+            extrasOf.await()?.let { this@PresentStateHolder.extras = it }
             present = (extras.await() as? Outcome.Success)?.value ?: present
             style = (prefs.await() as? Outcome.Success)
                 ?.value
@@ -180,8 +207,70 @@ class PresentStateHolder(
         val snapshot = mouth ?: return
         if (!pageReady || mutableState.value == PresentState.Unsupported) return
         val canSave = patientId != null && "clinical.write" in clinic.permissions
-        scriptQueue.trySend(StoryBridge.present(snapshot, dark, style, present, shade, canSave))
         mutableState.value = PresentState.Showing
+        // The X-ray links are signed just before the page gets them (they last five minutes).
+        showJob?.cancel()
+        showJob =
+            scope.launch {
+                val xrays = extras.xrayOptions(clinic, pinEdits)
+                val canSeePrices = "billing.read" in clinic.permissions
+                scriptQueue.trySend(
+                    StoryBridge.present(
+                        snapshot,
+                        dark,
+                        style,
+                        present,
+                        shade,
+                        canSave,
+                        xrays = xrays,
+                        chart = extras.chart,
+                        discussions = extras.discussions,
+                        canWrite = "clinical.write" in clinic.permissions,
+                        canSeePrices = canSeePrices,
+                    ),
+                )
+            }
+    }
+
+    /** Keeps only the latest pins per X-ray and sends them after [PIN_QUIET_MS] without another edit. */
+    private fun savePins(
+        attachmentId: String,
+        pins: JsonArray,
+    ) {
+        if ("clinical.write" !in clinic.permissions) return
+        pinEdits[attachmentId] = pins
+        pinJobs[attachmentId]?.cancel()
+        pinJobs[attachmentId] =
+            scope.launch {
+                delay(PIN_QUIET_MS)
+                when (val saved = clinic.api.saveAttachmentPins(attachmentId, pins)) {
+                    is Outcome.Success -> {
+                        log.info("present.pins_saved") { id("attachment", attachmentId) }
+                    }
+
+                    is Outcome.Failure -> {
+                        log.warn("present.pins_save_failed") { code("error", saved.error.code.value) }
+                        if (saved.error.status == CONFLICT) eventQueue.trySend(PresentEvent.VisitClosed)
+                    }
+                }
+            }
+    }
+
+    /** Saves one tooth's discussion; the page already shows "Saved", so a refusal is told by [PresentEvent.VisitClosed]. */
+    private fun saveDiscussion(body: JsonObject) {
+        if ("clinical.write" !in clinic.permissions) return
+        scope.launch {
+            when (val saved = clinic.api.savePresentDiscussion(visitId, body)) {
+                is Outcome.Success -> {
+                    log.info("present.discussion_saved") { id("visit", visitId) }
+                }
+
+                is Outcome.Failure -> {
+                    log.warn("present.discussion_save_failed") { code("error", saved.error.code.value) }
+                    if (saved.error.status == CONFLICT) eventQueue.trySend(PresentEvent.VisitClosed)
+                }
+            }
+        }
     }
 
     /** Saves [chosen] as the doctor's own default look; a change without it lasts only this session. */
@@ -206,5 +295,10 @@ class PresentStateHolder(
                 is Outcome.Failure -> log.warn("present.shade_save_failed") { code("error", saved.error.code.value) }
             }
         }
+    }
+
+    private companion object {
+        const val PIN_QUIET_MS = 800L
+        const val CONFLICT = 409
     }
 }

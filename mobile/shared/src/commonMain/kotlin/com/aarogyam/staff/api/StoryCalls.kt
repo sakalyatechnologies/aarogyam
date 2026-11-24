@@ -10,6 +10,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -70,4 +71,44 @@ suspend fun ClinicApi.saveSmileShade(
         url("api/v1/patients/${patientId.encodeURLPathPart()}/smile-shade")
         contentType(ContentType.Application.Json)
         setBody(SmileShade(shade = shade))
+    }
+
+/** `GET /api/v1/patients/{id}/attachments`: the patient's files (newest first), raw so the story code reads only what it needs. */
+suspend fun ClinicApi.attachmentsRaw(patientId: String): Outcome<JsonObject, ApiError> =
+    client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/attachments") }
+
+/** `GET /api/v1/patients/{id}/dental-chart`: every tooth's findings, raw for the story page's "Chart" look. */
+suspend fun ClinicApi.dentalChartRaw(patientId: String): Outcome<JsonObject, ApiError> =
+    client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/dental-chart") }
+
+/** `GET /api/v1/attachments/{id}/pins`: the pins on one X-ray (`{pins:[{tooth,x,y,label?}]}`). */
+suspend fun ClinicApi.attachmentPins(attachmentId: String): Outcome<JsonObject, ApiError> =
+    client.call { url("api/v1/attachments/${attachmentId.encodeURLPathPart()}/pins") }
+
+/** `PUT /api/v1/attachments/{id}/pins`: replaces the whole set of pins (clinical.write). */
+suspend fun ClinicApi.saveAttachmentPins(
+    attachmentId: String,
+    pins: JsonArray,
+): Outcome<JsonObject, ApiError> =
+    client.call {
+        method = HttpMethod.Put
+        url("api/v1/attachments/${attachmentId.encodeURLPathPart()}/pins")
+        contentType(ContentType.Application.Json)
+        setBody(JsonObject(mapOf("pins" to pins)))
+    }
+
+/** `GET /api/v1/visits/{id}/present-discussions`: what was discussed on this visit, raw. */
+suspend fun ClinicApi.presentDiscussions(visitId: String): Outcome<JsonObject, ApiError> =
+    client.call { url("api/v1/visits/${visitId.encodeURLPathPart()}/present-discussions") }
+
+/** `POST /api/v1/visits/{id}/present-discussions`: saves one discussion; 409 when the visit is closed (clinical.write). */
+suspend fun ClinicApi.savePresentDiscussion(
+    visitId: String,
+    body: JsonObject,
+): Outcome<JsonObject, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/visits/${visitId.encodeURLPathPart()}/present-discussions")
+        contentType(ContentType.Application.Json)
+        setBody(body)
     }

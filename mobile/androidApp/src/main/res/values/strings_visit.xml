@@ -157,6 +157,7 @@
     <string name="vv_present_open">Show patient</string>
     <string name="vv_present_failed">Couldn’t load the mouth view. Check the connection and try again.</string>
     <string name="vv_present_unsupported">This app version can’t show the mouth view. Update the app.</string>
+    <string name="vv_present_visit_closed">This visit is closed; the change wasn’t saved.</string>
     <string name="vv_present_retry">Try again</string>
     <string name="vv_present_close">Close</string>
     <string name="vv_dv10_fu_none">Not needed</string>

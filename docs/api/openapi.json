@@ -29023,6 +29023,13 @@
           "y"
         ],
         "properties": {
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A short note on the pin, at most 80 characters; trimmed, and empty is saved as none."
+          },
           "tooth": {
             "type": "integer",
             "format": "int64",

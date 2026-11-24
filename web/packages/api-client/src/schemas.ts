@@ -2462,7 +2462,7 @@ export const presentDiscussionList = z.object({ discussions: z.array(presentDisc
 export type PresentDiscussion = z.output<typeof presentDiscussion>;
 export type PresentDiscussionList = z.output<typeof presentDiscussionList>;
 /** A tooth pinned on an X-ray or photo, as fractions of the image in its own orientation. */
-export const imagePin = z.object({ tooth: z.number().int(), x: z.number(), y: z.number() }) satisfies z.ZodType<C.ImagePin>;
+export const imagePin = z.object({ tooth: z.number().int(), x: z.number(), y: z.number(), label: optionalText }) satisfies z.ZodType<C.ImagePin>;
 export const imagePins = z.object({ pins: z.array(imagePin) }) satisfies z.ZodType<C.ImagePins>;
 export type ImagePin = z.output<typeof imagePin>;
 export type ImagePins = z.output<typeof imagePins>;

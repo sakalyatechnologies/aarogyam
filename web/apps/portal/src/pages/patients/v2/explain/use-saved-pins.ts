@@ -35,13 +35,13 @@ export function useSavedPins(imageId: AttachmentId | undefined): SavedPins {
     if (job === undefined) return;
     waiting.current = undefined;
     saveMutation(
-      { imageId: job.imageId, pins: { pins: job.pins.map((p) => ({ tooth: p.tooth, x: p.x, y: p.y })) } },
+      { imageId: job.imageId, pins: { pins: job.pins.map((p) => ({ tooth: p.tooth, x: p.x, y: p.y, label: p.label })) } },
       { onSuccess: () => { setFailed(false); }, onError: () => { setFailed(true); waiting.current = job; } },
     );
   }, [saveMutation]);
 
   const saved = useMemo<readonly Pin[]>(
-    () => (imageId === undefined ? [] : (loaded.data?.pins ?? []).map((p, i) => ({ id: i + 1, imageId, x: p.x, y: p.y, tooth: p.tooth, label: "" }))),
+    () => (imageId === undefined ? [] : (loaded.data?.pins ?? []).map((p, i) => ({ id: i + 1, imageId, x: p.x, y: p.y, tooth: p.tooth, label: p.label ?? "" }))),
     [imageId, loaded.data],
   );
   const pins = (imageId === undefined ? undefined : edited.get(imageId)) ?? saved;

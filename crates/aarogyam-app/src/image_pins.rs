@@ -15,10 +15,11 @@ use crate::error::AppError;
 use crate::scope::staff_scope;
 
 const MAX_PINS: usize = 64;
+const MAX_LABEL: usize = 80;
 
 /// A pin: a tooth at a place on the image, as fractions of its width and height in the image's
 /// own orientation.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Pin {
     /// FDI tooth.
     pub tooth: u8,
@@ -26,6 +27,8 @@ pub struct Pin {
     pub x: f32,
     /// Down, 0 to 1.
     pub y: f32,
+    /// The doctor's short note, if any.
+    pub label: Option<String>,
 }
 
 fn view(row: &PinRow) -> Result<Pin, AppError> {
@@ -33,6 +36,7 @@ fn view(row: &PinRow) -> Result<Pin, AppError> {
         tooth: u8::try_from(row.tooth).map_err(|_| AppError::Internal("a stored pin is bad"))?,
         x: row.x,
         y: row.y,
+        label: row.label.clone(),
     })
 }
 
@@ -69,20 +73,21 @@ pub async fn list(
 ///
 /// # Errors
 /// [`AppError::Invalid`] for a bad tooth, a place outside the image, a tooth twice or too many
-/// pins; [`AppError::NotFound`] when the file isn't in this clinic or reach.
+/// pins or a label over 80 characters; [`AppError::NotFound`] when the file isn't in this clinic or reach.
 pub async fn replace(
     db: &Db,
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     attachment: AttachmentId,
-    pins: &[(i64, f32, f32)],
+    pins: &[(i64, f32, f32, Option<String>)],
 ) -> Result<Vec<Pin>, AppError> {
     actor.require(Permission::ClinicalWrite)?;
     if pins.len() > MAX_PINS {
         return Err(AppError::invalid("pins", "at most 64 pins"));
     }
     let mut rows: Vec<PinRow> = Vec::with_capacity(pins.len());
-    for &(tooth, x, y) in pins {
+    for (tooth, x, y, label) in pins {
+        let (tooth, x, y) = (*tooth, *x, *y);
         let tooth =
             Tooth::new(tooth).map_err(|_| AppError::invalid("tooth", "not an FDI tooth"))?;
         if !(0.0..=1.0).contains(&x) || !(0.0..=1.0).contains(&y) {
@@ -92,7 +97,16 @@ pub async fn replace(
         if rows.iter().any(|r| r.tooth == tooth) {
             return Err(AppError::invalid("pins", "one pin per tooth"));
         }
-        rows.push(PinRow { tooth, x, y });
+        let label = label.as_deref().map(str::trim).filter(|l| !l.is_empty());
+        if label.is_some_and(|l| l.chars().count() > MAX_LABEL) {
+            return Err(AppError::invalid("label", "at most 80 characters"));
+        }
+        rows.push(PinRow {
+            tooth,
+            x,
+            y,
+            label: label.map(str::to_owned),
+        });
     }
     db.scoped(&staff_scope(actor, request_id), async |tx| {
         let file = attachments::get(

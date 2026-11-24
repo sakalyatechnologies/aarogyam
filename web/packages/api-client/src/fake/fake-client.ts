@@ -5805,7 +5805,10 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (!state.attachments.some((a) => a.id === id && a.clinic_id === caller.clinic.id)) {
             return notFound;
           }
-          const pins = input.pins.toSorted((a, b) => a.tooth - b.tooth);
+          // Like the server: the note is trimmed, and an empty one is none.
+          const pins = input.pins
+            .map(({ label, ...rest }) => (label?.trim() ? { ...rest, label: label.trim() } : rest))
+            .toSorted((a, b) => a.tooth - b.tooth);
           imagePins.set(id, pins);
           return reply({ pins });
         }),

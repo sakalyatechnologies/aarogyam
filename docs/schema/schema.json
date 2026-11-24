@@ -6317,6 +6317,13 @@
      "nullable": false,
      "ref": null,
      "note": "down the image as a fraction of its height, 0 to 1"
+    },
+    {
+     "name": "label",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the doctor's short note on the pin, at most 80 characters (migration 0757)"
     }
    ],
    "referenced_by": [],

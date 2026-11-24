@@ -9868,6 +9868,8 @@ export interface components {
         };
         /** @description A tooth pinned on an image. */
         ImagePin: {
+            /** @description A short note on the pin, at most 80 characters; trimmed, and empty is saved as none. */
+            label?: string | null;
             /**
              * Format: int64
              * @description FDI tooth.

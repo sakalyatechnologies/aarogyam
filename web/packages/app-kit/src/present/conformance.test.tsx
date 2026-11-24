@@ -106,9 +106,9 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
     // the drawn styles only: the X-ray is the patient's own image, with no painting and no dots
     it.skipIf(_id === "xray" || _id === "face" || _id === "smile3d")("the picture carries the dashed 'Painting based on your record' and the provenance footer", () => {
       const { container } = setup();
-      const dashed = [...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent);
-      expect(dashed).toContain("Painting based on your record");
-      expect(container.querySelector(".ps-prov")).not.toBeNull();
+      const chips = [...container.querySelectorAll(".ps-prov summary .ps-badge-ill")].map((b) => b.textContent);
+      expect(chips).toContain("Illustration");
+      expect(container.querySelector(".ps-prov")?.textContent.toLowerCase()).toContain("painting based on your record");
     });
 
     it.skipIf(_id === "xray" || _id === "smile3d")("dots only on recorded items: one per tooth with facts", () => {
@@ -217,7 +217,7 @@ describe.each(Object.entries(FIXTURES))("conformance: tooth sheet, %s", (_name, 
         const badge = container.querySelector(`[data-fact="${f.id}"] .ps-badge-rec`)?.textContent;
         expect(badge, f.id).toMatch(f.recorded_on === undefined ? /^Recorded$/ : /^Recorded \d{1,2} [A-Z][a-z]{2}$/);
       }
-      if (container.querySelector("[data-pair] svg") !== null) expect([...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent)).toContain("Painting based on your record");
+      if (container.querySelector("[data-pair] svg") !== null) expect([...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent)).toContain("Illustration");
       unmount();
     }
   });

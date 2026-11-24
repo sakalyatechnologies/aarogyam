@@ -97,12 +97,22 @@ export function FactList({ model, onOpen, numbered = true, onBitingSide, pastBeh
   );
 }
 
-/** What in the current picture is recorded and what is illustration (§11.1). */
+/**
+ * What in the current picture is recorded and what is illustration (§11.1). One compact line of chips;
+ * "About this picture" unfolds the sentences (the words stay, just folded).
+ */
 export function ProvenanceFooter({ recorded, illustration }: { recorded: readonly string[]; illustration: readonly string[] }): ReactElement {
   return (
     <footer className="ps-prov" aria-label="Where this comes from">
-      {recorded.length === 0 ? null : <p><RecordBadge /> {recorded.join(" ")}</p>}
-      {illustration.length === 0 ? null : <p><IllustrationBadge>Illustration</IllustrationBadge> {illustration.join(" ")}</p>}
+      <details className="ps-prov-d">
+        <summary>
+          {recorded.length === 0 ? null : <RecordBadge />}
+          {illustration.length === 0 ? null : <IllustrationBadge>Illustration</IllustrationBadge>}
+          <span className="ps-prov-more">About this picture</span>
+        </summary>
+        {recorded.length === 0 ? null : <p><RecordBadge /> {recorded.join(" ")}</p>}
+        {illustration.length === 0 ? null : <p><IllustrationBadge>Illustration</IllustrationBadge> {illustration.join(" ")}</p>}
+      </details>
     </footer>
   );
 }

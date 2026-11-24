@@ -95,7 +95,6 @@ export function PaintedMap({ model, orientation, shade, theme, onOpen }: Pick<Pa
       </svg>
     </div>
     <div className="ps-caption">
-      <IllustrationBadge>Painting based on your record</IllustrationBadge>
       {examples.length === 0 ? null : <IllustrationBadge>Wisdom teeth: example, not your tooth</IllustrationBadge>}
       <span className="ps-muted">{dots.length === 0 ? "Nothing is recorded for this visit yet. Tap any tooth to look closer." : "Tap a numbered dot or any tooth to look closer."}</span>
     </div>

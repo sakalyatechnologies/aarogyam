@@ -222,7 +222,7 @@ describe("Present mode (§1.12)", () => {
     await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
     expect(shell.querySelector("[data-story-card='mouth']")).not.toBeNull();
     await waitFor(() => { expect([...shell.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")))).toEqual([55, 21, 65, 75]); }, WAIT);
-    expect(within(shell).getByText("Painting based on your record")).toBeTruthy();
+    expect(within(shell).getByText("About this picture")).toBeTruthy();
     expect(within(shell).queryByRole("group", { name: "Chart look" })).toBeNull();
     await user.click(within(shell).getByRole("button", { name: "Next card" }));
     expect(within(shell).getByRole("region", { name: "What we found" })).toBeTruthy();

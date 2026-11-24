@@ -102,7 +102,7 @@ describe("Open wide block", () => {
     fireEvent.click(dot36);
     fireEvent.keyDown(dot36, { key: "Enter" });
     expect(opened).toEqual([36, 36]);
-    expect(container.textContent).toContain("Painting based on your record");
+    expect(container.querySelector(".ps-badge-ill")).not.toBeNull();
     expect(container.textContent).toContain("Your right");
   });
 

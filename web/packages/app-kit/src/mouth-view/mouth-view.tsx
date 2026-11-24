@@ -7,9 +7,9 @@ import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, 
 import { archLayout, type ArchSlot } from "../mouth-art/arch.js";
 import { eruptionScene } from "../mouth-art/eruption.js";
 import { loadShapes, loadStageArt, loadToothArt, neighborOf, toothTypeOf } from "../mouth-art/loaders.js";
-import { overlayPart, viewsForSurface } from "../mouth-art/overlays.js";
+import { overlayPart } from "../mouth-art/overlays.js";
 import { ArtSvg } from "../mouth-art/react.js";
-import { anchorBoxes, apply, stagePart, toothScene } from "../mouth-art/scene.js";
+import { stagePart, toothScene } from "../mouth-art/scene.js";
 import { STAGE_CALLOUTS, sceneArt, type StageModel } from "../mouth-art/stage-steps.js";
 import type { Scene, ShapeSet, StageSet, ToothArt, ToothType, ViewName } from "../mouth-art/types.js";
 import type { Tooth3dHandle, Tooth3dOptions } from "../real-teeth-3d/index.js";
@@ -17,6 +17,7 @@ import {
   FOUND_STEP, details3d, isAngulation, isEruption, archStates, dayLabel, isRecommended, isToday, todayLine, detailChips, detailOverlays, detailTitle, ifWaitFrames, mainTreatment, materialWords, originWords, overlaysFor, spokenLabel,
   stageParams, stateFor, stepLabels, stepOverlays, summaryCounts, toothInfo, usuallyText, withFoundStep, type Badge, type Chip, type PositionState, type Snapshot,
 } from "./model.js";
+import { waitScenes } from "./wait-scenes.js";
 
 // ---------- lazy art, cached for the page's life ----------
 
@@ -759,27 +760,8 @@ function Callouts({ boxRef, items, sceneKey }: { boxRef: RefObject<HTMLDivElemen
 
 // ---------- "If you wait" (DT4) ----------
 
-/** Zooms a section scene to the crown and the top of the root, where decay grows. */
-function crownCrop(sc: Scene, art: ToothArt, view: ViewName): Scene {
-  const c = anchorBoxes(art.anchors["crown"])[0];
-  if (view !== "section" || c === undefined) return sc;
-  const [x, y, w, h] = c;
-  const pad = w * 0.12;
-  const m = sc.outer ?? [1, 0, 0, 1, 0, 0];
-  const [ax, ay] = apply(m, x - pad, y), [bx, by] = apply(m, x + w + pad, y + h);
-  const top = Math.min(ay, by), bottom = Math.max(ay, by);
-  // the root lies towards the middle of the full picture
-  const down = (top + bottom) / 2 < sc.box[1] + sc.box[3] / 2;
-  const y0 = down ? top - h * 0.25 : top - h * 0.9, y1 = down ? bottom + h * 0.9 : bottom + h * 0.25;
-  return { ...sc, box: [Math.min(ax, bx), y0, Math.abs(ax - bx), y1 - y0] };
-}
-
 function IfYouWait({ wait, art, shapes, fdi, name }: { wait: NonNullable<ReturnType<typeof ifWaitFrames>>; art: ToothArt; shapes: ShapeSet; fdi: number; name: string | undefined }): ReactElement {
-  const view: ViewName = viewsForSurface(wait.surface)[0] ?? "section";
-  const scenes = useMemo(() => wait.frames.map((f) => {
-    const sc = toothScene(art, view, { fdi, shapes, parts: f.overlays.map((o) => overlayPart(art, view, o)) });
-    return f.overlays.some((o) => o.kind === "infection") ? sc : crownCrop(sc, art, view);
-  }), [wait, art, shapes, fdi, view]);
+  const scenes = useMemo(() => waitScenes(wait, art, shapes, fdi), [wait, art, shapes, fdi]);
   return (
     <div className="mv-wait">
       <p className="mv-wait-k">If you wait</p>

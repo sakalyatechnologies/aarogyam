@@ -2,12 +2,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { PresentSituation, PresentStudio } from "@aarogyam/api-client";
 import adultFixture from "../../../../../specialties/dental/fixtures/mouth-adult.json" with { type: "json" };
 import aaravFixture from "../../../../../specialties/dental/fixtures/mouth-aarav.json" with { type: "json" };
 import type { Snapshot } from "../mouth-view/model.js";
 import { sharedBox } from "./compare-slider.js";
 import { presentFacts } from "./model.js";
 import { PaintedStyle } from "./painted.js";
+import { StudioProvider } from "./options.js";
 import { ToothSheet, sheetContent } from "./tooth-sheet.js";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -78,7 +80,7 @@ describe("ToothSheet", () => {
     expect(container.querySelector("[data-compare]")).not.toBeNull();
     expect(screen.getByText("Usual plan · general guidance")).toBeTruthy();
     expect(container.querySelector("[data-fact] .ps-badge-rec")).not.toBeNull();
-    expect([...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent)).toContain("Painting based on your record");
+    expect([...container.querySelectorAll(".ps-badge-ill")].map((b) => b.textContent)).toContain("Illustration");
     expect(container.querySelector(".ps-prov")).not.toBeNull();
   });
 
@@ -150,5 +152,38 @@ describe("tapping a tooth in the painted style", () => {
     const { container } = render(painted());
     fireEvent.click(container.querySelector(".ps-found-open") ?? document.body);
     expect(container.querySelector("[data-tooth-sheet]")).not.toBeNull();
+  });
+});
+
+describe("If you wait", () => {
+  const sit: PresentSituation = {
+    key: "deep_decay", tooth: 37, title: "Deep decay", options: [],
+    if_wait: [{ stage: "Now", words: "Close to the nerve." }, { stage: "Usually next", words: "It spreads to the nerve." }, { stage: "If it goes on", words: "The root can get infected." }],
+  };
+  const studio: PresentStudio = { situations: [sit] };
+  const untreated = (): Snapshot => {
+    const snap = adult();
+    snap.teeth = snap.teeth.map((t) => (t.tooth !== 37 ? t : { ...t, treatments: [] }));
+    return snap;
+  };
+
+  it("shows three stages with the recorded one marked and the general-guidance label", async () => {
+    const { container } = render(<StudioProvider studio={studio}><ToothSheet embedded model={presentFacts(untreated())} tooth={37} /></StudioProvider>);
+    const strip = container.querySelector("[data-if-wait]");
+    expect(strip).not.toBeNull();
+    expect([...container.querySelectorAll(".ps-wait-tag")].map((e) => e.textContent)).toEqual(["Now", "Usually next", "If it goes on"]);
+    expect(container.querySelector(".ps-wait-f[data-now] .ps-wait-tag")?.textContent).toBe("Now");
+    expect(strip?.textContent).toContain("Illustration · general guidance");
+    await waitFor(() => { expect(container.querySelectorAll(".ps-wait-art svg").length).toBe(2); });
+  });
+
+  it("is hidden when a treatment is planned, and when the API sent no stages", () => {
+    const a = render(<StudioProvider studio={studio}><ToothSheet embedded model={adultModel()} tooth={37} /></StudioProvider>);
+    expect(a.container.querySelector("[data-if-wait]")).toBeNull();
+    a.unmount();
+    const noWait: PresentSituation = { key: sit.key, tooth: sit.tooth, title: sit.title, options: [] };
+    const bare: PresentStudio = { situations: [noWait] };
+    const b = render(<StudioProvider studio={bare}><ToothSheet embedded model={presentFacts(untreated())} tooth={37} /></StudioProvider>);
+    expect(b.container.querySelector("[data-if-wait]")).toBeNull();
   });
 });

@@ -248,7 +248,6 @@ export function OpenWide({ model, orientation, onOpen, art: given }: OpenWidePro
         ) : null}
       </div>
       <div className="ps-caption">
-        <IllustrationBadge>Painting based on your record</IllustrationBadge>
         {examples.length === 0 ? null : <IllustrationBadge>Wisdom teeth: example, not your tooth</IllustrationBadge>}
         <span className="ps-muted">Seen from the biting side, mouth open wide. Tap a numbered dot or any tooth to look closer.</span>
       </div>

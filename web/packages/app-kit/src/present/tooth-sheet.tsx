@@ -17,7 +17,8 @@ import {
 import type { Tooth3dHandle, Tooth3dOptions } from "../real-teeth-3d/index.js";
 import { IllustrationBadge, ProvenanceFooter, RecordBadge } from "./blocks.js";
 import { CompareSlider } from "./compare-slider.js";
-import { ToothOptions } from "./options.js";
+import { IfWaitStrip } from "./if-wait.js";
+import { ToothOptions, situationsOf, useStudio } from "./options.js";
 import type { FactItem, PresentModel, ToothFacts } from "./model.js";
 
 // Choose your cap loads on open, so the Show patient route stays within its size budget (§13).
@@ -171,6 +172,7 @@ export interface ToothSheetProps {
 export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: ToothSheetProps): ReactElement {
   const c = useMemo(() => sheetContent(model, tooth), [model, tooth]);
   const mine = useMemo(() => yourTreatment(model, tooth), [model, tooth]);
+  const waits = situationsOf(useStudio(), tooth).filter((x) => (x.if_wait ?? []).length > 0);
   const tf: ToothFacts | undefined = model.teeth.find((t) => t.tooth === tooth);
   const record = tf?.record;
   const { art, failed } = useSheetArt(c, tooth);
@@ -261,7 +263,6 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
               <figure className="ps-pic" data-view="section"><div className="ps-pic-art"><ArtSvg scene={pair.section} label={`${label}, cut open`} /></div><figcaption>Cut open</figcaption></figure>
             </div>
             <div className="ps-caption">
-              <IllustrationBadge>Painting based on your record</IllustrationBadge>
               {c.wisdom ? null : c.recorded_tooth ? null : <IllustrationBadge>Example, not your tooth</IllustrationBadge>}
             </div>
             <canvas ref={canvas} className="ps-3d" hidden={!want3d || no3d} aria-label={`${label} in 3D`} />
@@ -299,6 +300,7 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
           <IllustrationBadge>Illustration · general guidance</IllustrationBadge>
         </section>
       )}
+      {mine !== undefined ? null : waits.map((w) => <IfWaitStrip key={w.key} situation={w} tooth={tooth} record={record} art={art} />)}
       {embedded ? null : <ToothOptions tooth={tooth} record={record} />}
       {embedded ? null : <Suspense fallback={null}><ToothMaterials tooth={tooth} record={record} /></Suspense>}
       <ProvenanceFooter recorded={recordedWords} illustration={["Tooth shapes and colours are a painting based on your record, not a photo."]} />

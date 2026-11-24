@@ -30,6 +30,7 @@ struct MainTabs: View {
     @State private var morePath: [MoreRoute] = []
     @State private var expenseRevision = 0
     @State private var intake: IntakeRequest?
+    @State private var intakeBooking: DeskPayTarget?
     @State private var tasksOpen = false
     @State private var deskRevision = 0
 
@@ -53,9 +54,23 @@ struct MainTabs: View {
             RoutesV10Tasks.hook(graph: graph, clinic: clinic)
         }
         .sheet(item: $intake) { request in
-            RoutesV10Intake.screen(graph: graph, clinic: clinic, phone: request.phone.isEmpty ? nil : request.phone, family: request.family) {
+            // The same three endings as the "+" flow: check in now, book a visit, or just save.
+            RoutesV10Intake.screen(
+                graph: graph, clinic: clinic, phone: request.phone.isEmpty ? nil : request.phone, family: request.family,
+                ends: IntakeEnds(
+                    onBook: clinic.permissions.contains("appointments.write")
+                        ? { intakeBooking = DeskPayTarget(patientId: $0, name: $1) } : nil,
+                    onOpen: { id in
+                        intake = nil
+                        openPatient(id)
+                    }
+                )
+            ) {
                 intake = nil
                 deskRevision += 1
+            }
+            .sheet(item: $intakeBooking) { target in
+                PatientBookSheet(graph: graph, clinic: clinic, patientId: target.patientId, name: target.name)
             }
         }
         .sheet(isPresented: $tasksOpen) { RoutesV10Tasks.screen(graph: graph, clinic: clinic) }

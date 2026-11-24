@@ -42,7 +42,7 @@ final class VisitE2ETests: XCTestCase {
             tap(notice.switches.firstMatch.exists ? notice.switches.firstMatch : notice)
             sign(scrolledTo(app.descendants(matching: .any)["intake.signature"]))
             tap(scrolledTo(app.buttons.matching(NSPredicate(format: "label CONTAINS 'Rao'")).firstMatch))
-            tap(scrolledTo(app.buttons["Save and add to queue"]))
+            tap(scrolledTo(app.buttons["Check in now"]))
         }
 
         let done = wait(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'added to the queue'")).firstMatch, timeout: 20)
@@ -73,16 +73,16 @@ final class VisitE2ETests: XCTestCase {
         step("tooth") {
             tap(scrolledTo(app.buttons["Other…"]))
             tap(wait(app.buttons["16"]))
-            let chips = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Add ' AND NOT label CONTAINS 'to the prescription'"))
+            let chips = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Add ' AND NOT label CONTAINS 'to the prescription' AND NOT label BEGINSWITH 'Add image'"))
             tap(scrolledTo(wait(chips.firstMatch)))
             _ = wait(app.staticTexts["Tooth 16"])
         }
         shot("doctor-tooth")
-        // One tap on a medicine set (the dental "Dental pain": Ibuprofen and Pantoprazole).
+        // One tap on the first medicine set the clinic offers (the seeded sets change, so no name is assumed).
         step("rx") {
             tap(scrolledTo(app.buttons["Write prescription"]))
-            tap(wait(app.buttons["Add set Dental pain, 2 medicines"], timeout: 15))
-            _ = wait(app.buttons["Remove Pantoprazole"])
+            tap(wait(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Add set '")).firstMatch, timeout: 15))
+            _ = wait(app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Remove '")).firstMatch)
         }
         shot("doctor-visit")
         step("wrap-up") {

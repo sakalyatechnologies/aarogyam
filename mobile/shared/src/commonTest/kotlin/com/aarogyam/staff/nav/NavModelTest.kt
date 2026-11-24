@@ -5,7 +5,6 @@ import com.aarogyam.staff.nav.MoreTile.ClinicQr
 import com.aarogyam.staff.nav.MoreTile.Expenses
 import com.aarogyam.staff.nav.MoreTile.Help
 import com.aarogyam.staff.nav.MoreTile.LabWork
-import com.aarogyam.staff.nav.MoreTile.Language
 import com.aarogyam.staff.nav.MoreTile.Messages
 import com.aarogyam.staff.nav.MoreTile.RxSets
 import com.aarogyam.staff.nav.MoreTile.Settings
@@ -83,7 +82,7 @@ private object Roles {
 
 class NavModelTest {
     private val clinicalTabs = listOf(Tab.Today, Tab.Patients, Tab.Schedule, Tab.More)
-    private val tail = listOf(Settings, Language, MoreTile.Appearance, Help, SignOut)
+    private val tail = listOf(Settings, MoreTile.Appearance, Help, SignOut)
 
     @Test
     fun ownerGetsEverythingAndSwitchesClinics() {
@@ -103,7 +102,6 @@ class NavModelTest {
                 RxSets,
                 Settings,
                 SwitchClinic,
-                Language,
                 MoreTile.Appearance,
                 Help,
                 SignOut,

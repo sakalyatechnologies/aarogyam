@@ -25,7 +25,7 @@ final class PushV11Tests: XCTestCase {
 
     func testEveryKindHasAPushStringInEachLanguage() {
         XCTAssertEqual(PushLogic.kinds.count, 20)
-        for language in ["en", "hi", "mr"] {
+        for language in ["en"] { // English-only screens for now (founder, 23 Nov)
             guard let path = Bundle.main.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: language),
                   let dict = NSDictionary(contentsOfFile: path) as? [String: String] else {
                 XCTFail("no Localizable strings in \(language)")
@@ -38,7 +38,7 @@ final class PushV11Tests: XCTestCase {
     }
 
     func testPrePromptCopyShipsInEachLanguage() {
-        for language in ["en", "hi", "mr"] {
+        for language in ["en"] { // English-only screens for now (founder, 23 Nov)
             let path = Bundle.main.path(forResource: "PushV11", ofType: "strings", inDirectory: nil, forLocalization: language)
             let dict = path.flatMap { NSDictionary(contentsOfFile: $0) as? [String: String] } ?? [:]
             XCTAssertEqual(dict.count, 4, "PushV11 in \(language)")

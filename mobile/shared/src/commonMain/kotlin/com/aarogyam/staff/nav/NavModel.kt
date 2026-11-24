@@ -100,7 +100,8 @@ data class NavModel(
                     if (has(PRESCRIPTIONS_ISSUE)) add(MoreTile.RxSets)
                     add(MoreTile.Settings)
                     if (clinicCount > 1) add(MoreTile.SwitchClinic)
-                    add(MoreTile.Language)
+                    // No display-language tile: the app is English-only for now (founder, 23 Nov). Dictation keeps its own
+                    // language choice for notes.
                     add(MoreTile.Appearance)
                     add(MoreTile.Help)
                     add(MoreTile.SignOut)

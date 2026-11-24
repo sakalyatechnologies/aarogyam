@@ -53,6 +53,11 @@ targets:
         basedOnDependencyAnalysis: false
         script: '"$SRCROOT/scripts/copy-firebase-config.sh"'
     postBuildScripts:
+      # English-only screens for now (founder, 23 Nov): the hi/mr catalogs stay in git but leave the app, so a phone
+      # set to Hindi or Marathi shows English. Dictation languages for notes are separate and unchanged.
+      - name: English-only screens
+        basedOnDependencyAnalysis: false
+        script: 'rm -rf "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/hi.lproj" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/mr.lproj"'
       - name: Upload Crashlytics symbols (Release only)
         basedOnDependencyAnalysis: false
         script: '"$SRCROOT/scripts/upload-crashlytics-symbols.sh"'

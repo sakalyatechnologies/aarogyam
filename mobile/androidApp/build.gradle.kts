@@ -49,6 +49,9 @@ android {
         libs.versions.android.compileSdk
             .get()
             .toInt()
+    // English-only screens for now (founder, 23 Nov): the hi/mr drafts stay in git, unbuilt. Dictation languages for
+    // notes are separate and unchanged.
+    androidResources { localeFilters += listOf("en") }
     defaultConfig {
         applicationId = "com.aarogyam.android"
         minSdk =

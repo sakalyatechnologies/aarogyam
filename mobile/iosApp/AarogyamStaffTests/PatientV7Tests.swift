@@ -105,11 +105,11 @@ final class PatientV7Tests: XCTestCase {
         }
     }
 
-    func test_the_string_table_has_hindi_and_marathi_for_a_sample() {
+    /// English-only screens for now (founder, 23 Nov): English resolves and no hi/mr bundle ships.
+    func test_the_string_table_is_english_only_for_a_sample() {
+        XCTAssertNotEqual(Bundle.main.localizedString(forKey: "pv.tab.bills", value: nil, table: "PatientV7"), "pv.tab.bills")
         for lang in ["hi", "mr"] {
-            let bundle = Bundle.main.path(forResource: lang, ofType: "lproj").flatMap(Bundle.init(path:))
-            XCTAssertNotNil(bundle, lang)
-            XCTAssertNotEqual(bundle?.localizedString(forKey: "pv.tab.bills", value: nil, table: "PatientV7"), "pv.tab.bills")
+            XCTAssertNil(Bundle.main.path(forResource: lang, ofType: "lproj"), lang)
         }
     }
 }

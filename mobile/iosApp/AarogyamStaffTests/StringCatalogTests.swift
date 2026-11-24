@@ -12,12 +12,12 @@ final class StringCatalogTests: XCTestCase {
         return Set(dict.keys)
     }
 
-    func testEveryTableHasTextInEnglishHindiAndMarathi() {
+    /// English-only screens for now (founder, 23 Nov): the hi/mr catalogs stay in git but are stripped from the app.
+    func testEveryTableHasEnglishAndTheAppShipsNoHindiOrMarathi() {
         for table in tables {
-            let en = keys(table, "en")
-            XCTAssertFalse(en.isEmpty, "\(table) has no English strings")
+            XCTAssertFalse(keys(table, "en").isEmpty, "\(table) has no English strings")
             for language in ["hi", "mr"] {
-                XCTAssertEqual(keys(table, language), en, "\(table) differs in \(language)")
+                XCTAssertTrue(keys(table, language).isEmpty, "\(table) still ships \(language)")
             }
         }
     }

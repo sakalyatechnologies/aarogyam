@@ -37,17 +37,23 @@ export function dotsOf(model: PresentModel): { n: number; tooth: number; tone: D
  * "What we found": the model's facts only, grouped by tooth and numbered like the dots. With `onBitingSide`,
  * "On the biting side" links to Open wide (the front picture can't show that decay).
  */
-export function FactList({ model, onOpen, numbered = true, onBitingSide }: {
+export function FactList({ model, onOpen, numbered = true, onBitingSide, pastBehindToggle = false }: {
   model: PresentModel; onOpen?: ((tooth: number) => void) | undefined; numbered?: boolean; onBitingSide?: (() => void) | undefined;
+  /** Old work (fillings and crowns already in the mouth) waits behind "Show past work"; the problems come first. */
+  pastBehindToggle?: boolean;
 }): ReactElement {
-  const dots = dotsOf(model);
+  const [past, setPast] = useState(false);
+  const hidePast = pastBehindToggle && !past;
+  const pastCount = pastBehindToggle ? model.facts.filter((f) => f.kind === "work").length : 0;
+  const visible = (f: { kind: string }) => !hidePast || f.kind !== "work";
+  const dots = dotsOf(model).filter((d) => model.facts.some((f) => f.tooth === d.tooth && visible(f)));
   return (
     <section className="ps-found" aria-label="What we found">
       <h3 className="ps-h">What we found</h3>
-      {dots.length === 0 ? <p className="ps-muted">Nothing is recorded for this visit yet.</p> : (
+      {dots.length === 0 && pastCount === 0 ? <p className="ps-muted">Nothing is recorded for this visit yet.</p> : (
         <ol className="ps-found-list">
           {dots.map((d) => {
-            const facts = model.facts.filter((f) => f.tooth === d.tooth);
+            const facts = model.facts.filter((f) => f.tooth === d.tooth && visible(f));
             const body = (
               <>
                 {numbered ? <span className="ps-n" data-tone={d.tone} aria-hidden="true">{d.n}</span> : null}
@@ -82,6 +88,11 @@ export function FactList({ model, onOpen, numbered = true, onBitingSide }: {
       {model.facts.some((f) => f.tooth === undefined) ? (
         <ul className="ps-found-list">{model.facts.filter((f) => f.tooth === undefined).map((f) => <li key={f.id} className="ps-fact"><b>{f.words}</b><RecordBadge on={f.recorded_on} /></li>)}</ul>
       ) : null}
+      {pastCount === 0 ? null : (
+        <button type="button" className="pm-chip ps-past-toggle" aria-pressed={past} onClick={() => { setPast(!past); }}>
+          {past ? "Hide past work" : "Show past work"}
+        </button>
+      )}
     </section>
   );
 }

@@ -1,46 +1,61 @@
 // The story cards style (present-studio-design §6.1, slice 1d), the default Show patient style. One card at
 // a time, in a fixed order, built only from the visit's facts: your mouth (painted map), what we found, one
-// card per recorded problem tooth (tooth sheet and slider), what is planned or recommended, and what we
-// discussed (session-only ticks). No card is invented: case cards and options arrive with the studio data.
-// Navigation: swipe, the arrow keys, progress dots and an "All cards" index. Prices are not in this slice.
+// card per recorded problem tooth (tooth sheet and slider) each followed by its choices, then "Your plan".
+// No card is invented: choices arrive with the studio data, the plan with the plan items the host passes.
+// Navigation: swipe, the arrow keys, progress dots and an "All cards" index. Prices sit behind the Prices tap.
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement, type ReactNode } from "react";
 
+import { formatRupees } from "../format.js";
 import { dayLabel } from "../mouth-view/model.js";
 import { FactList, ProvenanceFooter, RecordBadge } from "./blocks.js";
 import type { FactItem, Orientation, PresentModel } from "./model.js";
 import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide.js";
 import { PaintedMap, type PaintedView } from "./painted.js";
 import { DEFAULT_SHADE, type Shade } from "./painter.js";
-import { ToothSheet, type ToothSheetProps } from "./tooth-sheet.js";
+import { ToothSheet, yourTreatment, type ToothSheetProps } from "./tooth-sheet.js";
 import { SituationOptions, useStudio } from "./options.js";
 import type { PresentStudio } from "@aarogyam/api-client";
+import type { SnapTooth } from "../mouth-view/model.js";
 
-export type StoryCardKind = "mouth" | "found" | "tooth" | "options" | "plan" | "discussed" | "xray";
-export interface StoryCard { id: string; kind: StoryCardKind; title: string; tooth?: number; situation?: string }
+export type StoryCardKind = "mouth" | "found" | "tooth" | "options" | "plan" | "xray";
+export interface StoryCard {
+  id: string; kind: StoryCardKind; title: string; tooth?: number; situation?: string;
+  /** The tooth already has a planned or started treatment: its other choices fold under "Other ways". */
+  midTreatment?: boolean;
+}
+
+/** One step of the patient's plan (a treatment plan item), as the host passes it. */
+export interface PlanLine { id: string; name: string; phase: number; status: string; estimate_paise: number; tooth?: number | null | undefined }
 
 const PLAN_KINDS = new Set<FactItem["kind"]>(["recommended", "plan", "in_progress"]);
 export const planFacts = (m: PresentModel): FactItem[] => m.facts.filter((f) => PLAN_KINDS.has(f.kind));
-/** The rows "What we discussed" can tick: each problem tooth and each planned or recommended item. */
-export const discussRows = (m: PresentModel): { id: string; words: string; where?: string | undefined }[] => [
-  ...problemTeeth(m).map((t) => ({ id: `tooth:${String(t)}`, words: m.facts.filter((f) => f.tooth === t && f.kind === "problem").map((f) => f.words).join("; "), where: m.facts.find((f) => f.tooth === t)?.where })),
-  ...planFacts(m).map((f) => ({ id: f.id, words: f.words, where: f.where })),
-];
 const problemTeeth = (m: PresentModel): number[] => [...new Set(m.facts.flatMap((f) => (f.kind === "problem" && f.tooth !== undefined ? [f.tooth] : [])))];
 
-/** The cards, from the facts only. Pure: no fact, no card. */
-export function storyCards(m: PresentModel, hasXray = false, studio?: PresentStudio): StoryCard[] {
+/** The cards, from the facts only. Pure: no fact, no card. Each problem tooth is followed by its choices. */
+export function storyCards(m: PresentModel, hasXray = false, studio?: PresentStudio, plans: readonly PlanLine[] = []): StoryCard[] {
   const cards: StoryCard[] = [{ id: "mouth", kind: "mouth", title: "Here is your mouth" }];
   if (m.facts.length > 0) cards.push({ id: "found", kind: "found", title: "What we found" });
   if (hasXray) cards.push({ id: "xray", kind: "xray", title: "Your X-ray" });
-  for (const t of problemTeeth(m)) {
+  const situations = studio?.situations ?? [];
+  const addOptions = (t: number) => {
+    const mid = yourTreatment(m, t) !== undefined;
+    for (const s of situations) if (s.tooth === t) cards.push({ id: `options:${String(s.tooth)}:${s.key}`, kind: "options", tooth: s.tooth, situation: s.key, title: `Usual options · ${s.title}`, ...(mid ? { midTreatment: true } : {}) });
+  };
+  const teeth = problemTeeth(m);
+  for (const t of teeth) {
     const where = m.facts.find((f) => f.tooth === t)?.where;
     cards.push({ id: `tooth:${String(t)}`, kind: "tooth", tooth: t, title: `${where ?? "Tooth"} · ${String(t)}` });
+    addOptions(t);
   }
-  for (const s of studio?.situations ?? []) cards.push({ id: `options:${String(s.tooth)}:${s.key}`, kind: "options", tooth: s.tooth, situation: s.key, title: `Usual options · ${s.title}` });
-  if (planFacts(m).length > 0) cards.push({ id: "plan", kind: "plan", title: "What is planned" });
-  if (discussRows(m).length > 0) cards.push({ id: "discussed", kind: "discussed", title: "What we discussed" });
+  // choices for a tooth with no problem card of its own (a missing or a wisdom tooth) follow the rest
+  for (const t of [...new Set(situations.map((s) => s.tooth))]) if (!teeth.includes(t)) addOptions(t);
+  if (planFacts(m).length > 0 || openPlanLines(plans).length > 0) cards.push({ id: "plan", kind: "plan", title: "Your plan" });
   return cards;
 }
+
+/** The plan steps, in order (phase, then the order given). Cancelled steps are not the patient's plan. */
+export const openPlanLines = (plans: readonly PlanLine[]): PlanLine[] =>
+  plans.filter((p) => p.status !== "cancelled").map((p, i) => ({ p, i })).sort((a, b) => a.p.phase - b.p.phase || a.i - b.i).map((x) => x.p);
 
 export interface StoryProps {
   model: PresentModel;
@@ -56,6 +71,8 @@ export interface StoryProps {
   xray?: ReactNode;
   /** The tooth colour (0 to 100), the patient's saved one when the host has it. */
   shade?: Shade | undefined;
+  /** The patient's treatment plan steps, when the host has them. Without them the plan card lists the recorded plan facts only. */
+  plans?: readonly PlanLine[] | undefined;
 }
 
 const SWIPE = 60;
@@ -66,12 +83,11 @@ export function StoryStyle(props: StoryProps): ReactElement {
   const { model, onOrientation, stacked = false } = props;
   const hasXray = props.xray !== undefined;
   const studio = useStudio();
-  const cards = useMemo(() => storyCards(model, hasXray, studio), [model, hasXray, studio]);
+  const cards = useMemo(() => storyCards(model, hasXray, studio, props.plans), [model, hasXray, studio, props.plans]);
   const [at, setAt] = useState(0);
   const [index, setIndex] = useState(false);
   const [sheet, setSheet] = useState<number | undefined>(undefined);
   const [seen, setSeen] = useState<ReadonlySet<number>>(new Set([0]));
-  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
   const [own, setOwn] = useState<PaintedView | undefined>(undefined);
   const view = props.view ?? own ?? (frontHidesAllProblems(model) ? "wide" : "front");
   const setView = (v: PaintedView) => { setOwn(v); props.onView?.(v); };
@@ -109,7 +125,6 @@ export function StoryStyle(props: StoryProps): ReactElement {
     const i = cards.findIndex((c) => c.kind === "tooth" && c.tooth === tooth);
     if (!stacked && i >= 0) go(i); else setSheet(tooth);
   };
-  const toggle = (id: string) => { setTicked((t) => { const n = new Set(t); if (!n.delete(id)) n.add(id); return n; }); };
   const shown = stacked ? cards : cards.slice(at, at + 1);
   const card = cards[at];
   return (
@@ -122,24 +137,11 @@ export function StoryStyle(props: StoryProps): ReactElement {
             <p className="ps-eyebrow">{c.kind === "tooth" ? "A tooth to look at" : `Card ${String(cards.indexOf(c) + 1)} of ${String(cards.length)}`}</p>
             <h2 className="ps-card-h">{c.title}</h2>
             {c.kind === "mouth" ? <MouthCard {...props} view={view} setView={setView} onOrientation={onOrientation} open={open} /> : null}
-            {c.kind === "found" ? <FactList model={model} onOpen={open} onBitingSide={view === "front" ? () => { setView("wide"); go(0); } : undefined} /> : null}
+            {c.kind === "found" ? <FactList model={model} pastBehindToggle={!stacked} onOpen={open} onBitingSide={view === "front" ? () => { setView("wide"); go(0); } : undefined} /> : null}
             {c.kind === "xray" ? <div className="ps-xr-card">{props.xray}<ProvenanceFooter recorded={["The image is your own X-ray, as it was taken."]} illustration={[]} /></div> : null}
             {c.kind === "tooth" && c.tooth !== undefined ? <ToothSheet embedded model={model} tooth={c.tooth} load3d={props.load3d} /> : null}
-            {c.kind === "options" ? <OptionsCard studio={studio} card={c} /> : null}
-            {c.kind === "plan" ? <PlanCard model={model} /> : null}
-            {c.kind === "discussed" ? (
-              <ul className="ps-discuss" aria-label="Tick what we talked about">
-                {discussRows(model).map((r) => (
-                  <li key={r.id}>
-                    <button type="button" className="ps-tick" aria-pressed={ticked.has(r.id)} onClick={() => { toggle(r.id); }}>
-                      <span className="ps-tickbox" aria-hidden="true">{ticked.has(r.id) ? "✓" : ""}</span>
-                      <span><b>{r.words}</b>{r.where === undefined ? null : <small>{r.where}</small>}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {c.kind === "discussed" ? <p className="ps-muted">Ticks are for this showing only. Nothing is saved.</p> : null}
+            {c.kind === "options" ? <OptionsCard studio={studio} card={c} record={model.teeth.find((t) => t.tooth === c.tooth)?.record} /> : null}
+            {c.kind === "plan" ? <PlanCard model={model} plans={props.plans} studio={studio} /> : null}
           </article>
         ))}
       </div>
@@ -168,7 +170,7 @@ export function StoryStyle(props: StoryProps): ReactElement {
   );
 }
 
-function MouthCard({ model, orientation, onOrientation, theme, view, setView, open, shade }: StoryProps & { view: PaintedView; setView: (v: PaintedView) => void; open: (t: number) => void }): ReactElement {
+function MouthCard({ model, orientation, theme, view, setView, open, shade }: StoryProps & { view: PaintedView; setView: (v: PaintedView) => void; open: (t: number) => void }): ReactElement {
   const hidden = bitingSideProblems(model);
   return (
     <>
@@ -176,11 +178,6 @@ function MouthCard({ model, orientation, onOrientation, theme, view, setView, op
         <div className="ps-seg" role="group" aria-label="Picture">
           <button type="button" aria-pressed={view === "front"} onClick={() => { setView("front"); }}>Front</button>
           <button type="button" aria-pressed={view === "wide"} onClick={() => { setView("wide"); }}>Open wide</button>
-        </div>
-        <div className="ps-seg" role="group" aria-label="Which way round">
-          {(["mirror", "photo"] as const).map((o) => (
-            <button key={o} type="button" aria-pressed={orientation === o} onClick={() => { onOrientation(o); }}>{o === "mirror" ? "As in your mirror" : "As in a photo"}</button>
-          ))}
         </div>
       </div>
       {view === "front" && hidden.length > 0 ? (
@@ -195,20 +192,54 @@ function MouthCard({ model, orientation, onOrientation, theme, view, setView, op
   );
 }
 
-function PlanCard({ model }: { model: PresentModel }): ReactElement {
-  const items = planFacts(model);
+function PlanCard({ model, plans = [], studio }: { model: PresentModel; plans?: readonly PlanLine[] | undefined; studio: PresentStudio | undefined }): ReactElement {
+  const lines = openPlanLines(plans);
+  const facts = planFacts(model);
+  // the Prices tap (F3): the server sends prices only with billing.read and show_prices; nothing shows a rupee amount before the tap
+  const canPrice = studio?.prices !== undefined && lines.length > 0;
+  const [priced, setPriced] = useState(false);
+  const left = lines.filter((l) => l.status !== "done");
+  const visits = new Set(left.map((l) => l.phase)).size;
+  const total = left.reduce((n, l) => n + l.estimate_paise, 0);
+  const where = (t: number | null | undefined) => (t === undefined || t === null ? "" : ` · tooth ${String(t)}`);
   return (
     <>
-      <ul className="ps-plan">
-        {items.map((f) => (
-          <li key={f.id} className="ps-fact" data-kind={f.kind} data-plan={f.id}>
-            <span className="ps-where">{f.where}{f.tooth === undefined ? null : <span className="ps-fdi">{` · ${String(f.tooth)}`}</span>}</span>
-            <b>{f.words}</b>
-            <RecordBadge on={f.recorded_on} />
-          </li>
-        ))}
-      </ul>
+      {lines.length > 0 ? (
+        <>
+          <ol className="ps-plan ps-plan-steps">
+            {lines.map((l) => (
+              <li key={l.id} className="ps-fact" data-plan-line={l.id} data-done={l.status === "done" ? "" : undefined}>
+                <b>{`${l.name}${where(l.tooth)}`}</b>
+                {l.status === "done" ? <span className="ps-note">Done</span> : null}
+              </li>
+            ))}
+          </ol>
+          {visits > 0 ? <p className="ps-muted ps-plan-count">{`${String(left.length)} ${left.length === 1 ? "step" : "steps"} still to do, over ${String(visits)} ${visits === 1 ? "visit" : "visits"}.`}</p> : null}
+        </>
+      ) : (
+        <ul className="ps-plan">
+          {facts.map((f) => (
+            <li key={f.id} className="ps-fact" data-kind={f.kind} data-plan={f.id}>
+              <span className="ps-where">{f.where}{f.tooth === undefined ? null : <span className="ps-fdi">{` · ${String(f.tooth)}`}</span>}</span>
+              <b>{f.words}</b>
+              <RecordBadge on={f.recorded_on} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {canPrice ? (
+        <div className="ps-seg" role="group" aria-label="Plan cost">
+          <button type="button" aria-pressed={priced} onClick={() => { setPriced(!priced); }}>Prices</button>
+        </div>
+      ) : null}
+      {canPrice && priced && total > 0 ? (
+        <p className="ps-plan-total" data-plan-total="">
+          <b>{`About ${formatRupees(total)} in all`}</b>
+          <small>Final cost after examination</small>
+        </p>
+      ) : null}
       {model.next_visit === undefined ? null : <p className="ps-next">{`Next visit: ${dayLabel(model.next_visit)}`}</p>}
+      <p className="ps-next-step" data-next-step="">{model.next_visit === undefined ? "Ask the front desk to book your next visit" : "Come to your next visit on that day"}</p>
       <ProvenanceFooter recorded={["This list comes from this visit's record."]} illustration={[]} />
     </>
   );
@@ -217,7 +248,16 @@ function PlanCard({ model }: { model: PresentModel }): ReactElement {
 /** The style module's shape (§6). */
 export const storyStyle = { id: "story" as const, label: "Story cards", Component: StoryStyle };
 
-function OptionsCard({ studio, card }: { studio: PresentStudio | undefined; card: StoryCard }): ReactElement | null {
+function OptionsCard({ studio, card, record }: { studio: PresentStudio | undefined; card: StoryCard; record?: SnapTooth | undefined }): ReactElement | null {
   const situation = studio?.situations.find((s) => s.tooth === card.tooth && s.key === card.situation);
-  return situation === undefined ? null : <SituationOptions situation={situation} titled={false} />;
+  if (situation === undefined) return null;
+  const options = <SituationOptions situation={situation} titled={false} record={record} />;
+  // a tooth already in treatment keeps its plan up front; the other choices wait one tap away
+  if (card.midTreatment !== true) return options;
+  return (
+    <>
+      <p className="ps-muted">{`Tooth ${String(card.tooth ?? "")} already has a treatment under way. Other ways are here if you want to compare.`}</p>
+      <details className="ps-other"><summary>{`Other ways to treat it (${String(situation.options.length)})`}</summary>{options}</details>
+    </>
+  );
 }

@@ -38,15 +38,16 @@ describe("SituationOptions", () => {
     const rct = container.querySelector('[data-option="rct_crown"]');
     expect(rct?.textContent).toContain("Usually 2–3 visits");
     expect(rct?.textContent).toContain("Usually 2–4 weeks");
-    for (const row of ["visits", "finish", "look", "life", "comfort"]) expect(rct?.querySelector(`[data-row="${row}"]`), row).not.toBeNull();
+    for (const row of ["visits", "finish", "look", "comfort"]) expect(rct?.querySelector(`[data-row="${row}"]`), row).not.toBeNull();
     expect(container.querySelector(".ps-badge-ill")?.textContent).toBe("Illustration · general guidance");
-    expect(container.textContent).toContain("Usual options · general guidance");
+    expect(container.textContent).toContain("Your choices for tooth 37");
     // outcome words only where the guidance has them, with their source behind "Why we say this"
     const implant = container.querySelector('[data-option="extract_implant"]');
     expect(implant?.textContent).toContain("Most are still working after 10 years");
     expect(implant?.textContent).toContain("General guidance, not a promise. Your dentist will advise.");
     expect(implant?.textContent).toContain("Howe, Keys, Richards");
-    expect(container.querySelector('[data-option="extract_bridge"]')?.textContent).toContain("No usual figure");
+    expect(container.textContent).not.toContain("No usual figure");
+    expect(container.querySelectorAll(".ps-badge-ill").length).toBe(1);
     expect(container.textContent).not.toMatch(/₹|Visit \d/);
   });
 
@@ -54,9 +55,24 @@ describe("SituationOptions", () => {
     render(<SituationOptions situation={deep()} />);
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
     const table = screen.getByRole("table");
-    expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(deep().options.map((o) => o.label));
+    for (const o of deep().options) expect(within(table).getByRole("columnheader", { name: new RegExp(o.label) })).toBeTruthy();
     expect(within(table).getAllByRole("rowheader").map((h) => h.textContent)).toContain("Time to finish");
     expect(screen.getAllByText("Illustration · general guidance").length).toBeGreaterThan(0);
+  });
+});
+
+describe("choices with pictures", () => {
+  it("opens a before/after slider at 15% for a tapped choice and shows the dentist's suggestion first", async () => {
+    const s = deep();
+    const rct = s.options.find((o) => o.key === "rct_crown");
+    if (rct === undefined) throw new Error("no rct");
+    const marked = { ...s, options: s.options.map((o) => (o.key === "rct_crown" ? { ...o, suggested: true } : o)) };
+    const { container } = render(<SituationOptions situation={marked} />);
+    expect(container.querySelector(".ps-opt")?.getAttribute("data-option")).toBe("rct_crown");
+    expect(container.textContent).toContain("Your dentist suggests");
+    fireEvent.click(screen.getByRole("button", { name: `See before and after: ${rct.label}` }));
+    const slider = await screen.findByRole("slider");
+    expect(slider.getAttribute("aria-valuenow")).toBe("15");
   });
 });
 

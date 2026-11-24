@@ -130,7 +130,7 @@ export function layoutArch(teeth: readonly ToothFacts[], orientation: Orientatio
 const impactedOf = (t: ToothFacts): boolean => t.eruption === "impacted" || t.eruption === "unerupted";
 
 // ---- the component --------------------------------------------------------------------------------
-export function Smile3d({ model, orientation, onOrientation, onOpen, onFail, load3d, theme, toothSheet }: Smile3dProps & { toothSheet?: boolean | undefined }): ReactElement {
+export function Smile3d({ model, orientation, onOpen, onFail, load3d, theme, toothSheet }: Smile3dProps & { toothSheet?: boolean | undefined }): ReactElement {
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [seeThrough, setSeeThrough] = useState(false);
@@ -294,11 +294,6 @@ export function Smile3d({ model, orientation, onOrientation, onOpen, onFail, loa
     <div className="ps-painted ps-3d" data-present-style="smile3d" data-view="3d">
       <div className="ps-stage">
         <div className="ps-knobs">
-          <div className="ps-seg" role="group" aria-label="Which way round">
-            {(["mirror", "photo"] as const).map((o) => (
-              <button key={o} type="button" aria-pressed={orientation === o} onClick={() => { onOrientation(o); }}>{o === "mirror" ? "As in your mirror" : "As in a photo"}</button>
-            ))}
-          </div>
           {hasImpacted ? <button type="button" className="ps-prompt" aria-pressed={seeThrough} onClick={() => { setSeeThrough(!seeThrough); }}>See through gum</button> : null}
         </div>
         <div className="ps-3d-box" ref={wrap}><canvas ref={canvas} aria-label="3D model of your smile, drag to turn it" /></div>

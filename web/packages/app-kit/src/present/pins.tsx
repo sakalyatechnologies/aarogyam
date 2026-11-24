@@ -66,7 +66,7 @@ export function PinButton({ situation, option }: { situation: PresentSituation; 
   const on = pins.isPinned(pin.id);
   return (
     <button type="button" className="ps-pin" aria-pressed={on} aria-label={`${on ? "Unpin" : "Pin"} ${option.label}`} onClick={() => { pins.toggle(pin); }}>
-      {on ? "Pinned" : "Pin"}
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z" fill={on ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" /></svg>
     </button>
   );
 }

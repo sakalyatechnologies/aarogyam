@@ -7,6 +7,7 @@ import { createContext, lazy, Suspense, useContext, useState, type ReactElement,
 import type { PresentOption, PresentSituation, PresentStudio } from "@aarogyam/api-client";
 
 import { formatRupees } from "../format.js";
+import type { SnapTooth } from "../mouth-view/model.js";
 import { IllustrationBadge, RecordBadge } from "./blocks.js";
 import { PinButton } from "./pins.js";
 
@@ -36,7 +37,7 @@ export const finishWords = (o: PresentOption): string =>
 const GUIDANCE = "General guidance, not a promise. Your dentist will advise.";
 
 function Lifespan({ o }: { o: PresentOption }): ReactElement {
-  if (o.lifespan === undefined) return <span className="ps-muted">No usual figure</span>;
+  if (o.lifespan === undefined) return <></>;
   const { words, why, source, source_quote } = o.lifespan;
   return (
     <span className="ps-opt-life">
@@ -67,23 +68,45 @@ export const OPTION_ROWS: readonly { id: string; label: string; cell: (o: Presen
   { id: "visits", label: "Visits", cell: visitsWords },
   { id: "finish", label: "Time to finish", cell: finishWords },
   { id: "look", label: "How it looks", cell: (o) => o.looks_like },
-  { id: "life", label: "How long it usually lasts", cell: (o) => <Lifespan o={o} /> },
+  { id: "life", label: "How long it usually lasts", cell: (o) => (o.lifespan === undefined ? null : <Lifespan o={o} />) },
   { id: "comfort", label: "Comfort", cell: (o) => o.comfort },
 ];
 
-/** One situation: its options as cards or side by side. */
-export function SituationOptions({ situation, titled = true }: { situation: PresentSituation; titled?: boolean }): ReactElement {
+const OptionPicture = lazy(() => import("./option-art.js").then((m) => ({ default: m.OptionPicture })));
+const OptionCompare = lazy(() => import("./option-art.js").then((m) => ({ default: m.OptionCompare })));
+
+/** The dentist's suggestion (additive API field `suggested`); absent on older servers. */
+export const isSuggested = (o: PresentOption): boolean => o.suggested ?? false;
+
+const filled = (n: ReactNode): boolean => n !== null && n !== undefined && n !== false && n !== "";
+
+/** One situation: its options as cards or side by side, each with a picture; a tap opens now vs that choice. */
+export function SituationOptions({ situation, titled = true, record }: { situation: PresentSituation; titled?: boolean; record?: SnapTooth | undefined }): ReactElement {
   const [mode, setMode] = useState<"cards" | "compare">("cards");
+  const [open, setOpen] = useState<string | undefined>(undefined);
   const studio = useStudio();
   // The Prices tap exists only when the server sent prices; nothing shows a rupee amount before it.
   const canPrice = studio?.prices !== undefined;
   const [priced, setPriced] = useState(false);
-  const rows = canPrice && priced ? [...OPTION_ROWS, { id: "cost", label: "Cost", cell: (o: PresentOption) => costWords(studio, o) }] : OPTION_ROWS;
+  // the dentist's suggestion first; the rest keep the server's order
+  const options = [...situation.options.filter(isSuggested), ...situation.options.filter((o) => !isSuggested(o))];
+  const all = canPrice && priced ? [...OPTION_ROWS, { id: "cost", label: "Cost", cell: (o: PresentOption) => costWords(studio, o) }] : OPTION_ROWS;
+  // a row nobody has anything to say in is not shown
+  const rows = all.filter((r) => options.some((o) => filled(r.cell(o))));
+  const opened = options.find((o) => o.key === open);
+  const tooth = `Tooth ${String(situation.tooth)}`;
+  const art = (o: PresentOption) => ({ tooth: situation.tooth, look: o.look, situationKey: situation.key, record, label: o.label });
+  const pic = (o: PresentOption): ReactElement => (
+    <button type="button" className="ps-opt-pic" aria-expanded={open === o.key} aria-label={`See before and after: ${o.label}`} onClick={() => { setOpen(open === o.key ? undefined : o.key); }}>
+      <Suspense fallback={null}><OptionPicture {...art(o)} /></Suspense>
+      <span>See before and after</span>
+    </button>
+  );
   return (
     <section className="ps-opts" aria-label={`Usual options: ${situation.title}`} data-situation={`${situation.key}:${String(situation.tooth)}`}>
-      {titled ? <h3 className="ps-h">{situation.title}<RecordBadge /></h3> : null}
-      <h4 className="ps-h">Usual options · general guidance</h4>
-      <p className="ps-muted">These are the usual ways to deal with this. Your dentist will advise what suits your tooth.</p>
+      {titled ? <h3 className="ps-h">{`${tooth}: ${situation.title}`}<RecordBadge /></h3> : null}
+      <h4 className="ps-h">{`Your choices for ${tooth.toLowerCase()}`}</h4>
+      <p className="ps-muted">These are the usual ways to deal with this (general guidance). Your dentist will advise what suits your tooth.</p>
       <div className="ps-seg" role="group" aria-label="Options view">
         <button type="button" aria-pressed={mode === "cards"} onClick={() => { setMode("cards"); }}>Cards</button>
         <button type="button" aria-pressed={mode === "compare"} onClick={() => { setMode("compare"); }}>Compare</button>
@@ -91,17 +114,17 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
       </div>
       {mode === "cards" ? (
         <ul className="ps-opt-list">
-          {situation.options.map((o) => (
-            <li key={o.key} className="ps-opt" data-option={o.key}>
-              <b className="ps-opt-h">{o.label}</b>
-              <PinButton situation={situation} option={o} />
+          {options.map((o) => (
+            <li key={o.key} className="ps-opt" data-option={o.key} data-suggested={isSuggested(o) ? "" : undefined}>
+              {isSuggested(o) ? <span className="ps-opt-sugg">Your dentist suggests</span> : null}
+              <div className="ps-opt-top"><b className="ps-opt-h">{o.label}</b><PinButton situation={situation} option={o} /></div>
+              {pic(o)}
               <dl className="ps-opt-facts">
-                {rows.map((r) => (
+                {rows.filter((r) => filled(r.cell(o))).map((r) => (
                   <div key={r.id} data-row={r.id}><dt>{r.label}</dt><dd>{r.cell(o)}</dd></div>
                 ))}
               </dl>
               <Suspense fallback={null}><CaseFor optionKey={o.key} situationKey={situation.key} /></Suspense>
-              <IllustrationBadge>Illustration · general guidance</IllustrationBadge>
             </li>
           ))}
         </ul>
@@ -111,28 +134,39 @@ export function SituationOptions({ situation, titled = true }: { situation: Pres
             <thead>
               <tr>
                 <td />
-                {situation.options.map((o) => <th key={o.key} scope="col" data-option={o.key}>{o.label}<PinButton situation={situation} option={o} /></th>)}
+                {options.map((o) => (
+                  <th key={o.key} scope="col" data-option={o.key}>
+                    {isSuggested(o) ? <span className="ps-opt-sugg">Your dentist suggests</span> : null}
+                    {o.label}<PinButton situation={situation} option={o} />{pic(o)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} data-row={r.id}>
                   <th scope="row">{r.label}</th>
-                  {situation.options.map((o) => <td key={o.key}>{r.cell(o)}</td>)}
+                  {options.map((o) => <td key={o.key}>{filled(r.cell(o)) ? r.cell(o) : "–"}</td>)}
                 </tr>
               ))}
             </tbody>
           </table>
-          <IllustrationBadge>Illustration · general guidance</IllustrationBadge>
         </div>
       )}
+      {opened === undefined ? null : (
+        <div className="ps-opt-ba" data-compare-for={opened.key}>
+          <Suspense fallback={null}><OptionCompare {...art(opened)} /></Suspense>
+          <button type="button" className="ps-opt-close" onClick={() => { setOpen(undefined); }}>Close</button>
+        </div>
+      )}
+      <IllustrationBadge>Illustration · general guidance</IllustrationBadge>
     </section>
   );
 }
 
 /** A tooth's options in a tooth sheet: one block per situation recorded on it; nothing when it has none. */
-export function ToothOptions({ tooth }: { tooth: number }): ReactElement | null {
+export function ToothOptions({ tooth, record }: { tooth: number; record?: SnapTooth | undefined }): ReactElement | null {
   const found = situationsOf(useStudio(), tooth);
   if (found.length === 0) return null;
-  return <>{found.map((s) => <SituationOptions key={s.key} situation={s} titled={found.length > 1} />)}</>;
+  return <>{found.map((s) => <SituationOptions key={s.key} situation={s} titled={found.length > 1} record={record} />)}</>;
 }

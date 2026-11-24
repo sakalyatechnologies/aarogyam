@@ -168,7 +168,11 @@ describe("Present: today line and recommended work", () => {
     const t65 = snap.teeth.find((t) => t.tooth === 65);
     if (t65 === undefined) throw new Error("65");
     Object.assign(t65, { recommended: true });
-    render(<MouthView snapshot={snap} name="Aarav" mode="present" />);
+    const { unmount } = render(<MouthView snapshot={snap} name="Aarav" mode="present" />);
+    expect(screen.queryByText(/^Today: /)).toBeNull();
+    expect(screen.queryByRole("list", { name: "Key" })).toBeNull();
+    unmount();
+    render(<MouthView snapshot={snap} name="Aarav" mode="present" doctorLines />);
     expect(screen.getByText(/^Today: /).textContent).toContain("21 root canal sitting 4");
     expect(tooth(65).querySelector(".mv-ring-rec")).toBeTruthy();
     expect(tooth(55).querySelector(".mv-ring-rec")).toBeNull();

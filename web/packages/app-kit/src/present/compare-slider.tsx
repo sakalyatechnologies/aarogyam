@@ -24,11 +24,13 @@ export interface CompareSliderProps {
   /** Badges under each side's word (record or illustration). */
   aBadge?: ReactNode;
   bBadge?: ReactNode;
+  /** Where the divider starts, in percent (default 50). */
+  initialPos?: number;
 }
 
-export function CompareSlider({ a, b, label, aWords, bWords, aBadge, bBadge }: CompareSliderProps): ReactElement {
+export function CompareSlider({ a, b, label, aWords, bWords, aBadge, bBadge, initialPos = 50 }: CompareSliderProps): ReactElement {
   const box = sharedBox(a.box, b.box);
-  const [pos, setPos] = useState(50);
+  const [pos, setPos] = useState(initialPos);
   const drag = useRef(false);
   const wrap = useRef<HTMLDivElement>(null);
   const move = (clientX: number) => {

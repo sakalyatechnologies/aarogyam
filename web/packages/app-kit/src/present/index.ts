@@ -7,7 +7,7 @@ export {
   presentFacts, screenOrder, dottedTeeth,
   type PresentModel, type FactItem, type FactKind, type ToothFacts, type Orientation, type Eruption, type Angulation, type Origin,
 } from "./model.js";
-export { PRESENT_STYLES, SHIPPED_STYLES, DEFAULT_STYLE, isShipped, type PresentStyleId, type PresentStyleInfo } from "./styles.js";
+export { PRESENT_STYLES, SHIPPED_STYLES, DEFAULT_STYLE, isShipped, normalizeStyle, type PresentStyleId, type PresentStyleInfo } from "./styles.js";
 export {
   RecordBadge, IllustrationBadge, FactList, ProvenanceFooter, TextFallback, StyleSwitcher, StyleBoundary, useChunk, dotsOf, toneOf,
   type SwitcherOption, type DotTone,
@@ -29,7 +29,7 @@ export { StorySlot } from "./story-slot.js";
 export { FaceSlot } from "./face-slot.js";
 export { SMILE_ZONE, inSmileZone } from "./smile-zone.js";
 export type { FaceProps } from "./face.js";
-export type { StoryProps, StoryCard } from "./story.js";
+export type { StoryProps, StoryCard, PlanLine } from "./story.js";
 
 /** The painted style's chunk (painter, front atlas and Open wide). Show patient prefetches it. */
 export const loadPaintedStyle = () => import("./painted.js").then((m) => m.paintedStyle);

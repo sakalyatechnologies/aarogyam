@@ -1,18 +1,17 @@
 // Present mode on the phone (design §1.12 "Phone parity"): the portal's Show patient shell around the
 // same MouthView, fed the `/visits/{id}/mouth` JSON by the app. It opens on the painted map, the web's
 // default style (present-studio-design slice 1a), drawn from the same facts. With the options the app
-// passes it also has the web's X-rays tab and Own X-ray style (`xrays`), the doctor's chart look (`chart`),
-// pinned options with "What we discussed" and its Save. No API calls: "Add depth", pin edits, discussions
+// passes it also has the web's X-rays tab (`xrays`), the doctor's chart look (`chart`), pinned options
+// with "What we discussed" and its Save. No API calls: "Add depth", pin edits, discussions
 // and Exit go back to the app over the bridge, which owns saving and leaving.
-import { Brush } from "lucide-react";
 import { Suspense, lazy, useImperativeHandle, useMemo, useRef, useState, type ReactElement, type Ref } from "react";
 
 import type { DentalChart, MouthSnapshot, PresentDiscussion, PresentStudio } from "@aarogyam/api-client";
 import type { ChartDentition, ChartLook } from "@aarogyam/app-kit/chart/types";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import {
-  DEFAULT_SHADE, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, StorySlot, StudioProvider, StyleSwitcher, isShipped, presentFacts, usePins,
-  type Orientation, type PresentStyleId, type Shade, type SwitcherOption,
+  DEFAULT_SHADE, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, StorySlot, StudioProvider, isShipped, normalizeStyle, presentFacts, usePins,
+  type Orientation, type PlanLine, type PresentStyleId, type Shade, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import type { XrayPin } from "@aarogyam/app-kit/present/xray-pins";
 import "@aarogyam/app-kit/chart/odontogram.css";
@@ -24,11 +23,11 @@ import type { XrayInput } from "./options.js";
 import type { XrayPins } from "./xrays-view.js";
 
 const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
+const MoreMenu = lazy(() => import("@aarogyam/app-kit/present/more-menu").then((m) => ({ default: m.MoreMenu })));
 const BrushingPanel = lazy(() => import("@aarogyam/app-kit/present/brushing-panel").then((m) => ({ default: m.BrushingPanel })));
 const PinnedDeck = lazy(() => import("@aarogyam/app-kit/present/deck").then((m) => ({ default: m.PinnedDeck })));
 const PresentChart = lazy(() => import("@aarogyam/app-kit/chart/present-chart").then((m) => ({ default: m.PresentChart })));
 const XraysTab = lazy(() => import("./xrays-view.js").then((m) => ({ default: m.XraysTab })));
-const OwnXraySlot = lazy(() => import("./xrays-view.js").then((m) => ({ default: m.OwnXraySlot })));
 const StoryXrayPicture = lazy(() => import("./xrays-view.js").then((m) => ({ default: m.StoryXrayPicture })));
 
 /** What native's `back()` asks of the screen; the page answers whether it went back. */
@@ -36,22 +35,20 @@ export interface PresentControls {
   back(): boolean;
 }
 
-export const isStyle = (v: unknown): v is PresentStyleId => PRESENT_STYLES.some((s) => s.id === v);
+export const isStyle = (v: unknown): v is PresentStyleId => normalizeStyle(v) === v;
 
 /** A Show patient style, or the doctor's chart look (only when the app passed the chart). */
 type View = PresentStyleId | "chart";
 const LOOKS: readonly { value: ChartLook; label: string }[] = [{ value: "rows", label: "Rows" }, { value: "arch", label: "3D arch" }, { value: "classic", label: "Classic" }];
 const DENTITIONS: readonly { value: ChartDentition; label: string }[] = [{ value: "adult", label: "Adult" }, { value: "child", label: "Child" }];
 
-/** Story, painted and any beta the app lists; Own X-ray when the app passed X-rays, Chart when it passed the chart. */
-export function styleOptions(betas: readonly string[], saved: PresentStyleId, has: { xray?: boolean; chart?: boolean } = {}): SwitcherOption[] {
+/** Story, painted and any beta the app lists (Own X-ray is a Story card now; the chart is its own More group). */
+export function styleOptions(betas: readonly string[], saved: PresentStyleId): SwitcherOption[] {
   const ids = new Set<PresentStyleId>(["story", "painted"]);
-  for (const b of betas) if (isStyle(b) && b !== "xray") ids.add(b);
-  if (has.xray === true) ids.add("xray");
-  const options: SwitcherOption[] = PRESENT_STYLES.filter((x) => ids.has(x.id)).map((x) => ({
+  for (const b of betas) if (isStyle(b)) ids.add(b);
+  return PRESENT_STYLES.filter((x) => ids.has(x.id)).map((x) => ({
     id: x.id, label: x.label, beta: x.beta, note: x.id === saved ? "Default" : undefined, disabled: isShipped(x.id) ? undefined : "Coming soon",
   }));
-  return has.chart === true ? [...options, { id: "chart", label: "Chart", separate: true }] : options;
 }
 
 /** Caries recorded without a depth: the app records it (§1.13), so the chip only names the tooth. */
@@ -94,7 +91,9 @@ function PinnedGate({ studio, saved, canWrite, send }: { studio: PresentStudio |
   );
 }
 
-export function PresentApp({ snapshot, dark, send, controls, style, studio, betas = [], savedShade, canSaveShade = false, xrays, chart, look: askedLook, dentition: askedDentition, discussions = [], canWrite = true }: {
+export function PresentApp({ snapshot, dark, send, controls, style, studio, plans, betas = [], savedShade, canSaveShade = false, xrays, chart, look: askedLook, dentition: askedDentition, discussions = [], canWrite = true }: {
+  /** The patient's plan steps (`present(…, { plans })`); undefined: no plan card beyond the recorded plan facts. */
+  plans?: readonly PlanLine[] | undefined;
   snapshot: MouthSnapshot;
   dark: boolean;
   /** The opening style, also the doctor's saved default. */
@@ -123,16 +122,18 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
   const [onlyToday, setOnlyToday] = useState(false);
   const detail = useRef(false);
   const [orientation, setOrientation] = useState<Orientation>("mirror");
+  const [dark2, setDark2] = useState<boolean | undefined>(undefined);
+  const isDark = dark2 ?? dark;
   const [saved, setSaved] = useState<Shade>(savedShade ?? DEFAULT_SHADE);
   const [shade, setShade] = useState<Shade>(saved);
   const saveShade = canSaveShade ? () => { send({ type: "save_shade", shade }); setSaved(shade); } : undefined;
-  const [view, setView] = useState<View>(style);
+  const [view, setView] = useState<View>(normalizeStyle(style) ?? "story");
   const [tab, setTab] = useState<"teeth" | "xrays">("teeth");
   const [look, setLook] = useState<ChartLook>(askedLook ?? "rows");
   const [dentition, setDentition] = useState<ChartDentition>(askedDentition ?? "adult");
   const [edited, setEdited] = useState<ReadonlyMap<string, readonly XrayPin[]>>(new Map());
   const hasXray = xrays !== undefined && xrays.length > 0;
-  const options = useMemo(() => styleOptions(betas, style, { xray: hasXray, chart: chart !== undefined }), [betas, style, hasXray, chart]);
+  const options = useMemo(() => styleOptions(betas, style), [betas, style]);
   const model = useMemo(() => presentFacts(snapshot), [snapshot]);
   const pins: XrayPins = {
     of: (id) => edited.get(id) ?? xrays?.find((x) => x.id === id)?.pins ?? [],
@@ -155,7 +156,7 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
       return true;
     },
   }), [brushing]);
-  const theme = dark ? "dark" : "light";
+  const theme = isDark ? "dark" : "light";
   const wait = <p role="status" className="pm-wait">Loading…</p>;
   return (
     <StudioProvider studio={studio}>
@@ -164,7 +165,6 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
       <header className="pm-bar">
         <div className="pm-who">
           Show patient
-          <small>The same mouth view as the patient's page</small>
         </div>
         {xrays === undefined ? null : (
           <div className="pm-tabs" role="tablist" aria-label="Show">
@@ -173,30 +173,23 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
             ))}
           </div>
         )}
-        {tab === "teeth" ? <StyleSwitcher options={options} value={view} onChange={(v) => { if (v === "chart") { if (chart !== undefined) setView("chart"); } else if (isStyle(v) && isShipped(v)) setView(v); }} /> : null}
-        {tab === "teeth" && view !== style && (view === "story" || view === "painted" || view === "smile3d" || view === "face") ? (
-          <button type="button" className="pm-chip" onClick={() => { send({ type: "make_default", style: view }); }}>
-            Make default
-          </button>
-        ) : null}
-        {tab === "teeth" && view === "chart" ? (
-          <div className="pm-tabs" role="group" aria-label="Chart look">
-            {LOOKS.map((l) => <button key={l.value} type="button" className="pm-tab" aria-pressed={look === l.value} onClick={() => { setLook(l.value); }}>{l.label}</button>)}
-          </div>
-        ) : null}
-        {tab === "teeth" && view === "chart" ? (
-          <div className="pm-tabs" role="group" aria-label="Dentition">
-            {DENTITIONS.map((d) => <button key={d.value} type="button" className="pm-tab" aria-pressed={dentition === d.value} onClick={() => { setDentition(d.value); }}>{d.label}</button>)}
-          </div>
-        ) : null}
-        <button type="button" className="pm-chip pm-today" aria-pressed={onlyToday} onClick={() => { setOnlyToday(!onlyToday); }}>
-          Today
-        </button>
         {tab === "teeth" ? (
-          <button type="button" className="pm-chip pm-brushchip" onClick={() => { setBrushing(true); }}>
-            <Brush aria-hidden="true" />
-            How to brush
-          </button>
+          <Suspense fallback={<span className="pm-chip pm-morechip" aria-hidden="true">More</span>}>
+            <MoreMenu
+              looks={options} look={view === "chart" ? style : view} onLook={(v) => { if (isStyle(v) && isShipped(v)) setView(v); }}
+              chart={chart === undefined ? undefined : {
+                active: view === "chart", onActive: (on) => { setView(on ? "chart" : style); },
+                looks: LOOKS, look, onLook: (v) => { const l = LOOKS.find((x) => x.value === v); if (l !== undefined) setLook(l.value); },
+                dentitions: DENTITIONS, dentition, onDentition: (v) => { const d = DENTITIONS.find((x) => x.value === v); if (d !== undefined) setDentition(d.value); },
+              }}
+              onlyToday={onlyToday} onOnlyToday={setOnlyToday}
+              orientation={orientation} onOrientation={setOrientation}
+              shade={shade} onShade={setShade} shadeDirty={shade !== saved} onSaveShade={saveShade}
+              dark={isDark} onDark={setDark2}
+              onBrush={() => { setBrushing(true); }}
+              onMakeDefault={view !== "chart" && view !== style ? () => { send({ type: "make_default", style: view }); } : undefined}
+            />
+          </Suspense>
         ) : null}
         {tab === "teeth" ? <PinnedGate studio={studio} saved={discussions} canWrite={canWrite} send={send} /> : null}
         <HoldToExit onExit={() => { send({ type: "exit" }); }} />
@@ -206,15 +199,14 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, beta
           snapshot={snapshot}
           mode="present"
           filter={onlyToday ? "today" : undefined}
+          doctorLines={false}
           load3d={load3d}
           onScreen={(s) => { detail.current = s === "detail"; }}
           overview={view === "chart" && chart !== undefined ? (slot) => (
             <Suspense fallback={wait}><PresentChart look={look} dentition={dentition} chart={chart} planItems={[]} slot={slot} /></Suspense>
-          ) : view === "xray" && hasXray ? () => (
-            <Suspense fallback={wait}><OwnXraySlot model={model} xrays={xrays} pins={pins} /></Suspense>
           ) : view === "story" ? (slot) => (
             <StorySlot
-              model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} theme={theme} load3d={load3d}
+              model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} theme={theme} load3d={load3d} plans={plans}
               xray={hasXray && xrays[0] !== undefined ? <Suspense fallback={wait}><StoryXrayPicture xray={xrays[0]} /></Suspense> : undefined}
             />
           ) : (slot) => (

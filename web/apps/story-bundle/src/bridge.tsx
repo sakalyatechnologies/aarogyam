@@ -4,6 +4,7 @@ import { createRef } from "react";
 import { createRoot } from "react-dom/client";
 
 import { presentStudio, type MouthSnapshot, type PresentStudio } from "@aarogyam/api-client";
+import type { PlanLine } from "@aarogyam/app-kit/present";
 import { STORY_VERSIONS } from "@aarogyam/app-kit/story-2d";
 
 import { BUNDLE_VERSION, post, type PageMessage } from "./channel.js";
@@ -12,10 +13,17 @@ import { PresentApp, type PresentControls } from "./present-app.js";
 
 export interface PresentOptions {
   dark?: boolean;
-  /** The opening style: story (default when `present` is given) or painted (default otherwise). Own X-ray opens as the default; pick it from the switcher once `xrays` are given. */
-  style?: "story" | "painted" | "xray";
+  /** The opening style: story (default when `present` is given) or painted (default otherwise). Own X-ray is a Story card now, not a style. */
+  style?: "story" | "painted";
   /** The raw `GET /visits/{id}/present` JSON (object or text): options and compare. A bad payload opens without them. */
   present?: unknown;
+  /**
+   * The patient's treatment plan steps (`items` of `GET /patients/{id}/treatment-plans`, flattened; object or JSON text):
+   * `{ id, name, phase, status, estimate_paise, tooth? }` each. They fill the story's closing "Your plan" card; the total
+   * shows only behind the Prices tap, which needs `present` to carry prices. Absent or invalid: no plan steps (the card
+   * lists the recorded plan only, or is left out when the visit has none). Cancelled steps are ignored.
+   */
+  plans?: unknown;
   /** Beta style ids to list in the switcher. */
   betas?: string[];
   /** The patient's saved tooth colour from `GET /patients/{id}/smile-shade` (0 to 100); absent or null opens on the default. */
@@ -24,7 +32,7 @@ export interface PresentOptions {
   can_save_shade?: boolean;
   /**
    * The patient's X-rays, the one to open first listed first: `[{ id, url, taken_at?, kind?, pins? }]`. Native lists `GET /patients/{id}/attachments`
-   * (images with kind "xray"), fetches each signed link (`GET /attachments/{id}/link`) and passes it as `url` (never logged), and the saved
+   * (images with kind "xray"), fetches each signed link (`GET /attachments/{id}/download`) and passes it as `url` (never logged), and the saved
    * pins from `GET /attachments/{id}/pins` as `pins: [{tooth, x, y, label?}]`. Gives the X-rays tab and Own X-ray. Absent: neither shows.
    */
   xrays?: unknown;
@@ -93,6 +101,26 @@ function asStudio(value: unknown): PresentStudio | undefined {
   return parsed.success ? parsed.data : undefined;
 }
 
+const isPlanLine = (v: unknown): v is PlanLine =>
+  typeof v === "object" && v !== null && "id" in v && typeof v.id === "string" && "name" in v && typeof v.name === "string"
+  && "phase" in v && typeof v.phase === "number" && Number.isFinite(v.phase) && "status" in v && typeof v.status === "string"
+  && "estimate_paise" in v && typeof v.estimate_paise === "number" && Number.isFinite(v.estimate_paise)
+  && (!("tooth" in v) || v.tooth === undefined || v.tooth === null || typeof v.tooth === "number");
+
+/** The plan steps, checked one by one; anything off drops that step, a non-list drops them all. */
+function asPlans(value: unknown): PlanLine[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  let v: unknown = value;
+  if (typeof v === "string") {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      return undefined;
+    }
+  }
+  return Array.isArray(v) ? v.filter(isPlanLine) : undefined;
+}
+
 export interface BridgeDeps {
   /** Where Present draws. */
   container: HTMLElement;
@@ -127,7 +155,7 @@ export function installBridge({ container, send = (m) => { post(m); }, loadRende
       const betas = Array.isArray(options?.betas) ? options.betas.filter((b) => typeof b === "string") : [];
       const raw = options?.shade;
       const shade = typeof raw === "number" && Number.isFinite(raw) ? Math.min(100, Math.max(0, Math.round(raw))) : undefined;
-      root.render(<PresentApp key={opened} snapshot={snapshot} dark={dark} send={send} controls={controls} style={style} studio={studio} betas={betas} savedShade={shade} canSaveShade={options?.can_save_shade === true}
+      root.render(<PresentApp key={opened} snapshot={snapshot} dark={dark} send={send} controls={controls} style={style} studio={studio} plans={asPlans(options?.plans)} betas={betas} savedShade={shade} canSaveShade={options?.can_save_shade === true}
         xrays={asXrays(options?.xrays)} chart={asChart(options?.chart)} look={asLook(options?.look)} dentition={asDentition(options?.dentition)}
         discussions={asDiscussions(options?.discussions)} canWrite={options?.can_write !== false} />);
     },

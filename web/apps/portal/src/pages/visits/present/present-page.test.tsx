@@ -287,11 +287,11 @@ describe("Present mode (§1.12)", () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    const card = await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Decay close to the nerve/ }, WAIT);
+    const card = await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Infection at the root/ }, WAIT);
     fireEvent.click(card);
-    const block = await within(shell).findByRole("region", { name: /Usual options: Decay close to the nerve/ }, WAIT);
+    const block = await within(shell).findByRole("region", { name: /Usual options: Infection at the root/ }, WAIT);
     expect(within(block).getByText("Usual options · general guidance")).toBeTruthy();
-    expect(block.querySelectorAll("[data-option]").length).toBe(5);
+    expect(block.querySelectorAll("[data-option]").length).toBe(4);
     expect(block.textContent).not.toMatch(/₹|Visit \d/);
   });
 
@@ -299,8 +299,8 @@ describe("Present mode (§1.12)", () => {
     const { path, backend, wrap } = present(false, true);
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
-    fireEvent.click(await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Decay close to the nerve/ }, WAIT));
-    const block = await within(shell).findByRole("region", { name: /Usual options: Decay close to the nerve/ }, WAIT);
+    fireEvent.click(await within(shell).findByRole("button", { name: /Card \d+ of \d+: Usual options · Infection at the root/ }, WAIT));
+    const block = await within(shell).findByRole("region", { name: /Usual options: Infection at the root/ }, WAIT);
     expect(within(shell).queryByRole("button", { name: /^Pinned/ })).toBeNull();
     fireEvent.click(within(block).getByRole("button", { name: "Pin Root canal and cap" }));
     fireEvent.click(within(block).getByRole("button", { name: "Pin Remove the tooth only" }));

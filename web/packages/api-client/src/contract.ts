@@ -558,6 +558,7 @@ export type SaveDiscussionBody = Schemas["SaveDiscussionBody"];
 export type PresentSettingsBody = Schemas["PresentSettingsBody"];
 export type PresentFinish = Schemas["PresentFinish"];
 export type PresentLifespan = Schemas["PresentLifespan"];
+export type PresentWaitStage = Schemas["PresentWaitStage"];
 export type MouthPosition = Schemas["MouthPosition"];
 export type MouthTooth = Schemas["MouthTooth"];
 export type VisitStory = Schemas["VisitStory"];

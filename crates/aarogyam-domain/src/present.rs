@@ -77,6 +77,22 @@ pub struct OptionDef {
     pub comfort: String,
     /// Procedures to price (slice 2b).
     pub price_parts: Vec<PricePart>,
+    /// Treatment model keys (`mouth` treatments) this option is the same work as; a tooth with a
+    /// planned or in-progress treatment on one of them gets the option marked as suggested.
+    #[serde(default)]
+    pub plan_models: Vec<String>,
+    /// Doing nothing for now ("Wait and watch"). Not offered on a tooth with a treatment under way.
+    #[serde(default)]
+    pub is_wait: bool,
+}
+
+/// One stage of what waiting usually leads to, as the data file writes it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WaitStage {
+    /// Short name of the stage.
+    pub stage: String,
+    /// What the patient reads.
+    pub words: String,
 }
 
 /// A situation's options as the data file writes them.
@@ -84,6 +100,9 @@ pub struct OptionDef {
 pub struct SituationDef {
     /// Words for the situation.
     pub title: String,
+    /// What waiting usually leads to, in order. General guidance.
+    #[serde(default)]
+    pub if_wait: Vec<WaitStage>,
     /// Its usual options.
     pub options: Vec<OptionDef>,
 }
@@ -287,17 +306,23 @@ pub struct OptionCard {
     pub lifespan: Option<Lifespan>,
     /// How it feels, in words.
     pub comfort: String,
+    /// The same work as a treatment already planned or under way on this tooth.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub suggested: bool,
 }
 
 /// A recorded situation on one tooth with its usual options.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Situation {
-    /// `deep_decay`, `missing` or `impacted_wisdom`.
+    /// `deep_decay`, `infection`, `missing` or `impacted_wisdom`.
     pub key: String,
     /// FDI tooth.
     pub tooth: u8,
     /// Words for the situation.
     pub title: String,
+    /// What waiting usually leads to; empty when the data has none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub if_wait: Vec<WaitStage>,
     /// The usual options.
     pub options: Vec<OptionCard>,
 }
@@ -442,7 +467,9 @@ fn situations_of(t: &MouthTooth) -> Vec<&'static str> {
     let caries = t.problems.iter().any(|p| p == "caries");
     let near_pulp = details.is_some_and(|d| d.caries_depth.as_deref() == Some("near_pulp"));
     let infection = details.is_some_and(|d| d.infection.is_some());
-    if (caries && near_pulp) || infection {
+    if infection {
+        keys.push("infection");
+    } else if caries && near_pulp {
         keys.push("deep_decay");
     }
     if is_permanent(t.tooth) && t.tooth % 10 != 8 && t.finding.as_deref() == Some("missing") {
@@ -458,7 +485,22 @@ fn situations_of(t: &MouthTooth) -> Vec<&'static str> {
     keys
 }
 
-fn card(def: &OptionDef, options: &Options, outcomes: &Outcomes) -> OptionCard {
+/// A treatment is planned or in progress on the tooth (a finished one does not count).
+fn treatment_under_way(t: &MouthTooth) -> bool {
+    t.treatments
+        .iter()
+        .any(|tr| matches!(tr.state.as_str(), "planned" | "in_progress"))
+}
+
+/// Whether `def` is the same work as a treatment planned or in progress on `t`.
+fn matches_plan(def: &OptionDef, t: &MouthTooth) -> bool {
+    t.treatments.iter().any(|tr| {
+        matches!(tr.state.as_str(), "planned" | "in_progress")
+            && def.plan_models.contains(&tr.model)
+    })
+}
+
+fn card(def: &OptionDef, options: &Options, outcomes: &Outcomes, suggested: bool) -> OptionCard {
     let lifespan = def
         .outcome
         .as_ref()
@@ -487,6 +529,7 @@ fn card(def: &OptionDef, options: &Options, outcomes: &Outcomes) -> OptionCard {
             .get(&def.comfort)
             .cloned()
             .unwrap_or_default(),
+        suggested,
     }
 }
 
@@ -503,15 +546,26 @@ pub fn build(snapshot: &MouthSnapshot) -> PresentStudio {
         .flat_map(|t| {
             situations_of(t).into_iter().filter_map(move |key| {
                 let def = options.situations.get(key)?;
+                let under_way = treatment_under_way(t);
+                // The first option that is the same work as the plan is the suggestion, shown first.
+                let mut suggested = def.options.iter().position(|o| matches_plan(o, t));
+                let mut cards: Vec<OptionCard> = def
+                    .options
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, o)| !(under_way && o.is_wait))
+                    .map(|(i, o)| card(o, options, outcomes, suggested == Some(i)))
+                    .collect();
+                suggested = cards.iter().position(|c| c.suggested);
+                if let Some(i) = suggested {
+                    cards[..=i].rotate_right(1);
+                }
                 Some(Situation {
                     key: key.to_owned(),
                     tooth: t.tooth,
                     title: def.title.clone(),
-                    options: def
-                        .options
-                        .iter()
-                        .map(|o| card(o, options, outcomes))
-                        .collect(),
+                    if_wait: def.if_wait.clone(),
+                    options: cards,
                 })
             })
         })

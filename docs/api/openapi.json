@@ -40073,6 +40073,13 @@
             "type": "string",
             "description": "How it looks afterwards, in words."
           },
+          "suggested": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "True on the one option that is the same work as a treatment already planned or in progress\non this tooth: show it first as \"Your dentist suggests\". Absent otherwise."
+          },
           "summary": {
             "type": "string",
             "description": "What is done."
@@ -40155,9 +40162,19 @@
           "options"
         ],
         "properties": {
+          "if_wait": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/PresentWaitStage"
+            },
+            "description": "What waiting usually leads to, in order. General guidance (\"Illustration · general guidance\");\nabsent when there are no words."
+          },
           "key": {
             "type": "string",
-            "description": "`deep_decay`, `missing` or `impacted_wisdom` (a plain string; more may come)."
+            "description": "`deep_decay`, `infection`, `missing` or `impacted_wisdom` (a plain string; more may come)."
           },
           "options": {
             "type": "array",
@@ -40201,6 +40218,24 @@
               "$ref": "#/components/schemas/PresentSituation"
             },
             "description": "The recorded situations, by tooth, each with its usual options."
+          }
+        }
+      },
+      "PresentWaitStage": {
+        "type": "object",
+        "description": "One stage of what waiting usually leads to.",
+        "required": [
+          "stage",
+          "words"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "description": "Short name of the stage, such as \"Usually next\"."
+          },
+          "words": {
+            "type": "string",
+            "description": "What the patient reads."
           }
         }
       },

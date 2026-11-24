@@ -10,7 +10,9 @@ import { SituationOptions, StudioProvider, ToothOptions, finishWords, visitsWord
 
 afterEach(cleanup);
 
-const studio = () => fakePresentStudio(adultFixture.snapshot);
+// Nothing planned, so "Wait and watch" is still offered (a tooth with a plan under way does not get it).
+const unplanned = { ...adultFixture.snapshot, teeth: adultFixture.snapshot.teeth.map((tooth) => ({ ...tooth, treatments: [] })) };
+const studio = () => fakePresentStudio(unplanned);
 const deep = () => {
   const s = studio().situations.find((x) => x.key === "deep_decay");
   if (s === undefined) throw new Error("no deep decay");

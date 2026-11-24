@@ -34,7 +34,7 @@ fn situations_come_from_recorded_fields_only() {
         [(14, "missing"), (37, "deep_decay"), (38, "impacted_wisdom")]
     );
     // 21 has a recorded infection; 51 is a missing milk tooth and 55 has dentin decay: no situation.
-    assert_eq!(found(&build(&aarav())), [(21, "deep_decay")]);
+    assert_eq!(found(&build(&aarav())), [(21, "infection")]);
 }
 
 #[test]
@@ -69,18 +69,13 @@ fn each_situation_carries_the_options_with_the_five_facts() {
             .map(|o| o.key.as_str())
             .collect()
     };
-    assert_eq!(keys(0), ["implant", "bridge", "leave_gap"]);
+    // Every tooth of the adult fixture has a plan, so no "wait" option is offered and the plan is first.
+    assert_eq!(keys(0), ["implant", "bridge"]);
     assert_eq!(
         keys(1),
-        [
-            "wait",
-            "rct_crown",
-            "extract_implant",
-            "extract_bridge",
-            "extract"
-        ]
+        ["rct_crown", "extract_implant", "extract_bridge", "extract"]
     );
-    assert_eq!(keys(2), ["remove", "monitor"]);
+    assert_eq!(keys(2), ["remove"]);
     for o in studio.situations.iter().flat_map(|s| &s.options) {
         assert!(o.visits.min <= o.visits.max, "{}", o.key);
         assert!(
@@ -236,7 +231,7 @@ fn the_option_data_is_consistent() {
             .keys()
             .map(String::as_str)
             .collect::<Vec<_>>(),
-        ["deep_decay", "impacted_wisdom", "missing"]
+        ["deep_decay", "impacted_wisdom", "infection", "missing"]
     );
     for def in options.situations.values().flat_map(|s| &s.options) {
         assert!(options.comfort.contains_key(&def.comfort), "{}", def.key);
@@ -449,4 +444,74 @@ fn settings_reject_unknown_fields_keys_and_codes() {
     settings(&[("crown", "RCT")]).merge_into(&mut stored);
     assert_eq!(stored["hidden"], serde_json::json!(["a"]));
     assert_eq!(stored["price_map"]["crown"], "RCT");
+}
+
+#[test]
+fn an_infection_has_its_own_situation_and_no_wait_option() {
+    let studio = build(&aarav());
+    let s = &studio.situations[0];
+    assert_eq!((s.tooth, s.key.as_str()), (21, "infection"));
+    assert_eq!(s.title, "Infection at the root");
+    let keys: Vec<&str> = s.options.iter().map(|o| o.key.as_str()).collect();
+    assert_eq!(
+        keys,
+        ["rct_crown", "extract_implant", "extract_bridge", "extract"]
+    );
+}
+
+#[test]
+fn the_option_matching_the_plan_is_suggested_and_first() {
+    // Tooth 21 is mid root canal: that option is suggested, and nothing else is.
+    let studio = build(&aarav());
+    let options = &studio.situations[0].options;
+    assert!(options[0].suggested && options[0].key == "rct_crown");
+    assert_eq!(options.iter().filter(|o| o.suggested).count(), 1);
+    // The adult plans an implant on 14, a root canal on 37 and a wisdom removal on 38.
+    let studio = build(&adult());
+    let first: Vec<(&str, bool)> = studio
+        .situations
+        .iter()
+        .map(|s| (s.options[0].key.as_str(), s.options[0].suggested))
+        .collect();
+    assert_eq!(
+        first,
+        [("implant", true), ("rct_crown", true), ("remove", true)]
+    );
+    // With nothing planned, "Wait and watch" is offered first and nothing is suggested.
+    let mut snapshot = adult();
+    for t in &mut snapshot.teeth {
+        t.treatments.clear();
+    }
+    let studio = build(&snapshot);
+    assert_eq!(studio.situations[1].options[0].key, "wait");
+    assert!(
+        studio
+            .situations
+            .iter()
+            .flat_map(|s| &s.options)
+            .all(|o| !o.suggested)
+    );
+}
+
+#[test]
+fn every_situation_has_if_wait_words_in_plain_stages() {
+    for (key, def) in &options().unwrap().situations {
+        assert!(def.if_wait.len() >= 3, "{key}");
+        assert!(
+            def.if_wait
+                .iter()
+                .all(|w| !w.stage.is_empty() && !w.words.is_empty()),
+            "{key}"
+        );
+        for o in def.options.iter().filter(|o| o.is_wait) {
+            assert!(
+                o.looks_like.to_lowercase().contains("usually")
+                    || o.looks_like.contains("over time"),
+                "{}",
+                o.key
+            );
+        }
+    }
+    let studio = build(&adult());
+    assert!(studio.situations.iter().all(|s| !s.if_wait.is_empty()));
 }

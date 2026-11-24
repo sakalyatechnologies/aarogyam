@@ -19,10 +19,12 @@ interface OptionDef {
   outcome?: string;
   comfort: string;
   price_parts?: { procedure: string; material?: string }[];
+  plan_models?: string[];
+  is_wait?: boolean;
 }
 interface OutcomeDef { words?: string; why?: string; source?: string; source_quote?: string }
 
-const situations: Record<string, { title: string; options: OptionDef[] }> = optionsFile.situations;
+const situations: Record<string, { title: string; if_wait?: { stage: string; words: string }[]; options: OptionDef[] }> = optionsFile.situations;
 const comfort: Record<string, string> = optionsFile.comfort;
 const outcomes: Record<string, OutcomeDef> = outcomesFile.outcomes;
 
@@ -31,14 +33,19 @@ const permanent = (tooth: number): boolean => tooth >= 11 && tooth <= 48 && toot
 function situationsOf(t: C.MouthTooth): string[] {
   const keys: string[] = [];
   const caries = (t.problems ?? []).includes("caries");
-  if ((caries && t.details?.caries_depth === "near_pulp") || t.details?.infection !== undefined) keys.push("deep_decay");
+  if (t.details?.infection !== undefined) keys.push("infection");
+  else if (caries && t.details?.caries_depth === "near_pulp") keys.push("deep_decay");
   if (permanent(t.tooth) && t.tooth % 10 !== 8 && t.finding === "missing") keys.push("missing");
   const eruption = t.details?.eruption;
   if (permanent(t.tooth) && t.tooth % 10 === 8 && (eruption === "impacted" || eruption === "partial" || eruption === "unerupted")) keys.push("impacted_wisdom");
   return keys;
 }
 
-function card(o: OptionDef): PresentOption {
+const underWay = (t: C.MouthTooth): boolean => (t.treatments ?? []).some((tr) => tr.state === "planned" || tr.state === "in_progress");
+const matchesPlan = (o: OptionDef, t: C.MouthTooth): boolean =>
+  (t.treatments ?? []).some((tr) => (tr.state === "planned" || tr.state === "in_progress") && (o.plan_models ?? []).includes(tr.model));
+
+function card(o: OptionDef, suggested: boolean): PresentOption {
   const out = o.outcome === undefined ? undefined : outcomes[o.outcome];
   return {
     key: o.key, label: o.label, summary: o.summary, looks_like: o.looks_like, visits: o.visits,
@@ -52,6 +59,7 @@ function card(o: OptionDef): PresentOption {
       },
     }),
     comfort: comfort[o.comfort] ?? "",
+    ...(suggested ? { suggested: true } : {}),
   };
 }
 
@@ -61,7 +69,14 @@ export function fakePresentStudio(snapshot: C.MouthSnapshot): PresentStudio {
     situations: [...snapshot.teeth].sort((a, b) => a.tooth - b.tooth).flatMap((t) =>
       situationsOf(t).flatMap((key) => {
         const def = situations[key];
-        return def === undefined ? [] : [{ key, tooth: t.tooth, title: def.title, options: def.options.map(card) }];
+        if (def === undefined) return [];
+        const first = def.options.findIndex((o) => matchesPlan(o, t));
+        const cards = def.options.flatMap((o, i) => (underWay(t) && o.is_wait === true ? [] : [card(o, i === first)]));
+        const at = cards.findIndex((c) => c.suggested === true);
+        const pick = cards[at];
+        const options = at > 0 && pick !== undefined ? [pick, ...cards.slice(0, at), ...cards.slice(at + 1)] : cards;
+        const if_wait = def.if_wait ?? [];
+        return [{ key, tooth: t.tooth, title: def.title, ...(if_wait.length === 0 ? {} : { if_wait }), options }];
       })),
   };
 }

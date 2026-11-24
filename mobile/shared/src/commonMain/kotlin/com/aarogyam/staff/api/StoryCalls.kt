@@ -11,6 +11,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.encodeURLPathPart
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
@@ -76,6 +77,10 @@ suspend fun ClinicApi.saveSmileShade(
 /** `GET /api/v1/patients/{id}/attachments`: the patient's files (newest first), raw so the story code reads only what it needs. */
 suspend fun ClinicApi.attachmentsRaw(patientId: String): Outcome<JsonObject, ApiError> =
     client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/attachments") }
+
+/** `GET /api/v1/patients/{id}/treatment-plans`, raw: the page's "Your plan" card reads it. */
+suspend fun ClinicApi.treatmentPlansRaw(patientId: String): Outcome<JsonElement, ApiError> =
+    client.call { url("api/v1/patients/${patientId.encodeURLPathPart()}/treatment-plans") }
 
 /** `GET /api/v1/patients/{id}/dental-chart`: every tooth's findings, raw for the story page's "Chart" look. */
 suspend fun ClinicApi.dentalChartRaw(patientId: String): Outcome<JsonObject, ApiError> =

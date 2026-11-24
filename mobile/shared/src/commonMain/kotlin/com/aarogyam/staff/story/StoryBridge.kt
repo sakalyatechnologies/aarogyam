@@ -2,6 +2,7 @@ package com.aarogyam.staff.story
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -51,6 +52,7 @@ object StoryBridge {
         xrays: JsonArray? = null,
         chart: JsonObject? = null,
         discussions: JsonObject? = null,
+        plans: JsonElement? = null,
         canWrite: Boolean = true,
         canSeePrices: Boolean = true,
     ): String {
@@ -66,6 +68,8 @@ object StoryBridge {
                 if (!xrays.isNullOrEmpty()) put("xrays", xrays)
                 if (chart != null) put("chart", chart)
                 if (discussions != null) put("discussions", discussions)
+                // Show patient v3: the treatment plans for the "Your plan" closing card.
+                if (plans != null) put("plans", plans)
                 // The page defaults both to true, so only a "no" is sent.
                 if (!canWrite) put("can_write", false)
                 if (!canSeePrices) put("can_see_prices", false)

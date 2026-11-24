@@ -206,6 +206,7 @@ class PresentTest {
             { json("""{"url":"/api/v1/attachments/a-old/content?t=s2","expires_at":"x"}""") },
         )
         backend.on("$SUNRISE/api/v1/patients/p1/dental-chart", { json("""{"teeth":[]}""") })
+        backend.on("$SUNRISE/api/v1/patients/p1/treatment-plans", { json("""{"items":[]}""") })
         backend.on("$SUNRISE/api/v1/visits/v1/present-discussions", { json("""{"discussions":[{"tooth":36}]}""") })
         return backend
     }
@@ -224,6 +225,7 @@ class PresentTest {
             assertTrue(""""pins":[{"tooth":36,"x":0.5,"y":0.25}]""" in script, script)
             assertTrue("a-doc" !in script, "only X-rays go")
             assertTrue(""""chart":{"teeth":[]}""" in script, script)
+            assertTrue(""""plans":{"items":[]}""" in script, script)
             assertTrue(""""discussions":{"discussions":[{"tooth":36}]}""" in script, script)
             assertTrue("can_write" !in script && "can_see_prices" !in script, script)
 

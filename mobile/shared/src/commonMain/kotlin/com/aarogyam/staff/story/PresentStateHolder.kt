@@ -225,6 +225,7 @@ class PresentStateHolder(
                         xrays = xrays,
                         chart = extras.chart,
                         discussions = extras.discussions,
+                        plans = extras.plans,
                         canWrite = "clinical.write" in clinic.permissions,
                         canSeePrices = canSeePrices,
                     ),

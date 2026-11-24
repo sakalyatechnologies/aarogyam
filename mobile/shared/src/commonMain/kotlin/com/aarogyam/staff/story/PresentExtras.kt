@@ -5,12 +5,14 @@ import com.aarogyam.staff.api.attachmentPins
 import com.aarogyam.staff.api.attachmentsRaw
 import com.aarogyam.staff.api.dentalChartRaw
 import com.aarogyam.staff.api.presentDiscussions
+import com.aarogyam.staff.api.treatmentPlansRaw
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -31,6 +33,7 @@ internal class PresentExtras(
     val xrays: List<PresentXray> = emptyList(),
     val chart: JsonObject? = null,
     val discussions: JsonObject? = null,
+    val plans: JsonElement? = null,
 ) {
     /** The `xrays` option with links signed now (they last five minutes); an X-ray whose link fails is left out. */
     suspend fun xrayOptions(
@@ -72,6 +75,7 @@ internal class PresentExtras(
             coroutineScope {
                 val chart = async { (clinic.api.dentalChartRaw(patientId) as? Outcome.Success)?.value }
                 val discussions = async { (clinic.api.presentDiscussions(visitId) as? Outcome.Success)?.value }
+                val plans = async { (clinic.api.treatmentPlansRaw(patientId) as? Outcome.Success)?.value }
                 val files = (clinic.api.attachmentsRaw(patientId) as? Outcome.Success)?.value
                 val picked = pick(files, visitId)
                 val pins =
@@ -82,7 +86,7 @@ internal class PresentExtras(
                     picked.mapIndexed { i, (id, takenAt) ->
                         PresentXray(id, takenAt, pins[i] as? JsonArray ?: JsonArray(emptyList()))
                     }
-                PresentExtras(xrays, chart.await(), discussions.await())
+                PresentExtras(xrays, chart.await(), discussions.await(), plans.await())
             }
 
         /** Image X-rays as (id, taken_at): this visit's first, then the newest (the list is newest first). */

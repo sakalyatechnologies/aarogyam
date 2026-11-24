@@ -1,6 +1,6 @@
 // A usual case (present-studio-design §8.5, slice 2d-1): the steps of one common treatment, from
 // specialties/dental/present/cases/*.json. General guidance, never this patient: no visit numbers, no dates, no prices.
-import type { ReactElement } from "react";
+import { lazy, Suspense, type ReactElement } from "react";
 
 import implant from "../../../../../specialties/dental/present/cases/implant.json" with { type: "json" };
 import wisdom from "../../../../../specialties/dental/present/cases/wisdom.json" with { type: "json" };
@@ -9,6 +9,10 @@ import scaling from "../../../../../specialties/dental/present/cases/scaling.jso
 import veneer from "../../../../../specialties/dental/present/cases/veneer.json" with { type: "json" };
 import braces from "../../../../../specialties/dental/present/cases/braces.json" with { type: "json" };
 import aligners from "../../../../../specialties/dental/present/cases/aligners.json" with { type: "json" };
+
+// the example-arch picture lives in its own lazy chunk (it carries the front atlas)
+const Straighter = lazy(() => import("./straighter-teeth.js").then((m) => ({ default: m.StraighterTeeth })));
+
 
 export interface CaseData {
   key: string;
@@ -58,5 +62,7 @@ export function CaseForOption({ optionKey, situationKey }: { optionKey: string; 
   if (IMPLANT_OPTION_KEYS.includes(optionKey)) return <UsualCase data={IMPLANT_CASE} />;
   if (optionKey === "bridge" && situationKey === "missing") return <UsualCase data={BRIDGE_CASE} />;
   if (optionKey === "remove" && WISDOM_SITUATION_KEYS.includes(situationKey)) return <UsualCase data={WISDOM_CASE} />;
+  if (optionKey === "orthodontic_fixed" || optionKey === "braces") return <Suspense fallback={null}><Straighter data={BRACES_CASE} /></Suspense>;
+  if (optionKey === "aligners") return <Suspense fallback={null}><Straighter data={ALIGNERS_CASE} /></Suspense>;
   return null;
 }

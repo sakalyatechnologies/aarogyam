@@ -58,6 +58,9 @@ export function PatientFacts({ patient }: { patient: Patient }) {
           </span>
         )}
       </Fact>
+      <Fact label="Address" wide>
+        {addressLine(patient) ?? "Not recorded"}
+      </Fact>
       <Fact label="Date of birth">{birthLine(patient)}</Fact>
       <Fact label="File number">
         <span className="mk-mono">{patient.number}</span>
@@ -84,4 +87,11 @@ export function PatientFacts({ patient }: { patient: Patient }) {
       ) : null}
     </div>
   );
+}
+
+/** The address on one line, or nothing when none was given. */
+export function addressLine(patient: Patient): string | undefined {
+  const a = patient.address;
+  const line = [a?.line1, a?.locality, a?.city ?? a?.district, a?.state, a?.pincode].filter((part) => part != null && part !== "").join(", ");
+  return line === "" ? undefined : line;
 }

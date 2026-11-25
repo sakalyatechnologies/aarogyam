@@ -5,6 +5,7 @@ import { z } from "zod";
 import { apiErrorOf, type NewPatient, type Sex } from "@aarogyam/api-client";
 import { DateInput, Field, PhoneInput, RadioGroup, Select, TextInput } from "@sakalya/ui";
 
+import { PinCodeFields, useClinicPinLookup, type PinValue } from "../../components/pin-code-fields.js";
 import { LANGUAGES, SEX_OPTIONS, useTodayDate } from "../../lib/patients.js";
 
 /** The registration form's rules, shared by the New patient page and the booking dialog. */
@@ -87,7 +88,8 @@ export function patientErrorOf(form: PatientForm, thrown: unknown): string | und
 }
 
 /** The registration fields: name, sex, date of birth or age, mobile, email and language. */
-export function PatientFields({ form }: { form: PatientForm }) {
+export function PatientFields({ form, address }: { form: PatientForm; address?: { line1: string; pin: PinValue; onChange: (next: { line1: string; pin: PinValue }) => void } }) {
+  const lookup = useClinicPinLookup();
   const today = useTodayDate();
   const { errors } = form.formState;
   const birthMode = useWatch({ control: form.control, name: "birthMode" });
@@ -144,6 +146,14 @@ export function PatientFields({ form }: { form: PatientForm }) {
       <Field label="Email" error={errors.email?.message}>
         <TextInput type="email" autoComplete="off" {...form.register("email")} />
       </Field>
+      {address === undefined ? null : (
+        <>
+          <Field label="Address" hint="House, building and street.">
+            <TextInput autoComplete="off" value={address.line1} onChange={(event) => { address.onChange({ line1: event.currentTarget.value, pin: address.pin }); }} />
+          </Field>
+          <PinCodeFields value={address.pin} lookup={lookup} onChange={(pin) => { address.onChange({ line1: address.line1, pin }); }} />
+        </>
+      )}
       <Field label="Preferred language" error={errors.preferredLanguage?.message} required>
         <Select options={LANGUAGES} {...form.register("preferredLanguage")} />
       </Field>

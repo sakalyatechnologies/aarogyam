@@ -777,6 +777,8 @@ export interface Fixtures {
   stockImports?: import("./purchasing.js").FakeStockImport[];
   /** Clinic expenses (stock deliveries count as material on their own). */
   expenses?: import("./analytics.js").FakeExpense[];
+  /** Sterilisation cycles, made on first use. */
+  sterilisationCycles?: { id: string; clinic_id: string; run_at: string; load_note: string | null; recorded_by: string }[];
   /** Recurring expenses (rent, salaries), made on first use. */
   recurringExpenses?: import("./recurring-expenses.js").FakeRecurring[];
   /** Labs, lab orders and lab payments. */

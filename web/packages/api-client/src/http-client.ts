@@ -191,6 +191,7 @@ import {
   type RequestId,
 } from "./schemas.js";
 import { ownDentalTerm, ownDentalTermList, supportActionList, supportGrantList, supportGrantView } from "./schemas.js";
+import { sterilisationCycle, sterilisationCycleList } from "./schemas.js";
 import { myTasks, task, taskHistory, taskList, taskOccurrence, taskPreview, taskProofUploaded } from "./schemas.js";
 import { checkedIn, duplicateList, merged, consentLink, consentRequested, consentSigned, familyLink, familyList, patientsSummary, phoneMatches, quickPicks, startedVisit, walkIn } from "./schemas.js";
 import { conversation, labReminders, messageStats } from "./schemas.js";
@@ -1138,6 +1139,10 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: "/api/v1/reports/collections", schema: collections, query: { from: range.from, to: range.to, weeks: range.weeks, compare: range.compare }, signal: opts?.signal }),
     getPendingReport: (opts) => call({ method: "GET", path: "/api/v1/reports/pending", schema: pendingReport, signal: opts?.signal }),
     getTodayMoney: (opts) => call({ method: "GET", path: "/api/v1/today/money", schema: todayMoney, signal: opts?.signal }),
+    listSterilisationCycles: (date, opts) =>
+      call({ method: "GET", path: "/api/v1/sterilisation-cycles", schema: sterilisationCycleList, query: { date }, signal: opts?.signal }),
+    recordSterilisationCycle: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/sterilisation-cycles", schema: sterilisationCycle, body: input, signal: opts?.signal }),
     listExpenses: (range, opts) =>
       call({ method: "GET", path: "/api/v1/expenses", schema: expenseList, query: { from: range.from, to: range.to }, signal: opts?.signal }),
     recordExpense: (input, opts) => call({ method: "POST", path: "/api/v1/expenses", schema: expense, body: input, signal: opts?.signal }),

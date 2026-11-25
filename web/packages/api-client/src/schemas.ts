@@ -4755,6 +4755,23 @@ export const myTasks = z.object({
 }) satisfies z.ZodType<C.MyTasks>;
 export type MyTasks = z.output<typeof myTasks>;
 
+/** One autoclave run. */
+export const sterilisationCycle = z.object({
+  id: z.string().min(1),
+  load_note: z.string().nullable().exactOptional(),
+  recorded_by_name: z.string().nullable().exactOptional(),
+  run_at: timestamp,
+}) satisfies z.ZodType<C.SterilisationCycle>;
+export type SterilisationCycle = z.output<typeof sterilisationCycle>;
+
+export const sterilisationCycleList = z.object({
+  date,
+  items: z.array(sterilisationCycle),
+}) satisfies z.ZodType<C.SterilisationCycleList>;
+export type SterilisationCycleList = z.output<typeof sterilisationCycleList>;
+
+export type NewSterilisationCycle = C.NewSterilisationCycle;
+
 export const taskSchedule = z.object({
   kind: z.enum(["once", "daily", "every_n_days", "weekdays"]).nullable().exactOptional(),
   once_at: optionalTimestamp,

@@ -9260,6 +9260,38 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.PendingReport);
         }),
 
+      listSterilisationCycles: (date, opts) =>
+        respond(S.sterilisationCycleList, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const day = date !== undefined && date !== "" ? date : clinicToday(caller.clinic);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+            return invalid("date", "must be YYYY-MM-DD");
+          }
+          const items = (state.sterilisationCycles ?? [])
+            .filter((c) => c.clinic_id === caller.clinic.id && localClock(new Date(c.run_at), caller.clinic.timezone).date === day)
+            .sort((a, b) => b.run_at.localeCompare(a.run_at))
+            .map((c) => ({ id: c.id, run_at: c.run_at, load_note: c.load_note, recorded_by_name: taskMemberName(c.recorded_by) }));
+          return reply({ date: day, items } satisfies C.SterilisationCycleList);
+        }),
+
+      recordSterilisationCycle: (input, opts) =>
+        respond(S.sterilisationCycle, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const note = input.load_note?.trim() ?? "";
+          if (note.length > 120) {
+            return invalid("load_note", "at most 120 characters");
+          }
+          const cycle = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, run_at: clock().toISOString(), load_note: note === "" ? null : note, recorded_by: caller.membership.id };
+          (state.sterilisationCycles ??= []).push(cycle);
+          return reply({ id: cycle.id, run_at: cycle.run_at, load_note: cycle.load_note, recorded_by_name: taskMemberName(cycle.recorded_by) } satisfies C.SterilisationCycle);
+        }),
+
       listExpenses: (range, opts) =>
         respond(S.expenseList, opts?.signal, async () => {
           const caller = await inClinic("finance.view");
@@ -12548,7 +12580,7 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, asked: strin
     recent_patients,
     team,
     completed_visits,
-    sterilisation_cycles_today: 0,
+    sterilisation_cycles_today: (state.sterilisationCycles ?? []).filter((c) => c.clinic_id === clinic.id && localClock(new Date(c.run_at), clinic.timezone).date === date).length,
   };
   if (canSeeMoney) {
     const dayPayments = state.payments.filter((p) => p.clinic_id === clinic.id && p.status === "received" && localClock(new Date(p.received_at), clinic.timezone).date === date);

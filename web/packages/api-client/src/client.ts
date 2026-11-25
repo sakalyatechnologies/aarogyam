@@ -46,7 +46,7 @@ import type {
   UnreadCount,
 } from "./schemas.js";
 import type { NewSupportGrant, OwnDentalTerm, OwnDentalTermList, RenameDentalTerm, SupportActionList, SupportGrantList, SupportGrantView } from "./schemas.js";
-import type { MyTasks, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview, TaskProofUploaded } from "./schemas.js";
+import type { MyTasks, NewSterilisationCycle, SterilisationCycle, SterilisationCycleList, Task, TaskHistory, TaskId, TaskList, TaskOccurrence, TaskOccurrenceId, TaskPreview, TaskProofUploaded } from "./schemas.js";
 import type { CompleteTask, NewTask, TaskChange } from "./contract.js";
 import type { CheckedIn, CheckInRequest, DuplicateList, MergeRequest, Merged } from "./schemas.js";
 import type { ImportChoices, ImportSession, ImportSessionId, IncompleteList, PatientGapId, SmartImportResult } from "./schemas.js";
@@ -1064,6 +1064,10 @@ export interface ApiClient {
 
   /** Clinic host: the caller's tasks for a clinic day (today by default), plus any still open from earlier. A `confirm_photos` task carries `patients_without_photos_today`. Needs `tasks.use`. */
   listMyTasks(date?: string, options?: RequestOptions): Promise<ApiResult<MyTasks>>;
+  /** Clinic host: the sterilisation cycles of a clinic day (today when `date` is left out), latest first. Needs `tasks.use`. */
+  listSterilisationCycles(date?: string, options?: RequestOptions): Promise<ApiResult<SterilisationCycleList>>;
+  /** Clinic host: records a sterilisation cycle that ran now, with an optional load note of at most 120 characters. Needs `tasks.use`. */
+  recordSterilisationCycle(input: NewSterilisationCycle, options?: RequestOptions): Promise<ApiResult<SterilisationCycle>>;
   /** Clinic host: finishes a task given to the caller or their role, with an optional note and the materials used (taken off the shelf in the same step). The same person again gets 200; anyone else 409; short stock 409 and nothing is recorded. Needs `tasks.use`. */
   completeTask(id: TaskOccurrenceId, input: CompleteTask, options?: RequestOptions): Promise<ApiResult<TaskOccurrence>>;
   /** Clinic host: keeps a proof photo (`file`, PNG or JPEG, up to 2 MB) for a task that is the caller's and open; returns the `proof_file_id` to send with `completeTask`. Replaces an earlier proof. Needs `tasks.use`. */

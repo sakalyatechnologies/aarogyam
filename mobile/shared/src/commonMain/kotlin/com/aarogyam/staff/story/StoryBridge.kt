@@ -73,17 +73,12 @@ object StoryBridge {
                 // The page defaults both to true, so only a "no" is sent.
                 if (!canWrite) put("can_write", false)
                 if (!canSeePrices) put("can_see_prices", false)
-                // The Beta looks the switcher may offer (founder, 23 Nov): they keep their Beta tag.
-                put("betas", JsonArray(BETAS.map { JsonPrimitive(it) }))
             }
         return "window.aarogyam.present(${call(mouth)}, ${call(options)})"
     }
 
     /** The Show patient looks the page knows, Beta ones included. */
     val STYLES: Set<String> = setOf("story", "painted", "xray", "smile3d", "face")
-
-    /** Beta looks offered in the switcher; 3D smile falls back to painted on devices that can't draw it. */
-    val BETAS: List<String> = listOf("smile3d", "face")
 
     /** Goes "Back to all teeth"; the page answers true, or false at the overview so the screen leaves. */
     const val BACK: String = "window.aarogyam.back()"

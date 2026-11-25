@@ -2466,6 +2466,12 @@
             "state": "translated",
             "value": "%d आइटम अभी भेजे नहीं गए। फिर भी साइन आउट करें?"
           }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d आयटम अजून पाठवले नाहीत. तरीही साइन आउट करायचे?"
+          }
         }
       }
     },
@@ -2482,6 +2488,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "फिर भी साइन आउट करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तरीही साइन आउट करा"
           }
         }
       }
@@ -2500,6 +2512,12 @@
             "state": "translated",
             "value": "साइन इन रहें"
           }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन राहा"
+          }
         }
       }
     },
@@ -2516,6 +2534,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "सहेजा गया, भेजा जाएगा · %d"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सेव्ह केले, पाठवले जाईल · %d"
           }
         }
       }

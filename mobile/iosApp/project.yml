@@ -58,6 +58,11 @@ targets:
       - name: English-only screens
         basedOnDependencyAnalysis: false
         script: 'rm -rf "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/hi.lproj" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/mr.lproj"'
+      # Every String Catalog key needs a Hindi and a Marathi value (a machine draft will do), even
+      # while the app ships English only; Android lint does the same for its strings.
+      - name: Check Hindi and Marathi strings
+        basedOnDependencyAnalysis: false
+        script: '"$SRCROOT/scripts/check-translations.sh"'
       - name: Upload Crashlytics symbols (Release only)
         basedOnDependencyAnalysis: false
         script: '"$SRCROOT/scripts/upload-crashlytics-symbols.sh"'

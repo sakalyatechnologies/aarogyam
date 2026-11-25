@@ -21,6 +21,8 @@ private struct ClinicsContent: View {
     let isFirstRun: Bool
     let onSignOut: () -> Void
     @Environment(\.skTheme) private var theme
+    @State private var scanning = false
+    @State private var scanNote: String?
 
     var body: some View {
         let p = theme.palette
@@ -52,9 +54,34 @@ private struct ClinicsContent: View {
             }
             .padding(SkSpacing.l)
         }
+        .fullScreenCover(isPresented: $scanning) { scanner }
         .toolbar {
             if isFirstRun {
                 ToolbarItem(placement: .topBarTrailing) { Button(String(localized: "sign_out"), action: onSignOut) }
+            }
+        }
+    }
+
+    /// The camera: a code of ours runs the same handling as typing it; anything else is ignored.
+    private var scanner: some View {
+        NavigationStack {
+            QrScanner(
+                onScan: { text in
+                    scanning = false
+                    scanNote = holder.onScanned(text: text) ? nil : String(localized: "clinics.scan.notours")
+                },
+                onUnavailable: {
+                    scanning = false
+                    scanNote = String(localized: "clinics.scan.unavailable")
+                }
+            )
+            .ignoresSafeArea()
+            .navigationTitle(String(localized: "clinics.scan.title"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(String(localized: "done")) { scanning = false }
+                }
             }
         }
     }
@@ -74,6 +101,10 @@ private struct ClinicsContent: View {
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 SkButton(String(localized: "clinics.add"), action: holder.submitCode).disabled(state.busy)
+                SkButton(String(localized: "clinics.scan"), variant: .secondary) { scanning = true }.disabled(state.busy)
+                if let note = scanNote {
+                    Text(note).skTextStyle(SkTypeScale.body).foregroundStyle(theme.palette.textMuted.color)
+                }
             }
         }
     }

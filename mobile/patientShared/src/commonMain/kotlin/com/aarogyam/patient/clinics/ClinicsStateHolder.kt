@@ -84,6 +84,17 @@ class ClinicsStateHolder(
             )
         }
 
+    /**
+     * A QR was scanned: when it holds one of our link codes, fills the code and adds the clinic as
+     * if it were typed. Returns false (and does nothing) for anything else.
+     */
+    fun onScanned(text: String): Boolean {
+        val code = LinkCode.parse(text) ?: return false
+        mutableState.update { it.copy(code = code, linkError = null) }
+        submitCode()
+        return true
+    }
+
     fun onClinicChange(text: String) =
         mutableState.update {
             it.copy(clinicSlug = text.trim().lowercase().take(SLUG_MAX), linkError = null, requested = false)

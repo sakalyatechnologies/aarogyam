@@ -453,6 +453,50 @@
         }
       }
     },
+    "clinics.scan": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan QR"
+          }
+        }
+      }
+    },
+    "clinics.scan.notours": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That QR isn't from a clinic. Scan the QR card your clinic gave you."
+          }
+        }
+      }
+    },
+    "clinics.scan.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan your clinic QR"
+          }
+        }
+      }
+    },
+    "clinics.scan.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The camera isn't available. Type the code instead."
+          }
+        }
+      }
+    },
     "clinics.title": {
       "extractionState": "manual",
       "localizations": {

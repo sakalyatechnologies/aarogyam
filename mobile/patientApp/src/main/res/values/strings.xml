@@ -36,6 +36,9 @@
     <string name="code_from_clinic">Code from your clinic</string>
     <string name="code_hint">Like 7KQ2M-X9D4T</string>
     <string name="add_clinic">Add clinic</string>
+    <string name="scan_qr">Scan QR</string>
+    <string name="scan_qr_not_ours">That QR isn\'t from a clinic. Scan the QR card your clinic gave you.</string>
+    <string name="scan_qr_failed">Scanning isn\'t available right now. Type the code instead.</string>
     <string name="added_clinic">%1$s is now in your app.</string>
     <string name="no_code_title">No code?</string>
     <string name="no_code_message">Ask a clinic to connect the record with your email. They confirm it at the front desk.</string>

@@ -94,6 +94,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.navigation.compose)
+    implementation(libs.play.services.code.scanner)
     debugImplementation(libs.compose.ui.tooling)
     testImplementation(libs.junit)
 }

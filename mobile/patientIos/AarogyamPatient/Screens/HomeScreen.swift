@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Places Home opens.
 enum Route: Hashable {
-    case appointments, book, prescriptions, bills, clinics, visits
+    case appointments, book, prescriptions, bills, clinics, visits, files
     case visit(String)
     case bookAt(String)
 }
@@ -31,6 +31,7 @@ struct HomeScreen: View {
                 case .bills: BillsScreen(graph: graph)
                 case .clinics: ClinicsScreen(graph: graph)
                 case .visits: VisitsScreen(graph: graph)
+                case .files: FilesScreen(graph: graph)
                 case .visit(let id):
                     VisitScreen(graph: graph, id: id, onBook: { path.append(.bookAt($0.clinicId ?? "")) })
                 case .bookAt(let clinicId):
@@ -81,6 +82,7 @@ private struct HomeContent: View {
         SkButton(String(localized: "home.book"), systemImage: "calendar.badge.plus") { open(.book) }
         SkButton(String(localized: "home.appointments"), variant: .secondary) { open(.appointments) }
         SkButton(String(localized: "home.visits"), variant: .secondary) { open(.visits) }
+        SkButton(String(localized: "home.files"), variant: .secondary) { open(.files) }
         HStack(spacing: SkSpacing.ml) {
             Button { open(.prescriptions) } label: {
                 SkStatTile(value: "\(view.prescriptions)", label: String(localized: "prescriptions.title"))

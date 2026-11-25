@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -17,6 +18,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.aarogyam.patient.PatientGraph
+import com.aarogyam.patient.android.AndroidFileCache
 import com.aarogyam.patient.android.GraphState
 import com.aarogyam.patient.android.R
 import com.sakalya.mobile.auth.SessionState
@@ -38,6 +40,7 @@ object Routes {
     const val BOOK = "book"
     const val PRESCRIPTIONS = "prescriptions"
     const val BILLS = "bills"
+    const val FILES = "files"
 }
 
 /** Themes the app (Aarogyam's own Tulsi, not one clinic's) and shows what the session calls for. */
@@ -142,6 +145,10 @@ private fun Screens(
             PrescriptionsScreen(rememberHolder { graph.prescriptions(it) }, onBack = nav::popBackStack)
         }
         composable(Routes.BILLS) { BillsScreen(rememberHolder { graph.bills(it) }, onBack = nav::popBackStack) }
+        composable(Routes.FILES) {
+            val cacheDir = LocalContext.current.applicationContext.cacheDir
+            FilesScreen(rememberHolder { graph.files(it, AndroidFileCache(cacheDir)) }, onBack = nav::popBackStack)
+        }
     }
 }
 

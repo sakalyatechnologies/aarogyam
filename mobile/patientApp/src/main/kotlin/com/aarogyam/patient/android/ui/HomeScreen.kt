@@ -105,6 +105,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.home(
             )
         }
     }
+    item {
+        SkButton(
+            stringResource(R.string.files_title),
+            { onOpen(Routes.FILES) },
+            Modifier.fillMaxWidth(),
+            variant = SkButtonVariant.Secondary,
+        )
+    }
     item { SectionTitle(stringResource(R.string.clinics_title)) }
     item {
         SkCard(contentPadding = Spacing.S.dp) {

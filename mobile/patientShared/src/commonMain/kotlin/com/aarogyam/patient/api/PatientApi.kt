@@ -10,6 +10,7 @@ import com.aarogyam.patient.api.model.PatientAppointments
 import com.aarogyam.patient.api.model.PatientBills
 import com.aarogyam.patient.api.model.PatientBooking
 import com.aarogyam.patient.api.model.PatientCancelled
+import com.aarogyam.patient.api.model.PatientFiles
 import com.aarogyam.patient.api.model.PatientHome
 import com.aarogyam.patient.api.model.PatientMe
 import com.aarogyam.patient.api.model.PatientPrescriptions
@@ -63,6 +64,9 @@ class PatientAppApi(
     suspend fun visit(id: String): Outcome<PatientVisitSummary, ApiError> =
         client.call { url("api/v1/me/patient/visits/${id.encodeURLPathPart()}") }
 
+    /** `GET /api/v1/me/patient/files` (`listMyFiles`): what every linked clinic shared, newest first. */
+    suspend fun files(): Outcome<PatientFiles, ApiError> = client.call { url("api/v1/me/patient/files") }
+
     /** `POST /api/v1/me/patient/links` (`redeemPatientLinkCode`): links a clinic with its code. */
     suspend fun redeem(code: String): Outcome<LinkedByCode, ApiError> =
         client.call {
@@ -87,7 +91,14 @@ class PatientAppApi(
 class PatientClinicApi(
     private val client: HttpClient,
 ) {
-    /** `GET /api/v1/public/booking` (`getBookingOptions`): the doctors patients may pick. */
+    /**
+     * `GET /api/v1/me/patient/files/{id}/content` (`getMyFileContent`): the bytes of a file this
+     * clinic shared, sent with the session token. Any other file is `404`.
+     */
+    suspend fun fileContent(id: String): Outcome<ByteArray, ApiError> =
+        client.call { url("api/v1/me/patient/files/${id.encodeURLPathPart()}/content") }
+
+    /** `GET /api/v1/public/booking`(`getBookingOptions`): the doctors patients may pick. */
     suspend fun bookingOptions(): Outcome<BookingOptions, ApiError> = client.call { url("api/v1/public/booking") }
 
     /** `GET /api/v1/public/availability` (`listFreeSlots`): a doctor's free slots on a day. */

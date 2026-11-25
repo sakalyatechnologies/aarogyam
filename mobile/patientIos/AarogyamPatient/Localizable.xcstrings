@@ -10,6 +10,18 @@
             "state": "translated",
             "value": "Aarogyam"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aarogyam"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aarogyam"
+          }
         }
       }
     },
@@ -20,6 +32,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द करा"
           }
         }
       }
@@ -32,6 +56,18 @@
             "state": "translated",
             "value": "We couldn't cancel it. Please try again."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हम इसे रद्द नहीं कर पाए। कृपया फिर कोशिश करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आम्ही ते रद्द करू शकलो नाही. कृपया पुन्हा प्रयत्न करा."
+          }
         }
       }
     },
@@ -42,6 +78,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "It's too close to the visit to cancel in the app. Please call the clinic."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट का समय बहुत पास है, ऐप में रद्द नहीं हो सकता। कृपया क्लिनिक को फोन करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भेटीची वेळ खूप जवळ आहे, अ‍ॅपमध्ये रद्द करता येत नाही. कृपया क्लिनिकला फोन करा."
           }
         }
       }
@@ -54,6 +102,18 @@
             "state": "translated",
             "value": "Your past visits will show here."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपकी पिछली विज़िट यहां दिखेंगी।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या मागील भेटी इथे दिसतील."
+          }
         }
       }
     },
@@ -64,6 +124,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nothing booked yet."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी कुछ बुक नहीं है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अजून काही बुक नाही."
           }
         }
       }
@@ -76,6 +148,18 @@
             "state": "translated",
             "value": "Past"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पिछली"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मागील"
+          }
         }
       }
     },
@@ -86,6 +170,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Appointments"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपॉइंटमेंट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपॉइंटमेंट"
           }
         }
       }
@@ -98,6 +194,18 @@
             "state": "translated",
             "value": "Upcoming"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आने वाली"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "येणाऱ्या"
+          }
         }
       }
     },
@@ -108,6 +216,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "All paid"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सब चुकाया हुआ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सर्व भरले"
           }
         }
       }
@@ -120,6 +240,18 @@
             "state": "translated",
             "value": "%@ due"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ बाकी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ बाकी"
+          }
         }
       }
     },
@@ -130,6 +262,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Due"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बाकी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बाकी"
           }
         }
       }
@@ -142,6 +286,18 @@
             "state": "translated",
             "value": "Your bills will show here."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके बिल यहां दिखेंगे।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमची बिले इथे दिसतील."
+          }
         }
       }
     },
@@ -152,6 +308,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Paid"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चुकाया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भरले"
           }
         }
       }
@@ -164,6 +332,18 @@
             "state": "translated",
             "value": "Bills"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बिले"
+          }
         }
       }
     },
@@ -174,6 +354,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Total due"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुल बाकी"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एकूण बाकी"
           }
         }
       }
@@ -186,6 +378,18 @@
             "state": "translated",
             "value": "Which clinic?"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कौन सा क्लिनिक?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोणते क्लिनिक?"
+          }
         }
       }
     },
@@ -196,6 +400,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book this time"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह समय बुक करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ही वेळ बुक करा"
           }
         }
       }
@@ -208,6 +424,18 @@
             "state": "translated",
             "value": "Which day?"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कौन सा दिन?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोणता दिवस?"
+          }
         }
       }
     },
@@ -218,6 +446,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Which doctor?"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कौन से डॉक्टर?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोणते डॉक्टर?"
           }
         }
       }
@@ -230,6 +470,18 @@
             "state": "translated",
             "value": "You're booked. See you then!"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपकी बुकिंग हो गई। तब मिलते हैं!"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमची बुकिंग झाली. तेव्हा भेटू!"
+          }
         }
       }
     },
@@ -240,6 +492,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Request sent. The clinic will confirm it soon."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अनुरोध भेज दिया। क्लिनिक जल्द पक्का करेगा।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विनंती पाठवली. क्लिनिक लवकरच निश्चित करेल."
           }
         }
       }
@@ -252,6 +516,18 @@
             "state": "translated",
             "value": "This clinic doesn't take bookings in the app yet. Please call them."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह क्लिनिक अभी ऐप में बुकिंग नहीं लेता। कृपया उन्हें फोन करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे क्लिनिक अजून अ‍ॅपमध्ये बुकिंग घेत नाही. कृपया त्यांना फोन करा."
+          }
         }
       }
     },
@@ -262,6 +538,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Someone just took that time. Please pick another."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वह समय अभी किसी और ने ले लिया। कृपया दूसरा चुनें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ती वेळ आत्ताच कोणीतरी घेतली. कृपया दुसरी निवडा."
           }
         }
       }
@@ -274,6 +562,18 @@
             "state": "translated",
             "value": "No free times that day. Try another day."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उस दिन कोई समय खाली नहीं है। दूसरा दिन चुनें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "त्या दिवशी कोणतीही वेळ मोकळी नाही. दुसरा दिवस निवडा."
+          }
         }
       }
     },
@@ -284,6 +584,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "What's it about? (optional)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किस बारे में है? (जरूरी नहीं)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कशाबद्दल आहे? (ऐच्छिक)"
           }
         }
       }
@@ -296,6 +608,18 @@
             "state": "translated",
             "value": "Which time?"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कौन सा समय?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोणती वेळ?"
+          }
         }
       }
     },
@@ -306,6 +630,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book a visit"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट बुक करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भेट बुक करा"
           }
         }
       }
@@ -318,6 +654,18 @@
             "state": "translated",
             "value": "Your number: %@"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका नंबर: %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचा क्रमांक: %@"
+          }
         }
       }
     },
@@ -328,6 +676,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add clinic"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक जोड़ें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक जोडा"
           }
         }
       }
@@ -340,6 +700,18 @@
             "state": "translated",
             "value": "Add a clinic"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक जोड़ें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक जोडा"
+          }
         }
       }
     },
@@ -350,6 +722,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ is now in your app."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ अब आपके ऐप में है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ आता तुमच्या अ‍ॅपमध्ये आहे."
           }
         }
       }
@@ -362,6 +746,18 @@
             "state": "translated",
             "value": "Ask to connect"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जोड़ने के लिए कहें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जोडण्यास सांगा"
+          }
         }
       }
     },
@@ -372,6 +768,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clinic address name, like sunrise"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक के पते का नाम, जैसे sunrise"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिकच्या पत्त्याचे नाव, उदा. sunrise"
           }
         }
       }
@@ -384,6 +792,18 @@
             "state": "translated",
             "value": "Ask a clinic to connect the record with your email. They confirm it at the front desk."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक से कहें कि वे आपका रिकॉर्ड आपके ईमेल से जोड़ दें। वे इसे रिसेप्शन पर पक्का करते हैं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिकला तुमचा रेकॉर्ड तुमच्या ईमेलशी जोडायला सांगा. ते रिसेप्शनवर खात्री करतात."
+          }
         }
       }
     },
@@ -394,6 +814,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Asked. If the clinic has your email on file, they'll confirm it soon."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अनुरोध भेज दिया। अगर क्लिनिक के पास आपका ईमेल है, तो वे जल्द पक्का करेंगे।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विनंती पाठवली. क्लिनिकच्या नोंदीत तुमचा ईमेल असेल तर ते लवकरच खात्री करतील."
           }
         }
       }
@@ -406,6 +838,18 @@
             "state": "translated",
             "value": "No code?"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोड नहीं है?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोड नाही?"
+          }
         }
       }
     },
@@ -416,6 +860,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Like 7KQ2M-X9D4T"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जैसे 7KQ2M-X9D4T"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उदा. 7KQ2M-X9D4T"
           }
         }
       }
@@ -428,6 +884,18 @@
             "state": "translated",
             "value": "Code from your clinic"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके क्लिनिक का कोड"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या क्लिनिकचा कोड"
+          }
         }
       }
     },
@@ -438,6 +906,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your clinic gives you a code (on a QR card or by email). Enter it below to see your appointments, prescriptions and bills here."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका क्लिनिक आपको एक कोड देता है (QR कार्ड पर या ईमेल से)। उसे नीचे डालें, फिर यहां अपनी अपॉइंटमेंट, पर्चियां और बिल देखें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचे क्लिनिक तुम्हाला एक कोड देते (QR कार्डवर किंवा ईमेलने). तो खाली टाका आणि तुमच्या अपॉइंटमेंट, प्रिस्क्रिप्शन आणि बिले इथे पहा."
           }
         }
       }
@@ -450,6 +930,18 @@
             "state": "translated",
             "value": "Add your clinic"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपना क्लिनिक जोड़ें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचे क्लिनिक जोडा"
+          }
         }
       }
     },
@@ -460,6 +952,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scan QR"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR स्कैन करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR स्कॅन करा"
           }
         }
       }
@@ -472,6 +976,18 @@
             "state": "translated",
             "value": "That QR isn't from a clinic. Scan the QR card your clinic gave you."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह QR किसी क्लिनिक का नहीं है। क्लिनिक ने जो QR कार्ड दिया था, उसे स्कैन करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हा QR क्लिनिकचा नाही. क्लिनिकने दिलेला QR कार्ड स्कॅन करा."
+          }
         }
       }
     },
@@ -482,6 +998,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scan your clinic QR"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपने क्लिनिक का QR स्कैन करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या क्लिनिकचा QR स्कॅन करा"
           }
         }
       }
@@ -494,6 +1022,18 @@
             "state": "translated",
             "value": "The camera isn't available. Type the code instead."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कैमरा उपलब्ध नहीं है। इसकी जगह कोड टाइप करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कॅमेरा उपलब्ध नाही. त्याऐवजी कोड टाइप करा."
+          }
         }
       }
     },
@@ -504,6 +1044,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "My clinics"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मेरे क्लिनिक"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "माझी क्लिनिक"
           }
         }
       }
@@ -516,6 +1068,18 @@
             "state": "translated",
             "value": "It will need to sign in again."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसे दोबारा साइन इन करना होगा।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "त्याला पुन्हा साइन इन करावे लागेल."
+          }
         }
       }
     },
@@ -526,6 +1090,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign out this device?"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इस फोन से साइन आउट करें?"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या फोनवरून साइन आउट करायचे?"
           }
         }
       }
@@ -538,6 +1114,18 @@
             "state": "translated",
             "value": "Keep signed in"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन रखें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन ठेवा"
+          }
         }
       }
     },
@@ -548,6 +1136,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Last active %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आखिरी बार चालू: %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेवटचे सक्रिय: %@"
           }
         }
       }
@@ -560,6 +1160,18 @@
             "state": "translated",
             "value": "Signed-in devices"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन-इन किए हुए फोन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन-इन केलेले फोन"
+          }
         }
       }
     },
@@ -570,6 +1182,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Another device"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दूसरा फोन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दुसरा फोन"
           }
         }
       }
@@ -582,6 +1206,18 @@
             "state": "translated",
             "value": "Could not sign that device out. Please try again."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उस फोन को साइन आउट नहीं कर पाए। कृपया फिर कोशिश करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "त्या फोनला साइन आउट करता आले नाही. कृपया पुन्हा प्रयत्न करा."
+          }
         }
       }
     },
@@ -592,6 +1228,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Signed in %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन किया: %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन केले: %@"
           }
         }
       }
@@ -604,6 +1252,18 @@
             "state": "translated",
             "value": "This device"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह फोन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हा फोन"
+          }
         }
       }
     },
@@ -614,6 +1274,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Signed-in devices"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन-इन किए हुए फोन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन-इन केलेले फोन"
           }
         }
       }
@@ -626,6 +1298,18 @@
             "state": "translated",
             "value": "Done"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हो गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "झाले"
+          }
         }
       }
     },
@@ -636,6 +1320,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "We couldn't reach Aarogyam. Please try again."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हम आरोग्यम तक नहीं पहुंच पाए। कृपया फिर कोशिश करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आम्ही आरोग्यमशी जोडू शकलो नाही. कृपया पुन्हा प्रयत्न करा."
           }
         }
       }
@@ -648,6 +1344,18 @@
             "state": "translated",
             "value": "This build isn't set up."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह ऐप अभी तैयार नहीं है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे अ‍ॅप अजून तयार नाही."
+          }
         }
       }
     },
@@ -658,6 +1366,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "You're offline. Check your connection."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप ऑफलाइन हैं। अपना कनेक्शन जांचें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुम्ही ऑफलाइन आहात. तुमचे कनेक्शन तपासा."
           }
         }
       }
@@ -670,6 +1390,18 @@
             "state": "translated",
             "value": "Please sign in again."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कृपया फिर से साइन इन करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कृपया पुन्हा साइन इन करा."
+          }
         }
       }
     },
@@ -680,6 +1412,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Too many tries. Please wait a few minutes."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बहुत बार कोशिश हो गई। कृपया कुछ मिनट रुकें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खूप वेळा प्रयत्न झाले. कृपया काही मिनिटे थांबा."
           }
         }
       }
@@ -692,6 +1436,18 @@
             "state": "translated",
             "value": "Something went wrong. Please try again."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुछ गड़बड़ हो गई। कृपया फिर कोशिश करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा."
+          }
         }
       }
     },
@@ -702,6 +1458,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Please update the app to continue."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आगे बढ़ने के लिए कृपया ऐप अपडेट करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुढे जाण्यासाठी कृपया अ‍ॅप अपडेट करा."
           }
         }
       }
@@ -714,6 +1482,18 @@
             "state": "translated",
             "value": "Consent form"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहमति फॉर्म"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संमती फॉर्म"
+          }
         }
       }
     },
@@ -724,6 +1504,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Document"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दस्तावेज़"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कागदपत्र"
           }
         }
       }
@@ -736,6 +1528,18 @@
             "state": "translated",
             "value": "The shared image"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साझा की गई तस्वीर"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेअर केलेले चित्र"
+          }
         }
       }
     },
@@ -746,6 +1550,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Photo"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फोटो"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फोटो"
           }
         }
       }
@@ -758,6 +1574,18 @@
             "state": "translated",
             "value": "Report"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रिपोर्ट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रिपोर्ट"
+          }
         }
       }
     },
@@ -765,6 +1593,18 @@
       "extractionState": "manual",
       "localizations": {
         "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "X-ray"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "X-ray"
+          }
+        },
+        "mr": {
           "stringUnit": {
             "state": "translated",
             "value": "X-ray"
@@ -780,6 +1620,18 @@
             "state": "translated",
             "value": "Can't open here"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यहां नहीं खुल सकता"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इथे उघडता येत नाही"
+          }
         }
       }
     },
@@ -790,6 +1642,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Files your clinic shares with you, such as X-rays and reports, show up here."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका क्लिनिक जो फाइलें भेजता है, जैसे X-ray और रिपोर्ट, वे यहां दिखेंगी।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचे क्लिनिक जे फाइल्स पाठवते, जसे X-ray आणि रिपोर्ट, ते इथे दिसतील."
           }
         }
       }
@@ -802,6 +1666,18 @@
             "state": "translated",
             "value": "Opening…"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खुल रहा है…"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उघडत आहे…"
+          }
         }
       }
     },
@@ -812,6 +1688,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shared files"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साझा की गई फाइलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेअर केलेल्या फाइल्स"
           }
         }
       }
@@ -824,6 +1712,18 @@
             "state": "translated",
             "value": "All appointments"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सभी अपॉइंटमेंट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सर्व अपॉइंटमेंट"
+          }
         }
       }
     },
@@ -834,6 +1734,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book a visit"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट बुक करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भेट बुक करा"
           }
         }
       }
@@ -846,6 +1758,18 @@
             "state": "translated",
             "value": "Shared files"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साझा की गई फाइलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "शेअर केलेल्या फाइल्स"
+          }
         }
       }
     },
@@ -856,6 +1780,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hello"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नमस्ते"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नमस्कार"
           }
         }
       }
@@ -868,6 +1804,18 @@
             "state": "translated",
             "value": "Next visit"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अगली विज़िट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुढील भेट"
+          }
         }
       }
     },
@@ -878,6 +1826,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book your next check-up in a few taps."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कुछ टैप में अपना अगला चेक-अप बुक करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "काही टॅपमध्ये तुमचा पुढील चेक-अप बुक करा."
           }
         }
       }
@@ -890,6 +1850,18 @@
             "state": "translated",
             "value": "No visits booked"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोई विज़िट बुक नहीं है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोणतीही भेट बुक नाही"
+          }
         }
       }
     },
@@ -900,6 +1872,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Here's what's coming up"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आगे ये होने वाला है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुढे हे आहे"
           }
         }
       }
@@ -912,6 +1896,18 @@
             "state": "translated",
             "value": "Past visits"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पिछली विज़िट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मागील भेटी"
+          }
         }
       }
     },
@@ -922,6 +1918,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "A code is 10 letters and numbers."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोड में 10 अक्षर और अंक होते हैं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कोडमध्ये 10 अक्षरे आणि अंक असतात."
           }
         }
       }
@@ -934,6 +1942,18 @@
             "state": "translated",
             "value": "Enter the clinic's address name."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक के पते का नाम डालें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिकच्या पत्त्याचे नाव टाका."
+          }
         }
       }
     },
@@ -944,6 +1964,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "That code doesn't work. It may be used or expired; ask the clinic for a new one."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वह कोड काम नहीं करता। वह इस्तेमाल हो चुका या खत्म हो गया होगा; क्लिनिक से नया मांगें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तो कोड चालत नाही. तो वापरला गेला असेल किंवा संपला असेल; क्लिनिककडून नवीन मागा."
           }
         }
       }
@@ -956,6 +1988,18 @@
             "state": "translated",
             "value": "You're already connected to another record at this clinic."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप इस क्लिनिक में पहले से दूसरे रिकॉर्ड से जुड़े हैं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुम्ही या क्लिनिकमध्ये आधीच दुसऱ्या रेकॉर्डशी जोडलेले आहात."
+          }
         }
       }
     },
@@ -966,6 +2010,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "This record is connected to another account. Please ask the clinic."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह रिकॉर्ड किसी और खाते से जुड़ा है। कृपया क्लिनिक से पूछें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हा रेकॉर्ड दुसऱ्या खात्याशी जोडलेला आहे. कृपया क्लिनिकला विचारा."
           }
         }
       }
@@ -978,6 +2034,18 @@
             "state": "translated",
             "value": "It has no sign-in settings. Ask whoever gave you the app for a new build."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "इसमें साइन-इन की सेटिंग नहीं है। जिसने आपको ऐप दिया है, उनसे नया ऐप मांगें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यात आत प्रवेशाची सेटिंग्ज नाहीत. ज्यांनी तुम्हाला अ‍ॅप दिले त्यांच्याकडून नवीन अ‍ॅप मागा."
+          }
         }
       }
     },
@@ -988,6 +2056,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "This build isn't set up"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह ऐप अभी तैयार नहीं है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हे अ‍ॅप अजून तयार नाही"
           }
         }
       }
@@ -1000,6 +2080,18 @@
             "state": "translated",
             "value": "for %lld days"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दिन के लिए"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld दिवसांसाठी"
+          }
         }
       }
     },
@@ -1010,6 +2102,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prescriptions your doctors issue will show here."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके डॉक्टर जो पर्चियां देंगे, वे यहां दिखेंगी।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचे डॉक्टर जी प्रिस्क्रिप्शन देतील ती इथे दिसतील."
           }
         }
       }
@@ -1022,6 +2126,18 @@
             "state": "translated",
             "value": "Prescriptions"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पर्चियां"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रिस्क्रिप्शन"
+          }
         }
       }
     },
@@ -1032,6 +2148,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open the verified copy"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जांची हुई कॉपी खोलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तपासलेली प्रत उघडा"
           }
         }
       }
@@ -1044,6 +2172,18 @@
             "state": "translated",
             "value": "Use another email"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दूसरा ईमेल इस्तेमाल करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दुसरा ईमेल वापरा"
+          }
         }
       }
     },
@@ -1054,6 +2194,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Code from the email"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेल में आया कोड"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेलमधील कोड"
           }
         }
       }
@@ -1066,6 +2218,18 @@
             "state": "translated",
             "value": "We sent an 8-digit code to %@."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हमने %@ पर 8 अंकों का कोड भेजा है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आम्ही %@ वर 8 अंकी कोड पाठवला आहे."
+          }
         }
       }
     },
@@ -1076,6 +2240,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your email"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका ईमेल"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचा ईमेल"
           }
         }
       }
@@ -1088,6 +2264,18 @@
             "state": "translated",
             "value": "That code didn't work. Check it, or ask for a new one."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वह कोड काम नहीं किया। उसे जांचें, या नया कोड मांगें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तो कोड चालला नाही. तपासा, किंवा नवीन कोड मागा."
+          }
         }
       }
     },
@@ -1098,6 +2286,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "We couldn't send a code to that address. Use the email your clinic invited."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हम उस पते पर कोड नहीं भेज पाए। क्लिनिक ने जिस ईमेल पर बुलाया था, वही इस्तेमाल करें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आम्ही त्या पत्त्यावर कोड पाठवू शकलो नाही. क्लिनिकने ज्या ईमेलवर आमंत्रित केले तोच वापरा."
           }
         }
       }
@@ -1110,6 +2310,18 @@
             "state": "translated",
             "value": "Enter the 8 digits from the email."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेल में आए 8 अंक डालें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ईमेलमधील 8 अंक टाका."
+          }
         }
       }
     },
@@ -1120,6 +2332,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "That doesn't look like an email address."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह ईमेल पते जैसा नहीं लग रहा।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हा ईमेल पत्ता वाटत नाही."
           }
         }
       }
@@ -1132,6 +2356,18 @@
             "state": "translated",
             "value": "Send me a code"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मुझे कोड भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मला कोड पाठवा"
+          }
         }
       }
     },
@@ -1142,6 +2378,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign in with the email your clinic has for you. We'll send you a code; no password needed."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपके क्लिनिक के पास जो ईमेल है, उससे साइन इन करें। हम आपको एक कोड भेजेंगे; पासवर्ड की जरूरत नहीं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या क्लिनिककडे असलेल्या ईमेलने साइन इन करा. आम्ही तुम्हाला एक कोड पाठवू; पासवर्ड लागत नाही."
           }
         }
       }
@@ -1154,6 +2402,18 @@
             "state": "translated",
             "value": "Your health, from every clinic"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हर क्लिनिक से आपकी सेहत"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रत्येक क्लिनिकमधून तुमचे आरोग्य"
+          }
         }
       }
     },
@@ -1164,6 +2424,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sign in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन इन"
           }
         }
       }
@@ -1176,6 +2448,18 @@
             "state": "translated",
             "value": "Sign out"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन आउट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "साइन आउट"
+          }
         }
       }
     },
@@ -1186,6 +2470,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "At the clinic"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक में"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिकमध्ये"
           }
         }
       }
@@ -1198,6 +2494,18 @@
             "state": "translated",
             "value": "Booked"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक हो गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक झाले"
+          }
         }
       }
     },
@@ -1208,6 +2516,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancelled"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द हुआ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रद्द झाले"
           }
         }
       }
@@ -1220,6 +2540,18 @@
             "state": "translated",
             "value": "Confirmed"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पक्का हो गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "निश्चित झाले"
+          }
         }
       }
     },
@@ -1230,6 +2562,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Done"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हो गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "झाले"
           }
         }
       }
@@ -1242,6 +2586,18 @@
             "state": "translated",
             "value": "Missed"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "छूट गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चुकले"
+          }
         }
       }
     },
@@ -1252,6 +2608,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Requested"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अनुरोध भेजा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विनंती केली"
           }
         }
       }
@@ -1264,6 +2632,18 @@
             "state": "translated",
             "value": "Your sign-in is kept in the phone's secure storage, which isn't available yet."
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपका साइन-इन फोन की सुरक्षित जगह में रहता है, जो अभी उपलब्ध नहीं है।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमचा साइन-इन फोनच्या सुरक्षित जागेत ठेवला जातो, ती अजून उपलब्ध नाही."
+          }
         }
       }
     },
@@ -1274,6 +2654,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unlock your phone to continue"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आगे बढ़ने के लिए फोन अनलॉक करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुढे जाण्यासाठी फोन अनलॉक करा"
           }
         }
       }
@@ -1286,6 +2678,18 @@
             "state": "translated",
             "value": "after food"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खाने के बाद"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जेवणानंतर"
+          }
         }
       }
     },
@@ -1296,6 +2700,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "as directed"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बताए अनुसार"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सांगितल्याप्रमाणे"
           }
         }
       }
@@ -1308,6 +2724,18 @@
             "state": "translated",
             "value": "at bedtime"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सोते समय"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "झोपण्यापूर्वी"
+          }
         }
       }
     },
@@ -1318,6 +2746,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "before food"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खाने से पहले"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जेवणापूर्वी"
           }
         }
       }
@@ -1330,6 +2770,18 @@
             "state": "translated",
             "value": "on an empty stomach"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खाली पेट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रिकाम्या पोटी"
+          }
         }
       }
     },
@@ -1340,6 +2792,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "when needed"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जरूरत पड़ने पर"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गरज असेल तेव्हा"
           }
         }
       }
@@ -1352,6 +2816,18 @@
             "state": "translated",
             "value": "Try again"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फिर कोशिश करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुन्हा प्रयत्न करा"
+          }
         }
       }
     },
@@ -1362,6 +2838,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Doctor's advice"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डॉक्टर की सलाह"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "डॉक्टरांचा सल्ला"
           }
         }
       }
@@ -1374,6 +2862,18 @@
             "state": "translated",
             "value": "Book"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक करा"
+          }
         }
       }
     },
@@ -1384,6 +2884,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Books a visit at %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ में विज़िट बुक करता है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ येथे भेट बुक करतो"
           }
         }
       }
@@ -1396,6 +2908,18 @@
             "state": "translated",
             "value": "with %@"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ के साथ"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ यांच्यासोबत"
+          }
         }
       }
     },
@@ -1406,6 +2930,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Earlier visits"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पहले की विज़िट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आधीच्या भेटी"
           }
         }
       }
@@ -1418,6 +2954,18 @@
             "state": "translated",
             "value": "Cleaning"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सफाई"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "स्वच्छता"
+          }
         }
       }
     },
@@ -1428,6 +2976,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Follow-up"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फॉलो-अप"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फॉलो-अप"
           }
         }
       }
@@ -1440,6 +3000,18 @@
             "state": "translated",
             "value": "Check-up"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चेक-अप"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चेक-अप"
+          }
         }
       }
     },
@@ -1450,6 +3022,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Next visit"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अगली विज़िट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुढील भेट"
           }
         }
       }
@@ -1462,6 +3046,18 @@
             "state": "translated",
             "value": "%@ due on %@"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ बाकी, %@ तक"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ बाकी, %@ पर्यंत"
+          }
         }
       }
     },
@@ -1472,6 +3068,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "This visit could not be found."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "यह विज़िट नहीं मिली।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ही भेट सापडली नाही."
           }
         }
       }
@@ -1484,6 +3092,18 @@
             "state": "translated",
             "value": "Prescription"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पर्ची"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "प्रिस्क्रिप्शन"
+          }
         }
       }
     },
@@ -1494,6 +3114,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Visit"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भेट"
           }
         }
       }
@@ -1506,6 +3138,18 @@
             "state": "translated",
             "value": "Tooth %lld"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दांत %lld"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "दात %lld"
+          }
         }
       }
     },
@@ -1516,6 +3160,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Treatments done"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "हुआ इलाज"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "झालेले उपचार"
           }
         }
       }
@@ -1528,6 +3184,18 @@
             "state": "translated",
             "value": "with %@ · %@"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ के साथ · %@"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ यांच्यासोबत · %@"
+          }
         }
       }
     },
@@ -1538,6 +3206,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your finished visits will show here."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपकी पूरी हुई विज़िट यहां दिखेंगी।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमच्या पूर्ण झालेल्या भेटी इथे दिसतील."
           }
         }
       }
@@ -1550,6 +3230,18 @@
             "state": "translated",
             "value": "Opens the visit summary"
           }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट का सारांश खोलता है"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भेटीचा सारांश उघडतो"
+          }
         }
       }
     },
@@ -1560,6 +3252,18 @@
           "stringUnit": {
             "state": "translated",
             "value": "Visits"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विज़िट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "भेटी"
           }
         }
       }

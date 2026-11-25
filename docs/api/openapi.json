@@ -20432,7 +20432,7 @@
         "tags": [
           "clinical"
         ],
-        "summary": "Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed).",
+        "summary": "Marks an accepted plan item done or cancelled (a proposed item can only be cancelled, to withdraw it); the plan follows (in progress, then completed).",
         "operationId": "setTreatmentPlanItemStatus",
         "parameters": [
           {
@@ -20478,7 +20478,7 @@
             "description": "No such item in this clinic"
           },
           "409": {
-            "description": "The item isn't accepted (finished items are frozen)"
+            "description": "The item is finished, or is proposed and the status is not cancelled"
           }
         },
         "security": [
@@ -40162,6 +40162,10 @@
           "options"
         ],
         "properties": {
+          "from_plan": {
+            "type": "boolean",
+            "description": "True when only the planned treatment suggests this situation: nothing recorded on the\ntooth shows it, so say what the doctor recommends, never claim a finding. Absent otherwise."
+          },
           "if_wait": {
             "type": [
               "array",

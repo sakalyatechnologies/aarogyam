@@ -13,7 +13,7 @@ import { OpenWide, bitingSideProblems, frontHidesAllProblems } from "./open-wide
 import { PaintedMap, type PaintedView } from "./painted.js";
 import { DEFAULT_SHADE, type Shade } from "./painter.js";
 import { ToothSheet, yourTreatment, type ToothSheetProps } from "./tooth-sheet.js";
-import { SituationOptions, useStudio } from "./options.js";
+import { SituationOptions, situationTitle, useStudio } from "./options.js";
 import type { PresentStudio } from "@aarogyam/api-client";
 import type { SnapTooth } from "../mouth-view/model.js";
 
@@ -39,7 +39,7 @@ export function storyCards(m: PresentModel, hasXray = false, studio?: PresentStu
   const situations = studio?.situations ?? [];
   const addOptions = (t: number) => {
     const mid = yourTreatment(m, t) !== undefined;
-    for (const s of situations) if (s.tooth === t) cards.push({ id: `options:${String(s.tooth)}:${s.key}`, kind: "options", tooth: s.tooth, situation: s.key, title: `Usual options · ${s.title}`, ...(mid ? { midTreatment: true } : {}) });
+    for (const s of situations) if (s.tooth === t) cards.push({ id: `options:${String(s.tooth)}:${s.key}`, kind: "options", tooth: s.tooth, situation: s.key, title: `Usual options · ${situationTitle(s)}`, ...(mid ? { midTreatment: true } : {}) });
   };
   const teeth = problemTeeth(m);
   for (const t of teeth) {

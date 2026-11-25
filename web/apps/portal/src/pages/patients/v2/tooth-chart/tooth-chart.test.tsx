@@ -272,7 +272,7 @@ describe("the tooth panel", () => {
     });
     expect(calls.chart[0]?.entries.map((e) => [e.surface, e.finding, e.procedure])).toEqual([["M", "filled", "filling"], ["O", "filled", "filling"]]);
     // One row for the two surfaces.
-    expect(await within(panel).findAllByText("Filling")).toHaveLength(1);
+    expect(await within(panel).findAllByText("Filling", { selector: "strong" })).toHaveLength(1);
   });
 
   it("adds a planned treatment to the patient's plan", async () => {

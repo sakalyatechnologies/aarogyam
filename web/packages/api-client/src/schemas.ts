@@ -2429,6 +2429,7 @@ export const presentSituation = z.object({
   key: z.string(),
   tooth: count,
   title: z.string(),
+  from_plan: z.boolean().exactOptional(),
   if_wait: z.array(presentWaitStage).exactOptional(),
   options: z.array(presentOption),
 }) satisfies z.ZodType<C.PresentSituation>;

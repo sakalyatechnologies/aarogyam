@@ -320,6 +320,10 @@ pub struct Situation {
     pub tooth: u8,
     /// Words for the situation.
     pub title: String,
+    /// Chosen from the planned treatment alone: nothing recorded on the tooth shows the
+    /// situation, so clients must not state it as a finding.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub from_plan: bool,
     /// What waiting usually leads to; empty when the data has none.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub if_wait: Vec<WaitStage>,
@@ -485,6 +489,25 @@ fn situations_of(t: &MouthTooth) -> Vec<&'static str> {
     keys
 }
 
+/// The one situation a planned treatment points at when the tooth has no recorded situation:
+/// root canal is deep decay, implant or bridge is a missing tooth, extraction of a wisdom
+/// tooth is an impacted one. Any other model (crown, filling, an extraction of another tooth)
+/// fits several situations, so it picks none.
+fn situation_of_plan(t: &MouthTooth) -> Option<&'static str> {
+    let permanent = is_permanent(t.tooth);
+    t.treatments
+        .iter()
+        .filter(|tr| matches!(tr.state.as_str(), "planned" | "in_progress"))
+        .find_map(|tr| match tr.model.as_str() {
+            "root_canal" if permanent => Some("deep_decay"),
+            "implant" | "bridge" if permanent && t.tooth % 10 != 8 => Some("missing"),
+            "extraction" | "wisdom_extraction" if permanent && t.tooth % 10 == 8 => {
+                Some("impacted_wisdom")
+            }
+            _ => None,
+        })
+}
+
 /// A treatment is planned or in progress on the tooth (a finished one does not count).
 fn treatment_under_way(t: &MouthTooth) -> bool {
     t.treatments
@@ -544,7 +567,14 @@ pub fn build(snapshot: &MouthSnapshot) -> PresentStudio {
     let situations = teeth
         .into_iter()
         .flat_map(|t| {
-            situations_of(t).into_iter().filter_map(move |key| {
+            let recorded = situations_of(t);
+            let from_plan = recorded.is_empty();
+            let keys = if from_plan {
+                situation_of_plan(t).into_iter().collect()
+            } else {
+                recorded
+            };
+            keys.into_iter().filter_map(move |key| {
                 let def = options.situations.get(key)?;
                 let under_way = treatment_under_way(t);
                 // The first option that is the same work as the plan is the suggestion, shown first.
@@ -564,6 +594,7 @@ pub fn build(snapshot: &MouthSnapshot) -> PresentStudio {
                     key: key.to_owned(),
                     tooth: t.tooth,
                     title: def.title.clone(),
+                    from_plan,
                     if_wait: def.if_wait.clone(),
                     options: cards,
                 })

@@ -42,12 +42,11 @@ type View = PresentStyleId | "chart";
 const LOOKS: readonly { value: ChartLook; label: string }[] = [{ value: "rows", label: "Rows" }, { value: "arch", label: "3D arch" }, { value: "classic", label: "Classic" }];
 const DENTITIONS: readonly { value: ChartDentition; label: string }[] = [{ value: "adult", label: "Adult" }, { value: "child", label: "Child" }];
 
-/** Story, painted and any beta the app lists (Own X-ray is a Story card now; the chart is its own More group). */
-export function styleOptions(betas: readonly string[], saved: PresentStyleId): SwitcherOption[] {
+/** Story and painted (Own X-ray is a Story card now; the chart is its own More group). */
+export function styleOptions(saved: PresentStyleId): SwitcherOption[] {
   const ids = new Set<PresentStyleId>(["story", "painted"]);
-  for (const b of betas) if (isStyle(b)) ids.add(b);
   return PRESENT_STYLES.filter((x) => ids.has(x.id)).map((x) => ({
-    id: x.id, label: x.label, beta: x.beta, note: x.id === saved ? "Default" : undefined, disabled: isShipped(x.id) ? undefined : "Coming soon",
+    id: x.id, label: x.label, note: x.id === saved ? "Default" : undefined, disabled: isShipped(x.id) ? undefined : "Coming soon",
   }));
 }
 
@@ -91,7 +90,7 @@ function PinnedGate({ studio, saved, canWrite, send }: { studio: PresentStudio |
   );
 }
 
-export function PresentApp({ snapshot, dark, send, controls, style, studio, plans, betas = [], savedShade, canSaveShade = false, xrays, chart, look: askedLook, dentition: askedDentition, discussions = [], canWrite = true }: {
+export function PresentApp({ snapshot, dark, send, controls, style, studio, plans, savedShade, canSaveShade = false, xrays, chart, look: askedLook, dentition: askedDentition, discussions = [], canWrite = true }: {
   /** The patient's plan steps (`present(…, { plans })`); undefined: no plan card beyond the recorded plan facts. */
   plans?: readonly PlanLine[] | undefined;
   snapshot: MouthSnapshot;
@@ -100,7 +99,6 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, plan
   style: PresentStyleId;
   /** The parsed `/visits/{id}/present` JSON; undefined opens without options. */
   studio?: PresentStudio | undefined;
-  betas?: readonly string[];
   /** The patient's saved tooth colour; undefined opens on the default. */
   savedShade?: number | undefined;
   /** Offer "Save colour"; the app saves it. */
@@ -133,7 +131,7 @@ export function PresentApp({ snapshot, dark, send, controls, style, studio, plan
   const [dentition, setDentition] = useState<ChartDentition>(askedDentition ?? "adult");
   const [edited, setEdited] = useState<ReadonlyMap<string, readonly XrayPin[]>>(new Map());
   const hasXray = xrays !== undefined && xrays.length > 0;
-  const options = useMemo(() => styleOptions(betas, style), [betas, style]);
+  const options = useMemo(() => styleOptions(style), [style]);
   const model = useMemo(() => presentFacts(snapshot), [snapshot]);
   const pins: XrayPins = {
     of: (id) => edited.get(id) ?? xrays?.find((x) => x.id === id)?.pins ?? [],

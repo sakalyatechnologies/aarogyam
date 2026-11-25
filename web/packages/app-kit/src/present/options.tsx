@@ -27,6 +27,16 @@ export const useStudio = (): PresentStudio | undefined => useContext(StudioConte
 export const situationsOf = (studio: PresentStudio | undefined, tooth: number): PresentSituation[] =>
   studio?.situations.filter((s) => s.tooth === tooth) ?? [];
 
+/**
+ * The situation's words. When only the plan suggested it (`from_plan`), nothing recorded shows the problem, so say what the doctor
+ * recommends (the suggested option) and never name a finding.
+ */
+export const situationTitle = (s: PresentSituation): string => {
+  if (s.from_plan !== true) return s.title;
+  const pick = s.options.find((o) => o.suggested === true)?.label;
+  return pick === undefined ? "Your doctor's plan" : `Your doctor recommends: ${pick.charAt(0).toLowerCase()}${pick.slice(1)}`;
+};
+
 const span = (min: number, max: number) => (min === max ? String(min) : `${String(min)}–${String(max)}`);
 
 export const visitsWords = (o: PresentOption): string =>
@@ -103,8 +113,8 @@ export function SituationOptions({ situation, titled = true, record }: { situati
     </button>
   );
   return (
-    <section className="ps-opts" aria-label={`Usual options: ${situation.title}`} data-situation={`${situation.key}:${String(situation.tooth)}`}>
-      {titled ? <h3 className="ps-h">{`${tooth}: ${situation.title}`}<RecordBadge /></h3> : null}
+    <section className="ps-opts" aria-label={`Usual options: ${situationTitle(situation)}`} data-situation={`${situation.key}:${String(situation.tooth)}`}>
+      {titled ? <h3 className="ps-h">{`${tooth}: ${situationTitle(situation)}`}<RecordBadge /></h3> : null}
       <h4 className="ps-h">{`Your choices for ${tooth.toLowerCase()}`}</h4>
       <p className="ps-muted">These are the usual ways to deal with this (general guidance). Your dentist will advise what suits your tooth.</p>
       <div className="ps-seg" role="group" aria-label="Options view">
@@ -130,7 +140,7 @@ export function SituationOptions({ situation, titled = true, record }: { situati
         </ul>
       ) : (
         <div className="ps-opt-scroll">
-          <table className="ps-opt-table" aria-label={`Usual options: ${situation.title}`}>
+          <table className="ps-opt-table" aria-label={`Usual options: ${situationTitle(situation)}`}>
             <thead>
               <tr>
                 <td />

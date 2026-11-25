@@ -551,7 +551,7 @@ pub struct ItemStatusChange {
     pub status: String,
 }
 
-/// Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed).
+/// Marks an accepted plan item done or cancelled (a proposed item can only be cancelled, to withdraw it); the plan follows (in progress, then completed).
 #[utoipa::path(
     patch,
     path = "/api/v1/treatment-plan-items/{id}",
@@ -566,7 +566,7 @@ pub struct ItemStatusChange {
         (status = 401, description = "Not signed in"),
         (status = 403, description = "The role lacks clinical.write"),
         (status = 404, description = "No such item in this clinic"),
-        (status = 409, description = "The item isn't accepted (finished items are frozen)")
+        (status = 409, description = "The item is finished, or is proposed and the status is not cancelled")
     )
 )]
 pub(crate) async fn set_item_status(

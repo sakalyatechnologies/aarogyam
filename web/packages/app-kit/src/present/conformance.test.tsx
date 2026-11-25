@@ -11,10 +11,7 @@ import aaravFixture from "../../../../../specialties/dental/fixtures/mouth-aarav
 import type { Snapshot } from "../mouth-view/model.js";
 import { dottedTeeth, presentFacts, type PresentModel } from "./model.js";
 import { StudioProvider } from "./options.js";
-import { FaceStyle, splitFacts } from "./face.js";
 import { PaintedStyle } from "./painted.js";
-import { inSmileZone } from "./smile-zone.js";
-import { Smile3d } from "./smile3d.js";
 import { StoryStyle } from "./story.js";
 import { ToothSheet } from "./tooth-sheet.js";
 import { XrayStyle } from "./xray.js";
@@ -25,14 +22,11 @@ afterEach(cleanup);
 const STYLES: Partial<Record<PresentStyleId | "xray", (m: PresentModel) => ReactElement>> = {
   story: (m) => <StoryStyle model={m} orientation="mirror" onOrientation={() => undefined} theme="light" stacked />,
   painted: (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} />,
-  face: (m) => <FaceStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" start="face" />,
-  smile3d: (m) => <Smile3d model={m} orientation="mirror" onOrientation={() => undefined} theme="light" onOpen={() => undefined} />,
   xray: (m) => <XrayStyle model={m} image={{ src: "data:image/gif;base64,R0lGODlhAQABAAAAACw=", alt: "X-ray" }} />,
 };
 /** Shared blocks a style can switch to; each must pass the same rules (slice 1b: Open wide, inside painted). */
 const BLOCKS: Record<string, (m: PresentModel) => ReactElement> = {
   "painted, open wide": (m) => <PaintedStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" onOpen={() => undefined} view="wide" />,
-  "face, painted map": (m) => <FaceStyle model={m} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" start="map" />,
 };
 
 const empty = (): Snapshot => ({ ...structuredClone(aaravFixture.snapshot), teeth: [] });
@@ -75,9 +69,7 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
     it("'What we found' lists exactly the facts, and nothing about crowding or gums", () => {
       const { model, container } = setup();
       const listed = [...container.querySelectorAll(".ps-found [data-fact]")].map((el) => el.getAttribute("data-fact"));
-      // the face lists what people notice first, then "Further back" (§6.5); every other style keeps the record's order
-      const expected = _id === "face" ? [...splitFacts(model, false).zone, ...splitFacts(model, false).back] : model.facts;
-      expect(listed).toEqual(expected.map((f) => f.id));
+      expect(listed).toEqual(model.facts.map((f) => f.id));
       const found = container.querySelector(".ps-found")?.textContent ?? "";
       expect(found).not.toMatch(/crowd|recession|gum line/i);
     });
@@ -104,22 +96,21 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
     });
 
     // the drawn styles only: the X-ray is the patient's own image, with no painting and no dots
-    it.skipIf(_id === "xray" || _id === "face" || _id === "smile3d")("the picture carries the dashed 'Painting based on your record' and the provenance footer", () => {
+    it.skipIf(_id === "xray")("the picture carries the dashed 'Painting based on your record' and the provenance footer", () => {
       const { container } = setup();
       const chips = [...container.querySelectorAll(".ps-prov summary .ps-badge-ill")].map((b) => b.textContent);
       expect(chips).toContain("Illustration");
       expect(container.querySelector(".ps-prov")?.textContent.toLowerCase()).toContain("painting based on your record");
     });
 
-    it.skipIf(_id === "xray" || _id === "smile3d")("dots only on recorded items: one per tooth with facts", () => {
+    it.skipIf(_id === "xray")("dots only on recorded items: one per tooth with facts", () => {
       const { model, container } = setup();
       const dots = [...container.querySelectorAll(".ps-dot")].map((d) => Number(d.getAttribute("data-tooth")));
-      // the face draws only the smile zone's dots; the rest are listed under "Further back"
-      expect(dots).toEqual(_id === "face" ? dottedTeeth(model).filter((t) => inSmileZone(t)) : dottedTeeth(model));
+      expect(dots).toEqual(dottedTeeth(model));
       for (const tooth of dots) expect(model.facts.some((f) => f.tooth === tooth)).toBe(true);
     });
 
-    it.skipIf(_id === "xray" || _id === "face")("a wisdom tooth with no eruption record is badged as an example", () => {
+    it.skipIf(_id === "xray")("a wisdom tooth with no eruption record is badged as an example", () => {
       const { model, container } = setup();
       const unrecorded = model.teeth.some((t) => t.index === 8 && t.shown !== "not_recorded" && !t.missing && t.eruption === undefined);
       const has = [...container.querySelectorAll(".ps-badge-ill")].some((b) => /example, not your tooth/i.test(b.textContent));
@@ -128,25 +119,6 @@ describe.each([...Object.entries(STYLES), ...Object.entries(BLOCKS)])("conforman
   });
 });
 
-/** Face to tooth (slice 3b): a neutral example face, the smile-zone rule, and the degrade to the painted map. */
-describe.each(Object.entries(FIXTURES))("conformance: face to tooth, %s", (_name, snap) => {
-  const face = (model: PresentModel) => render(<FaceStyle model={model} orientation="mirror" onOrientation={() => undefined} shade={33} onShade={() => undefined} theme="light" />);
-  it("labels the example face, files everything else under Further back, or opens at the map", () => {
-    const model = presentFacts(snap());
-    const { container } = face(model);
-    const { zone, back } = splitFacts(model, true);
-    if (zone.length === 0) {
-      expect(container.querySelector('[data-view="map"]')).not.toBeNull();
-      expect(container.textContent).toContain("Your findings are further back");
-      return;
-    }
-    expect(container.textContent).toContain("Example face, not you");
-    for (const f of zone) expect(f.tooth !== undefined && inSmileZone(f.tooth, true), f.id).toBe(true);
-    for (const f of back) expect(f.tooth === undefined || !inSmileZone(f.tooth, true), f.id).toBe(true);
-    expect(container.querySelector(".ps-face-back")?.textContent ?? "").toMatch(back.length === 0 ? /^$/ : /Further back: not usually seen when smiling \(general guidance\)/);
-    expect(container.querySelector(".ps-face-shape")?.getAttribute("style") ?? "").not.toMatch(/scale\(-/);
-  });
-});
 
 /** Usual options (slice 2a): one story card per recorded situation, with every option; general guidance only. */
 describe.each(Object.entries(FIXTURES))("conformance: usual options in the story, %s", (_name, snap) => {

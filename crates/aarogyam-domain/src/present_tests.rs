@@ -28,10 +28,16 @@ fn found(studio: &PresentStudio) -> Vec<(u8, &str)> {
 
 #[test]
 fn situations_come_from_recorded_fields_only() {
-    // 14 missing; 37 caries near the pulp; 38 impacted. Nothing else is invented.
+    // 14 missing; 37 caries near the pulp; 38 impacted; 36 and 47 have only a planned root canal.
     assert_eq!(
         found(&build(&adult())),
-        [(14, "missing"), (37, "deep_decay"), (38, "impacted_wisdom")]
+        [
+            (14, "missing"),
+            (36, "deep_decay"),
+            (37, "deep_decay"),
+            (38, "impacted_wisdom"),
+            (47, "deep_decay")
+        ]
     );
     // 21 has a recorded infection; 51 is a missing milk tooth and 55 has dentin decay: no situation.
     assert_eq!(found(&build(&aarav())), [(21, "infection")]);
@@ -75,7 +81,7 @@ fn each_situation_carries_the_options_with_the_five_facts() {
         keys(1),
         ["rct_crown", "extract_implant", "extract_bridge", "extract"]
     );
-    assert_eq!(keys(2), ["remove"]);
+    assert_eq!(keys(3), ["remove"]);
     for o in studio.situations.iter().flat_map(|s| &s.options) {
         assert!(o.visits.min <= o.visits.max, "{}", o.key);
         assert!(
@@ -475,7 +481,13 @@ fn the_option_matching_the_plan_is_suggested_and_first() {
         .collect();
     assert_eq!(
         first,
-        [("implant", true), ("rct_crown", true), ("remove", true)]
+        [
+            ("implant", true),
+            ("rct_crown", true),
+            ("rct_crown", true),
+            ("remove", true),
+            ("rct_crown", true)
+        ]
     );
     // With nothing planned, "Wait and watch" is offered first and nothing is suggested.
     let mut snapshot = adult();

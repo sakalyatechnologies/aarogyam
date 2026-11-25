@@ -3189,6 +3189,91 @@ async fn plan_items_are_finished_one_by_one_and_then_frozen() {
     app.finish().await;
 }
 
+/// A proposed item can be withdrawn (cancelled) but not done; a cancelled one is frozen, and the
+/// rest of the plan is accepted and finished as before.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn a_proposed_plan_item_can_be_cancelled_but_not_finished() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let patient = register(&app, ALPHA, &owner, "Meera Shah").await;
+    let (status, plan) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/patients/{patient}/treatment-plans"),
+            Some(&owner),
+            Some(json!({ "title": "Molar", "items": [
+                { "name": "Root canal", "estimate_paise": 0 },
+                { "name": "Crown", "estimate_paise": 0 },
+            ] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{plan}");
+    let plan_id = plan["id"].as_str().unwrap().to_owned();
+    let first = plan["items"][0]["id"].as_str().unwrap().to_owned();
+    let second = plan["items"][1]["id"].as_str().unwrap().to_owned();
+    let patch = |id: &str| format!("/api/v1/treatment-plan-items/{id}");
+    let set = |status: &str| Some(json!({ "status": status }));
+
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&owner),
+            set("done"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    let (status, after) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&owner),
+            set("cancelled"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{after}");
+    assert_eq!(after["items"][0]["status"], "cancelled");
+    assert_eq!(after["items"][1]["status"], "proposed");
+    // Cancelled is final.
+    let (status, _) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&first),
+            Some(&owner),
+            set("cancelled"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CONFLICT);
+    // The other item follows the usual rule: accepted, then done.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/treatment-plans/{plan_id}/accept"),
+            Some(&owner),
+            Some(json!({ "item_ids": [second] })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, after) = app
+        .send(
+            Method::PATCH,
+            ALPHA,
+            &patch(&second),
+            Some(&owner),
+            set("done"),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{after}");
+    assert_eq!(after["status"], "completed");
+    app.finish().await;
+}
+
 /// Tooth pins on an X-ray: placed once, moved in place, one per tooth, kept for later visits,
 /// refused out of range, and another clinic gets 404 (slice 2g).
 #[tokio::test]

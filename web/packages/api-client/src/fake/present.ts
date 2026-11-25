@@ -41,6 +41,17 @@ function situationsOf(t: C.MouthTooth): string[] {
   return keys;
 }
 
+/** The one situation a planned treatment points at when nothing recorded shows one (the server's rule). */
+function situationOfPlan(t: C.MouthTooth): string | undefined {
+  for (const tr of t.treatments ?? []) {
+    if (tr.state !== "planned" && tr.state !== "in_progress") continue;
+    if (tr.model === "root_canal" && permanent(t.tooth)) return "deep_decay";
+    if ((tr.model === "implant" || tr.model === "bridge") && permanent(t.tooth) && t.tooth % 10 !== 8) return "missing";
+    if ((tr.model === "extraction" || tr.model === "wisdom_extraction") && permanent(t.tooth) && t.tooth % 10 === 8) return "impacted_wisdom";
+  }
+  return undefined;
+}
+
 const underWay = (t: C.MouthTooth): boolean => (t.treatments ?? []).some((tr) => tr.state === "planned" || tr.state === "in_progress");
 const matchesPlan = (o: OptionDef, t: C.MouthTooth): boolean =>
   (t.treatments ?? []).some((tr) => (tr.state === "planned" || tr.state === "in_progress") && (o.plan_models ?? []).includes(tr.model));
@@ -67,7 +78,7 @@ function card(o: OptionDef, suggested: boolean): PresentOption {
 export function fakePresentStudio(snapshot: C.MouthSnapshot): PresentStudio {
   return {
     situations: [...snapshot.teeth].sort((a, b) => a.tooth - b.tooth).flatMap((t) =>
-      situationsOf(t).flatMap((key) => {
+      (situationsOf(t).length > 0 ? situationsOf(t) : [situationOfPlan(t) ?? ""]).flatMap((key) => {
         const def = situations[key];
         if (def === undefined) return [];
         const first = def.options.findIndex((o) => matchesPlan(o, t));
@@ -76,7 +87,7 @@ export function fakePresentStudio(snapshot: C.MouthSnapshot): PresentStudio {
         const pick = cards[at];
         const options = at > 0 && pick !== undefined ? [pick, ...cards.slice(0, at), ...cards.slice(at + 1)] : cards;
         const if_wait = def.if_wait ?? [];
-        return [{ key, tooth: t.tooth, title: def.title, ...(if_wait.length === 0 ? {} : { if_wait }), options }];
+        return [{ key, tooth: t.tooth, title: def.title, ...(situationsOf(t).length === 0 ? { from_plan: true } : {}), ...(if_wait.length === 0 ? {} : { if_wait }), options }];
       })),
   };
 }

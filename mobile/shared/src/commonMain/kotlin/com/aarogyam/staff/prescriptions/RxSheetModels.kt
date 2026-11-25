@@ -82,6 +82,14 @@ sealed interface ShareState {
     ) : ShareState
 }
 
+/** Alternatives for the line [lineKey]: [loading], then [items] (empty means none found) or [error]. */
+data class AlternativesState(
+    val lineKey: Int,
+    val loading: Boolean = false,
+    val items: List<DrugView> = emptyList(),
+    val error: ScreenError? = null,
+)
+
 data class RxSheetState(
     /** False when the role lacks `prescriptions.issue`; nothing is requested then. */
     val allowed: Boolean = true,
@@ -109,6 +117,8 @@ data class RxSheetState(
     val draft: DraftSave = DraftSave.None,
     /** Medicine sets the doctor can add in one tap; empty until loaded or when unavailable. */
     val sets: List<RxSetChip> = emptyList(),
+    /** The open "Alternatives" list for one line; null when closed. */
+    val alternatives: AlternativesState? = null,
 ) {
     /** The early check found something serious: the banner is danger-toned, not warning-toned. */
     val checkSerious: Boolean get() = checkAlerts.any { it.severity == Severity.Severe }

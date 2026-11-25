@@ -152,4 +152,8 @@
     <string name="pay_upi">UPI</string>
     <string name="pay_card">Card</string>
 
+    <string name="rx_alt_action">Alternatives</string>
+    <string name="rx_alt_for">Alternatives for %1$s</string>
+    <string name="rx_alt_loading">Loading alternatives…</string>
+    <string name="rx_alt_none">No alternatives found.</string>
 </resources>

@@ -31,6 +31,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.prescriptions.AllergyWarning
+import com.aarogyam.staff.prescriptions.AlternativesState
 import com.aarogyam.staff.prescriptions.DrugView
 import com.aarogyam.staff.prescriptions.RxLine
 import com.aarogyam.staff.prescriptions.RxPhase
@@ -99,7 +100,7 @@ private fun Composing(
             modifier = Modifier.fillMaxWidth(),
         )
     }
-    state.lines.forEach { line -> LineCard(holder, line, editable = !locked) }
+    state.lines.forEach { line -> LineCard(holder, line, editable = !locked, alternatives = state.alternatives) }
     RxCheckBanner(state, Modifier.padding(top = Spacing.M.dp))
     Warnings(holder, state)
     state.error?.let { RxError(stringResource(it.message())) }
@@ -129,6 +130,7 @@ private fun LineCard(
     holder: RxSheetStateHolder,
     line: RxLine,
     editable: Boolean,
+    alternatives: AlternativesState?,
 ) {
     SkCard(modifier = Modifier.padding(top = Spacing.M.dp)) {
         Row(
@@ -139,6 +141,22 @@ private fun LineCard(
             Column(Modifier.weight(1f)) {
                 Text(line.name, style = SkTypography.headline, color = SkTheme.colors.text.color)
                 if (line.detail.isNotBlank()) Muted(line.detail)
+            }
+            if (editable && line.drugId != null) {
+                BarAction(
+                    stringResource(R.string.rx_alt_action),
+                    SkTheme.colors.primary.color,
+                    {
+                        if (alternatives?.lineKey ==
+                            line.key
+                        ) {
+                            holder.closeAlternatives()
+                        } else {
+                            holder.openAlternatives(line.key)
+                        }
+                    },
+                    description = stringResource(R.string.rx_alt_for, line.name),
+                )
             }
             if (editable) {
                 BarAction(
@@ -155,6 +173,9 @@ private fun LineCard(
         }, editable) { holder.setFrequency(line.key, it) }
         PresetRow(R.string.rx_duration, RxPresets.durations, line.durationDays, { daysText(it) }, editable) {
             holder.setDuration(line.key, it)
+        }
+        if (editable && alternatives?.lineKey == line.key) {
+            RxAlternativesPanel(alternatives) { holder.swapDrug(line.key, it) }
         }
     }
 }

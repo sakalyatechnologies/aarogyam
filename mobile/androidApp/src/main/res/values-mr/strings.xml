@@ -128,4 +128,8 @@
     <string name="pay_cash">रोख</string>
     <string name="pay_upi">UPI</string>
     <string name="pay_card">कार्ड</string>
+    <string name="rx_alt_action">पर्याय</string>
+    <string name="rx_alt_for">%1$s चे पर्याय</string>
+    <string name="rx_alt_loading">पर्याय लोड होत आहेत…</string>
+    <string name="rx_alt_none">कोणतेही पर्याय सापडले नाहीत.</string>
 </resources>

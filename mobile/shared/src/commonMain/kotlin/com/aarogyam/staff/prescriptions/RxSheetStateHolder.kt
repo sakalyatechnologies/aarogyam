@@ -42,6 +42,7 @@ class RxSheetStateHolder(
     private val sync = RxDraftSync(clinic, patientId, visitId)
     private val issuer = RxIssuer(clinic, patientId, mutableState, sync, scope, log)
     private val allergyCheck = RxAllergyCheck(clinic, patientId, mutableState, scope, log)
+    private val alternatives = RxAlternatives(clinic, mutableState, scope, log)
     private var frozen = false
     private var sets: List<QuickMedicineSet> = emptyList()
 
@@ -143,6 +144,25 @@ class RxSheetStateHolder(
                 ),
             )
         }
+        allergyCheck.schedule()
+    }
+
+    /** Loads the alternatives for the line [key] into [RxSheetState.alternatives]. */
+    fun openAlternatives(key: Int) {
+        if (editable()) alternatives.open(key)
+    }
+
+    fun closeAlternatives() = alternatives.close()
+
+    /** Swaps the line [key] to [drug], keeping its dose, frequency, days and timing. */
+    fun swapDrug(
+        key: Int,
+        drug: DrugView,
+    ) {
+        if (!editable()) return
+        val detail = listOfNotNull(drug.brand, drug.strength, drug.form).joinToString(" ")
+        change(key) { it.copy(drugId = drug.id, name = drug.name, detail = detail) }
+        mutableState.update { recompute(it.copy(alternatives = null)) }
         allergyCheck.schedule()
     }
 

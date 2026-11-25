@@ -89,7 +89,7 @@ private struct RxComposer: View {
         if state.lines.isEmpty && state.results.isEmpty {
             SkPillButton(String(localized: "rx.quick"), variant: .tonal, wide: true) { holder.quickRx() }
         }
-        ForEach(state.lines, id: \.key) { RxLineCard(holder: holder, line: $0, editable: !locked) }
+        ForEach(state.lines, id: \.key) { RxLineCard(holder: holder, line: $0, editable: !locked, alternatives: state.alternatives) }
         RxCheckBanner(state: state)
         if state.needsOverride { RxAllergyCard(holder: holder, state: state) }
         if let error = state.error {
@@ -131,6 +131,7 @@ private struct RxLineCard: View {
     let holder: RxSheetStateHolder
     let line: RxLine
     let editable: Bool
+    let alternatives: AlternativesState?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -144,6 +145,13 @@ private struct RxLineCard: View {
                         }
                     }
                     Spacer(minLength: 8)
+                    if editable, line.drugId != nil {
+                        Button(String(localized: "rx.alt.action")) {
+                            if alternatives?.lineKey == line.key { holder.closeAlternatives() } else { holder.openAlternatives(key: line.key) }
+                        }
+                        .font(.system(size: 13, weight: .bold)).frame(minHeight: 44)
+                        .accessibilityLabel(String(format: String(localized: "rx.alt.named"), line.name))
+                    }
                     if editable {
                         Button(String(localized: "rx.remove"), role: .destructive) { holder.remove(key: line.key) }
                             .font(.system(size: 13, weight: .bold)).frame(minHeight: 44)
@@ -154,6 +162,9 @@ private struct RxLineCard: View {
                 presets(RxPresets.shared.frequencies, selected: line.frequency, text: { $0 }) { holder.setFrequency(key: line.key, frequency: $0) }
                 presets(RxPresets.shared.durations.map(\.intValue), selected: Int(line.durationDays), text: { RxFormat.days($0) }) {
                     holder.setDuration(key: line.key, days: Int32($0))
+                }
+                if editable, let alternatives, alternatives.lineKey == line.key {
+                    RxAlternativesList(alternatives: alternatives) { holder.swapDrug(key: line.key, drug: $0) }
                 }
             }
         }

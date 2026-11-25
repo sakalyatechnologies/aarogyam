@@ -136,7 +136,7 @@ private struct DeskPaymentScreen: View {
             SkField(dv("d9.pay.amount"), text: Binding(get: { amount }, set: { amount = $0; amountEdited = true; holder.dismissOutcome() }),
                     error: problems.contains(.amount) ? dv("d9.pay.amount.invalid") : nil, keyboard: .decimalPad)
                 .onAppear { if amount.isEmpty { amount = DeskPay.rupeesText(paise: all ? allTotal : chosen.balancePaise) } }
-            if all { splitPreview(DeskPay.paise(from: amount) ?? 0) }
+            if all { splitPreview(DeskPay.paise(from: amount) ?? 0) } else { UpiLinkSection(holder: holder.upiLink, due: chosen) }
             V7Label(text: dv("d9.pay.method"))
             SkChoiceChips(Array(PayMethod.allCases), selected: method.map { [$0] } ?? [], label: { $0.label }) { method = $0 }
             if problems.contains(.method) {

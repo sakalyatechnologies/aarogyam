@@ -227,7 +227,7 @@ The staff apps build these screens fully but show "Preview: needs server support
 - ~~**BK-10** The staff avatar choice and photo stored on the server~~: done 24 Nov 2026 in the staff apps. A choice or photo is also saved with `PUT /me/avatar`; a phone with no choice adopts the server's; the team list shows members' avatars. The device copy is the cache.
 - **BK-11** Phone number OTP by SMS (needs DLT and a paid provider) and Google/Apple sign-in.
 - **BK-12** App Links and Universal Links on the product domain (today `aarogyam://invite`).
-- **BK-13** UPI collect request or payment link from a bill.
+- ~~**BK-13** UPI collect request or payment link from a bill~~: done 25 Nov 2026 in the staff apps. "Send UPI link" on the desk payment sheet (`billing.write`) opens the share sheet and shows the QR, from `GET /invoices/{id}/upi-link`.
 - ~~**BK-14** Seat a queued patient in a chosen chair~~: done 17 Nov 2026. The queue board shows each chair's patient by the token's `room_id`; Seat and "Seat next" send `room_id` with `in_chair`.
 - **BK-15** Monthly revenue target for the clinic.
 - **BK-16** Me-card extras: sterilisation cycles, estimated end of day.

@@ -108,6 +108,9 @@ class DeskPaymentStateHolder(
             (canCollect && invoiceId != null)
     private val canProof get() = BILLING_WRITE in clinic.permissions && ServerCaps.paymentProof
     private val runner = graph.outbox
+
+    /** "Send UPI link" for a bill with a balance (BK-13); needs `billing.write`. */
+    val upiLink = UpiLinkHolder(clinic, scope)
     private val mutableState =
         MutableStateFlow<DeskPayState>(if (allowed) DeskPayState.Loading else DeskPayState.NotAllowed)
     private val mutableOutcome = MutableStateFlow<DeskPayOutcome>(DeskPayOutcome.Idle)

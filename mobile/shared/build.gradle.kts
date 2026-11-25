@@ -129,6 +129,7 @@ val apiModels =
         "NewFamilyLink",
         "CollectSummary",
         "CollectUpi",
+        "UpiLink",
         "WalkInRequest",
         "FamilyOfFields",
         "NewPatient",

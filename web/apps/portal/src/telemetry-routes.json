@@ -6,6 +6,7 @@
   "/register",
   "/invite",
   "/book",
+  "/arrive",
   "/learn",
   "/learn/:topic",
   "/shared/:token",

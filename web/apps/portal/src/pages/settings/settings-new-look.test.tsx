@@ -46,6 +46,7 @@ describe("Settings in the new look", () => {
       "Time off",
       "Tasks",
       "Booking & notifications",
+      "Patient QR",
       "Offers",
       "Website",
       "Show patient",

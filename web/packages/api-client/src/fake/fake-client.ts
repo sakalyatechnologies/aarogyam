@@ -1189,6 +1189,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         phone: p.phone == null ? null : contact ? p.phone : maskPhone(p.phone),
         email: p.email == null ? null : contact ? p.email : maskEmail(p.email),
         preferred_language: p.preferred_language,
+        ...(p.address == null ? {} : { address: p.address }),
         status: p.status,
         created_at: p.created_at,
         last_visit_at: p.last_visit_at ?? null,
@@ -1467,6 +1468,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             phone: input.phone ?? null,
             email: input.email ?? null,
             preferred_language: input.preferred_language ?? "en-IN",
+            ...(input.address == null ? {} : { address: input.address }),
             status: "active",
             created_at: now.toISOString(),
             last_visit_at: null,
@@ -2280,6 +2282,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (changes.phone !== undefined) found.phone = changes.phone === "" ? null : changes.phone;
           if (changes.email !== undefined) found.email = changes.email === "" ? null : changes.email;
           if (changes.preferred_language != null) found.preferred_language = changes.preferred_language;
+          if (changes.address !== undefined) found.address = changes.address;
           return reply(wirePatient(found, caller) satisfies C.Patient);
         }),
 

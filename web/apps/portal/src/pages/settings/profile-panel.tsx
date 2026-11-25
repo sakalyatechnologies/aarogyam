@@ -6,6 +6,7 @@ import { useToast } from "@sakalya/ui";
 
 import { Initials, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { PinCodeFields, useClinicPinLookup } from "../../components/pin-code-fields.js";
 import { useNewLook } from "../../lib/new-look.js";
 import { useClinicSettings, useUpdateClinicSettings } from "../../queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -96,6 +97,7 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
   const toast = useToast();
   // In the new look the prescription footer is edited in Letterhead only; saving here leaves it alone.
   const [newLook] = useNewLook();
+  const lookup = useClinicPinLookup();
   const [form, setForm] = useState<ProfileValues>(() => toValues(settings));
   const [error, setError] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<Key, string>>>({});
@@ -167,9 +169,17 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
         {input("phone", "Phone")}
         {input("line1", "Address", { span: "wide", placeholder: "House, building and street" })}
         {input("line2", "Address line 2", { span: "wide", placeholder: "Area or landmark" })}
-        {input("city", "City", { span: "third" })}
-        {input("state", "State", { span: "third" })}
-        {input("pincode", "PIN code", { span: "third" })}
+        <div className="st-field st-wide flex flex-col gap-3">
+          <PinCodeFields
+            value={{ pincode: form.pincode, city: form.city, state: form.state }}
+            lookup={lookup}
+            cityLabel="City"
+            pinError={fieldErrors.pincode}
+            onChange={(next) => {
+              setForm((prev) => ({ ...prev, ...next }));
+            }}
+          />
+        </div>
       </Section>
       <Section id="billing" title="Billing and tax" hint="Used on bills, receipts and UPI payment links.">
         {input("gstin", "GSTIN", { mono: true })}

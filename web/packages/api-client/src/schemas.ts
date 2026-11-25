@@ -188,6 +188,8 @@ export const patient = z.object({
   phone: optionalText,
   email: optionalText,
   preferred_language: z.string(),
+  /** Postal address; absent when none was given. */
+  address: z.lazy(() => patientAddress).nullable().exactOptional(),
   status: z.enum(["active", "inactive", "deceased", "merged"]),
   created_at: timestamp,
   last_visit_at: optionalTimestamp,

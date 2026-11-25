@@ -303,6 +303,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::expenses::remove_bill,
         crate::v1::expenses::bill_link,
         crate::v1::expenses::bill_content,
+        crate::v1::sterilisation_cycles::list,
+        crate::v1::sterilisation_cycles::create,
         crate::v1::recurring_expenses::list,
         crate::v1::recurring_expenses::create,
         crate::v1::recurring_expenses::update,

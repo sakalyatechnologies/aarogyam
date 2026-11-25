@@ -2,6 +2,14 @@
 
 Newest first. Change a decision by adding an entry that supersedes it.
 
+## 2026-11-25: Monthly revenue target, sterilisation cycles and the doctor's day end (BK-15, BK-16)
+
+**Decision.** Three additive backend pieces for the phones' Today extras.
+- **Target (BK-15).** `month_revenue_target_paise` lives in `org_settings.billing` and is changed through `PATCH /settings/clinic` (`settings.manage`, the permission every clinic setting uses); 0 clears it and the limit is 100 crore rupees. `/today/money` gains `month_target_paise` (null when unset) and `month_collected_paise`, the same figure as `collected_this_month_paise` (payments received this calendar month in the clinic time zone).
+- **Cycles (BK-16a).** New append-only clinic table `sterilisation_cycles` (migration 0761). `POST /sterilisation-cycles` and `GET /sterilisation-cycles?date=` need `tasks.use`, the permission that completes the "Sterilise instruments" task, so front desk and assistants can both record a run. `/today` gains `sterilisation_cycles_today`, counted inside the same one statement as the rest of Today.
+- **Day end (BK-16b).** Each `/today` team entry gains `day_ends_at`: the later of the end of the doctor's last unfinished appointment and now plus their open queue tokens (waiting, called, in chair) times the clinic's average closed-visit length over 14 days (10 minutes when unknown, kept between 5 and 30, as for the welcome message's wait). Null when nothing is left, and for days other than today. The calculation is `aarogyam_domain::schedule::day_ends_at`.
+- **Compatibility.** Additive only. New nested schemas: `SterilisationCycle`, `NewSterilisationCycle`, `SterilisationCycleList`.
+
 ## 2026-11-16: Visit notes: typed and spoken together, and corrections that keep the original
 
 **Decision.** The open visit's notes take typed lines beside spoken ones, and a past visit's notes can be edited by a doctor: in place while the note is an unsigned draft of an open visit, otherwise as a correction that keeps the original. Built (migration 0719, `POST /api/v1/notes/{id}/amend`).

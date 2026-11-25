@@ -2952,6 +2952,7 @@
     "staff_advances.membership_id",
     "staff_notification_reads.membership_id",
     "staff_notifications.handled_by",
+    "sterilisation_cycles.recorded_by",
     "support_grants.granted_by",
     "support_grants.revoked_by",
     "task_occurrences.assignee_membership_id",
@@ -8440,6 +8441,43 @@
    ],
    "referenced_by": [],
    "sensitivity": "financial",
+   "offline": "server_only"
+  },
+  {
+   "name": "sterilisation_cycles",
+   "domain": "ops",
+   "purpose": "Each autoclave run the clinic records, counted on the Today screen.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0761). Recorded and listed with tasks.use (`POST/GET /sterilisation-cycles`). Never edited or deleted.",
+   "cols": [
+    {
+     "name": "run_at",
+     "type": "timestamptz",
+     "nullable": false,
+     "ref": null,
+     "note": "when the cycle ran"
+    },
+    {
+     "name": "recorded_by",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "memberships",
+     "note": "the member who recorded it"
+    },
+    {
+     "name": "load_note",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "what was in the load, up to 120 characters"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "internal",
    "offline": "server_only"
   },
   {

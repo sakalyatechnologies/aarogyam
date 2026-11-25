@@ -13,6 +13,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::extract::multipart::{Multipart, MultipartRejection};
 use sakalya_http::ApiJson;
+use sakalya_types::Paise;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -285,6 +286,8 @@ pub struct ClinicSettings {
     pub online_booking: OnlineBooking,
     /// The letterhead printed on the clinic's documents.
     pub letterhead: Letterhead,
+    /// What the clinic aims to collect each month, in paise; none when unset.
+    pub month_revenue_target_paise: Option<i64>,
 }
 
 impl From<app::ClinicSettings> for ClinicSettings {
@@ -323,6 +326,7 @@ impl From<app::ClinicSettings> for ClinicSettings {
                 conflict_policy: settings.booking.conflict_policy.as_str().to_owned(),
             },
             letterhead: settings.letterhead.into(),
+            month_revenue_target_paise: settings.month_revenue_target.map(Paise::get),
         }
     }
 }
@@ -354,6 +358,8 @@ pub struct ClinicSettingsChanges {
     pub online_booking: Option<OnlineBookingChanges>,
     /// The letterhead: design, accent, details shown, footer and doctors.
     pub letterhead: Option<LetterheadChanges>,
+    /// Monthly revenue target in paise; 0 clears it.
+    pub month_revenue_target_paise: Option<i64>,
 }
 
 /// The clinic's settings: profile, GSTIN, time zone, branding, prescription footer, address,
@@ -445,6 +451,7 @@ pub(crate) async fn update_clinic(
                 conflict_policy,
             }),
         letterhead: body.letterhead.map(Into::into),
+        month_revenue_target: body.month_revenue_target_paise.map(Paise::new),
     };
     let settings = app::update(state.db(), &request.actor, request.request_id, changes).await?;
     // The host lookup carries the time zone; a change applies to this instance's next request.

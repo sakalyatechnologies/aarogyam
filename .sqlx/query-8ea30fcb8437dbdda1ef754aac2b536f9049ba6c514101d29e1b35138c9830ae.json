@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with c as (\n             insert into aarogyam.sterilisation_cycles (id, run_at, recorded_by, load_note)\n             values ($1, $2, $3, $4)\n             returning id, run_at, recorded_by, load_note, created_at\n           )\n           select c.id as \"id!\", c.run_at as \"run_at!\", c.recorded_by as \"recorded_by!\",\n                  coalesce(m.display_name, u.display_name) as \"recorded_by_name?\",\n                  c.load_note as \"load_note?\", c.created_at as \"created_at!\"\n           from c\n           join aarogyam.memberships m on m.id = c.recorded_by\n           left join aarogyam.users u on u.id = m.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "run_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "run_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "recorded_by!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "recorded_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "recorded_by_name?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "load_note?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "load_note"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      true,
+      false
+    ]
+  },
+  "hash": "8ea30fcb8437dbdda1ef754aac2b536f9049ba6c514101d29e1b35138c9830ae"
+}

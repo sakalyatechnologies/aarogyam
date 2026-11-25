@@ -569,6 +569,37 @@ pub fn minutes_between(from: OffsetDateTime, to: OffsetDateTime) -> i64 {
     (to - from).whole_minutes().max(0)
 }
 
+/// Minutes one queue token is assumed to take when the clinic has no closed visits yet.
+const DEFAULT_VISIT_MINUTES: f64 = 10.0;
+
+/// When a doctor's day should end: the later of the scheduled end of their last unfinished
+/// appointment and `now` plus their open queue tokens, each taking the clinic's recent average
+/// visit (10 minutes when unknown, kept between 5 and 30). `None` when nothing is left, so a
+/// doctor who is done shows no end time.
+#[must_use]
+pub fn day_ends_at(
+    last_unfinished_end: Option<OffsetDateTime>,
+    open_tokens: usize,
+    average_minutes: Option<f64>,
+    now: OffsetDateTime,
+) -> Option<OffsetDateTime> {
+    let each = average_minutes
+        .unwrap_or(DEFAULT_VISIT_MINUTES)
+        .clamp(5.0, 30.0);
+    let queue_end = (open_tokens > 0).then(|| {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a queue is a few dozen tokens at most"
+        )]
+        let minutes = open_tokens.min(1000) as f64 * each;
+        now + Duration::seconds_f64(minutes * 60.0)
+    });
+    match (last_unfinished_end, queue_end) {
+        (Some(a), Some(b)) => Some(a.max(b)),
+        (a, b) => a.or(b),
+    }
+}
+
 text_enum!(
     /// Another number a patient is known by.
     IdentifierKind {
@@ -601,6 +632,47 @@ pub fn parse_identifier(text: &str) -> Result<String, ScheduleError> {
 mod tests {
     use super::*;
     use time::macros::{date, datetime, offset, time};
+
+    #[test]
+    fn a_day_ends_at_the_later_of_the_last_appointment_and_the_queue() {
+        let now = datetime!(2026-11-25 10:00 +05:30);
+        let last = datetime!(2026-11-25 17:30 +05:30);
+        // Nothing left: no end time.
+        assert_eq!(day_ends_at(None, 0, Some(20.0), now), None);
+        // Only appointments: their end.
+        assert_eq!(day_ends_at(Some(last), 0, None, now), Some(last));
+        // Only the queue: three tokens at the 20-minute average.
+        assert_eq!(
+            day_ends_at(None, 3, Some(20.0), now),
+            Some(datetime!(2026-11-25 11:00 +05:30))
+        );
+        // The queue runs past the last appointment.
+        assert_eq!(
+            day_ends_at(Some(datetime!(2026-11-25 10:30 +05:30)), 3, Some(20.0), now),
+            Some(datetime!(2026-11-25 11:00 +05:30))
+        );
+        // The appointment ends later than the queue clears.
+        assert_eq!(day_ends_at(Some(last), 2, Some(20.0), now), Some(last));
+    }
+
+    #[test]
+    fn the_queue_average_defaults_and_is_kept_sensible() {
+        let now = datetime!(2026-11-25 10:00 +05:30);
+        // Unknown: 10 minutes each.
+        assert_eq!(
+            day_ends_at(None, 2, None, now),
+            Some(datetime!(2026-11-25 10:20 +05:30))
+        );
+        // A tiny or huge average is clamped to 5 and 30.
+        assert_eq!(
+            day_ends_at(None, 2, Some(1.0), now),
+            Some(datetime!(2026-11-25 10:10 +05:30))
+        );
+        assert_eq!(
+            day_ends_at(None, 2, Some(90.0), now),
+            Some(datetime!(2026-11-25 11:00 +05:30))
+        );
+    }
 
     #[test]
     fn statuses_round_trip() {

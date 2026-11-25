@@ -621,8 +621,8 @@ fn hot_routes(
             format!("/api/v1/queue?practitioner_id={doctor}"),
         ),
         Route::get("GET /patients", ALPHA, "/api/v1/patients".into()),
-        // Money figures in one statement, then the bills with a balance: one trip over.
-        Route::get("GET /today/money", ALPHA, "/api/v1/today/money".into()).allow_extra(1),
+        // Money figures in one statement, then the bills with a balance and the monthly target.
+        Route::get("GET /today/money", ALPHA, "/api/v1/today/money".into()).allow_extra(2),
         Route::get(
             "GET /reports/collections",
             ALPHA,

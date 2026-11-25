@@ -18735,6 +18735,99 @@
         ]
       }
     },
+    "/api/v1/sterilisation-cycles": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "The sterilisation cycles of a clinic day, latest first.",
+        "operationId": "listSterilisationCycles",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "description": "The clinic day, YYYY-MM-DD (default: today)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SterilisationCycleList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad date"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Records a sterilisation cycle that ran now.",
+        "operationId": "recordSterilisationCycle",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewSterilisationCycle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SterilisationCycle"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The note is too long"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks tasks.use"
+          },
+          "404": {
+            "description": "Not a clinic, or not a member of it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/stock": {
       "get": {
         "tags": [
@@ -25646,6 +25739,14 @@
             "$ref": "#/components/schemas/Letterhead",
             "description": "The letterhead printed on the clinic's documents."
           },
+          "month_revenue_target_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What the clinic aims to collect each month, in paise; none when unset."
+          },
           "name": {
             "type": "string",
             "description": "Display name."
@@ -25735,6 +25836,14 @@
                 "type": "null"
               }
             ]
+          },
+          "month_revenue_target_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Monthly revenue target in paise; 0 clears it."
           },
           "name": {
             "type": [
@@ -36156,6 +36265,19 @@
           }
         }
       },
+      "NewSterilisationCycle": {
+        "type": "object",
+        "description": "A cycle to record: it ran now.",
+        "properties": {
+          "load_note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What was in the load, up to 120 characters."
+          }
+        }
+      },
       "NewSupportGrant": {
         "type": "object",
         "description": "A grant to make.",
@@ -45785,6 +45907,59 @@
           }
         }
       },
+      "SterilisationCycle": {
+        "type": "object",
+        "description": "One autoclave run.",
+        "required": [
+          "id",
+          "run_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "load_note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What was in the load, in a few words."
+          },
+          "recorded_by_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who recorded it."
+          },
+          "run_at": {
+            "type": "string",
+            "description": "When it ran, RFC 3339."
+          }
+        }
+      },
+      "SterilisationCycleList": {
+        "type": "object",
+        "description": "The cycles of one clinic day.",
+        "required": [
+          "date",
+          "items"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The clinic day."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SterilisationCycle"
+            },
+            "description": "The cycles, latest first."
+          }
+        }
+      },
       "StockAnalytics": {
         "type": "object",
         "description": "Usage and projection per item, and the items to reorder.",
@@ -47181,6 +47356,13 @@
             "description": "Appointments today, not counting cancelled ones.",
             "minimum": 0
           },
+          "day_ends_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When this doctor's day should end (RFC 3339): the later of their last unfinished\nappointment's end and the open queue at the clinic's average visit length. Absent when\nnothing is left, and for days other than today."
+          },
           "member_id": {
             "type": [
               "string",
@@ -47713,6 +47895,7 @@
           "invoiced_paise",
           "invoices_today",
           "collected_this_month_paise",
+          "month_collected_paise",
           "upi_share_bps",
           "pending_dues_paise",
           "pending_dues_patients",
@@ -47743,6 +47926,19 @@
             "type": "integer",
             "format": "int64",
             "description": "Bills issued today."
+          },
+          "month_collected_paise": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Received this month so far, in paise (same as `collected_this_month_paise`)."
+          },
+          "month_target_paise": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The clinic's monthly revenue target in paise; none when not set."
           },
           "payments_today": {
             "type": "integer",
@@ -47793,7 +47989,8 @@
           "recent_patients",
           "team",
           "attention",
-          "completed_visits"
+          "completed_visits",
+          "sterilisation_cycles_today"
         ],
         "properties": {
           "appointments": {
@@ -47870,6 +48067,11 @@
               "$ref": "#/components/schemas/QueueToken"
             },
             "description": "The latest patients through the queue today, newest first."
+          },
+          "sterilisation_cycles_today": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Sterilisation cycles recorded on the day shown."
           },
           "team": {
             "type": "array",

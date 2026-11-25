@@ -17,6 +17,9 @@ pub enum SettingsError {
     /// A time zone this build doesn't support.
     #[error("timezone must be Asia/Kolkata")]
     Timezone,
+    /// The monthly revenue target is negative or beyond reason.
+    #[error("month_revenue_target_paise must be 0 (none) or a positive amount")]
+    MonthTarget,
     /// The brand colour is not `#RRGGBB`.
     #[error("brand must be a colour like #0F766E")]
     BrandColor,

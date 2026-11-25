@@ -127,6 +127,10 @@ pub struct TeamMemberToday {
     pub on_leave: bool,
     /// Appointments today, not counting cancelled ones.
     pub appointments: usize,
+    /// When this doctor's day should end (RFC 3339): the later of their last unfinished
+    /// appointment's end and the open queue at the clinic's average visit length. Absent when
+    /// nothing is left, and for days other than today.
+    pub day_ends_at: Option<String>,
 }
 
 /// Something the front desk should look at.
@@ -292,6 +296,8 @@ pub struct TodayResponse {
     pub completed_visits: Vec<CompletedVisit>,
     /// The day's money. Present only for roles with `finance.view`.
     pub money: Option<DayMoneyFigures>,
+    /// Sterilisation cycles recorded on the day shown.
+    pub sterilisation_cycles_today: i32,
 }
 
 impl From<TeamMember> for TeamMemberToday {
@@ -314,6 +320,7 @@ impl From<TeamMember> for TeamMemberToday {
                 .collect(),
             on_leave: member.on_leave,
             appointments: member.appointments,
+            day_ends_at: member.day_ends_at.map(rfc3339),
         }
     }
 }
@@ -490,6 +497,8 @@ pub(crate) async fn today(
             .map(CompletedVisit::from)
             .collect(),
         money: today.money.map(DayMoneyFigures::from),
+        sterilisation_cycles_today: i32::try_from(today.sterilisation_cycles_today)
+            .unwrap_or(i32::MAX),
         appointments,
     }))
 }
@@ -602,6 +611,7 @@ mod tests {
             shifts: Vec::new(),
             on_leave: false,
             appointments: 0,
+            day_ends_at: None,
         };
         let today = TeamMemberToday::from(member);
         assert_eq!(today.member_id, Some(membership));

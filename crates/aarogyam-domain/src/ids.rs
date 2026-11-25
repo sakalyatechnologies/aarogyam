@@ -84,6 +84,8 @@ entities! {
     Expense, ExpenseId;
     /// An expense the clinic records every month or week, such as rent.
     RecurringExpense, RecurringExpenseId;
+    /// One run of the clinic's autoclave.
+    SterilisationCycle, SterilisationCycleId;
 }
 
 entities! {

@@ -84,3 +84,4 @@
 .st-appearance { display: grid; gap: 16px; }
 .st-appearance-section { scroll-margin-top: 84px; min-width: 0; }
 .st-nl { width: 100%; }
+a.st-nl-item { display: flex; align-items: center; text-decoration: none; }

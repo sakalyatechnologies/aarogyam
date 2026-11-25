@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
 import { PageHeader as DisplayHeader, Tabs, type TabItem } from "@sakalya/ui";
@@ -107,6 +107,9 @@ function SettingsNewLook({ items, owner, requested, onChoose }: { items: TabItem
               {item.label}
             </button>
           ))}
+          <Link to="/guides" className="st-nl-item">
+            Guides &amp; videos
+          </Link>
         </nav>
         <div className="st-nl-body" key={current?.value}>
           {current?.content}

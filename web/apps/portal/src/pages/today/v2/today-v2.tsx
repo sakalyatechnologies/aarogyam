@@ -11,6 +11,7 @@ import { useClinicSettings, usePractitioners } from "../../../queries.js";
 import { WalkInDialog } from "../../queue/walk-in-dialog.js";
 import { FinishSetupCard } from "../../setup/finish-card.js";
 import { greeting } from "../today-page.js";
+import { GuideHelp } from "../../guides/guide-help.js";
 import { Board } from "./board.js";
 import { useDayToday, useMyLayout } from "./queries.js";
 import { seeingOrder } from "./seeing.js";
@@ -97,7 +98,10 @@ export function TodayV2() {
       <FinishSetupCard />
       <header className="tv2-greet">
         <div className="tv2-greet-text">
-          <h1>{now.data === undefined ? "Today" : `${greeting(now.data.as_of, timeZone)}, ${salutation(session.user.display_name, doctor)}`}</h1>
+          <div className="gh-row">
+            <h1>{now.data === undefined ? "Today" : `${greeting(now.data.as_of, timeZone)}, ${salutation(session.user.display_name, doctor)}`}</h1>
+            <GuideHelp id="start-here" label="Watch the tour of Aarogyam" />
+          </div>
           <p>{now.data === undefined ? where : `${headerDate(now.data.as_of, timeZone)} · ${where}`}</p>
         </div>
         <HeaderAction doctor={doctor} hero={viewing === undefined && (layout.isPending || (layout.data?.layout.items.some((item) => item.key === "nextup") ?? false))} />

@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Bell,
   ChartNoAxesCombined,
   ReceiptIndianRupee,
@@ -312,6 +313,7 @@ export function useShellNav() {
     },
   ];
   const system: NavItem[] = [
+    { id: "guides", label: "Guides", icon: <BookOpen />, href: "/guides" },
     {
       id: "settings",
       label: "Settings",

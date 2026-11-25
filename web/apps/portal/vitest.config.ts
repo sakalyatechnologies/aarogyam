@@ -4,6 +4,8 @@ import { dedupe } from "./vite.config.js";
 
 export default defineProject({
   resolve: { dedupe },
+  // The guides test lists the narration files under public/guides.
+  assetsInclude: ["**/*.m4a"],
   test: {
     name: "portal",
     environment: "jsdom",

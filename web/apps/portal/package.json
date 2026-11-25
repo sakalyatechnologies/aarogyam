@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build && node scripts/check-shared-size.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p .",
+    "guides:render": "node scripts/render-guides.mjs"
   },
   "dependencies": {
     "@aarogyam/api-client": "workspace:*",

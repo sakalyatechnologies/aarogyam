@@ -1,4 +1,5 @@
 import { Plus, WalletCards } from "lucide-react";
+import { GuideHelp } from "../guides/guide-help.js";
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 
@@ -277,11 +278,14 @@ export function BillingV2() {
         title="Billing"
         subtitle="Collect what is owed, and find any bill."
         actions={
-          canWrite ? (
-            <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
-              <Plus aria-hidden="true" /> New bill
-            </Link>
-          ) : undefined
+          <div className="gh-row">
+            <GuideHelp id="bill-payment" label="Watch the guide for billing" />
+            {canWrite ? (
+              <Link to="/billing/invoices/new" className="mk-btn mk-btn-primary">
+                <Plus aria-hidden="true" /> New bill
+              </Link>
+            ) : null}
+          </div>
         }
       />
       {finance ? (

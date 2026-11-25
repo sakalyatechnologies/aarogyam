@@ -1,4 +1,5 @@
 import { Armchair, CalendarCheck, CheckCircle2, Clock3, Footprints, Plus } from "lucide-react";
+import { GuideHelp } from "../guides/guide-help.js";
 import { useState } from "react";
 
 import { apiErrorOf, type QueueToken, type RoomId } from "@aarogyam/api-client";
@@ -198,16 +199,19 @@ export function QueueV2() {
             : `${String(inColumn("waiting").length)} waiting · ${String(inColumn("in_chair").length)} in chair · ${String(inColumn("ready_to_bill").length)} to bill`
         }
         end={
-          canWrite ? (
-            <Button
-              icon={<Plus aria-hidden="true" className="size-4" />}
-              onClick={() => {
-                setAdding(true);
-              }}
-            >
-              Add to queue
-            </Button>
-          ) : undefined
+          <div className="gh-row">
+            <GuideHelp id="walk-in-queue" label="Watch the guide for the queue" />
+            {canWrite ? (
+              <Button
+                icon={<Plus aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  setAdding(true);
+                }}
+              >
+                Add to queue
+              </Button>
+            ) : null}
+          </div>
         }
       />
       {queue.isPending ? (

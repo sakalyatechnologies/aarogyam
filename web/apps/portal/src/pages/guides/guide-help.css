@@ -1,0 +1,7 @@
+.gh-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; border: 1px solid var(--sk-border); background: var(--sk-surface); color: var(--sk-primary-text, var(--sk-primary)); cursor: pointer; vertical-align: middle; flex: none; transition: background .2s; }
+.gh-btn:hover { background: var(--sk-primary-soft); }
+.gh-btn:focus-visible { outline: 2px solid var(--sk-primary); outline-offset: 2px; }
+.gh-btn svg { width: 18px; height: 18px; }
+.gh-sheet { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 16px; }
+.gh-all { align-self: flex-start; font-weight: 700; font-size: 13.5px; color: var(--sk-primary-text, var(--sk-primary)); }
+.gh-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

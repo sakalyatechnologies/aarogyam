@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -80,6 +81,7 @@ private val GRID =
         MoreTile.Team,
         MoreTile.TimeOff,
         MoreTile.ClinicQr,
+        MoreTile.SelfCheckIn,
         MoreTile.RxSets,
         MoreTile.Settings,
     )
@@ -105,6 +107,7 @@ fun MoreScreen(
     val currentAppearance by graph.appearance.state.collectAsStateWithLifecycle()
     var avatars by rememberSaveable { mutableStateOf(false) }
     var qr by rememberSaveable { mutableStateOf(false) }
+    var selfCheckIn by rememberSaveable { mutableStateOf(false) }
     var deleting by rememberSaveable { mutableStateOf(false) }
     var soon by rememberSaveable { mutableStateOf(false) }
     var unsent by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -142,6 +145,10 @@ fun MoreScreen(
 
             MoreTile.ClinicQr -> {
                 qr = true
+            }
+
+            MoreTile.SelfCheckIn -> {
+                selfCheckIn = true
             }
 
             MoreTile.RxSets -> {
@@ -259,6 +266,11 @@ fun MoreScreen(
         AvatarPicker(graph, clinic, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
     }
     if (deleting) DeleteAccountSheet(graph) { deleting = false }
+    if (selfCheckIn) {
+        val scope = rememberCoroutineScope()
+        val holder = remember { graph.selfCheckIn(clinic, scope) }
+        SelfCheckInSheet(holder, clinic.session.clinic.name) { selfCheckIn = false }
+    }
     if (qr) ClinicQrSheet(bookingUrl(clinic.api.origin), clinic.session.clinic.name) { qr = false }
     unsent?.let { count ->
         AlertDialog(
@@ -387,6 +399,7 @@ private val MoreTile.subtitle: Int?
             MoreTile.Team -> R.string.sh_v7_tile_team_sub
             MoreTile.TimeOff -> R.string.timeoff_tile_sub
             MoreTile.ClinicQr -> R.string.sh_v7_tile_clinic_qr_sub
+            MoreTile.SelfCheckIn -> R.string.selfcheckin_tile_sub
             MoreTile.RxSets -> R.string.sh_v7_tile_rx_sets_sub
             MoreTile.Settings -> R.string.sh_v7_tile_settings_sub
             MoreTile.Help -> R.string.sh_v7_tile_help_sub
@@ -404,6 +417,7 @@ private val MoreTile.label: Int
             MoreTile.Team -> R.string.v7_tile_team
             MoreTile.TimeOff -> R.string.timeoff_title
             MoreTile.ClinicQr -> R.string.v7_tile_clinic_qr
+            MoreTile.SelfCheckIn -> R.string.selfcheckin_tile
             MoreTile.RxSets -> R.string.v7_tile_rx_sets
             MoreTile.Settings -> R.string.v7_tile_settings
             MoreTile.SwitchClinic -> R.string.v7_tile_switch_clinic
@@ -425,6 +439,7 @@ private val MoreTile.icon: String
             MoreTile.Team -> "team"
             MoreTile.TimeOff -> "cal"
             MoreTile.ClinicQr -> "qr"
+            MoreTile.SelfCheckIn -> "qr"
             MoreTile.RxSets -> "rx"
             MoreTile.Settings -> "gear"
             MoreTile.SwitchClinic -> "swap"

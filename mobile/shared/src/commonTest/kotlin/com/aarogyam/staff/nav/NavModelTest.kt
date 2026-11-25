@@ -7,6 +7,7 @@ import com.aarogyam.staff.nav.MoreTile.Help
 import com.aarogyam.staff.nav.MoreTile.LabWork
 import com.aarogyam.staff.nav.MoreTile.Messages
 import com.aarogyam.staff.nav.MoreTile.RxSets
+import com.aarogyam.staff.nav.MoreTile.SelfCheckIn
 import com.aarogyam.staff.nav.MoreTile.Settings
 import com.aarogyam.staff.nav.MoreTile.SignOut
 import com.aarogyam.staff.nav.MoreTile.Stock
@@ -99,6 +100,7 @@ class NavModelTest {
                 LabWork,
                 Team,
                 ClinicQr,
+                SelfCheckIn,
                 RxSets,
                 Settings,
                 SwitchClinic,

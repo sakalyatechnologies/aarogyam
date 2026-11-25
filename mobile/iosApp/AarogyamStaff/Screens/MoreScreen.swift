@@ -21,6 +21,7 @@ struct MoreScreen: View {
     @Binding var path: [MoreRoute]
     @State private var settingsURL: URL?
     @State private var avatars = false
+    @State private var selfCheckIn = false
     @State private var deleting = false
     @State private var languages = false
     @State private var appearance = false
@@ -70,6 +71,11 @@ struct MoreScreen: View {
             Button(String(localized: "outbox.signout.anyway"), role: .destructive) { graph.signOut() }
             Button(String(localized: "outbox.signout.stay"), role: .cancel) {}
         }
+        .sheet(isPresented: $selfCheckIn) {
+            ScreenHost(make: { graph.selfCheckIn(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
+                SelfCheckInSheet(holder: holder, state: state, clinicName: clinic.session.clinic.name)
+            }
+        }
         .sheet(isPresented: $deleting) { DeleteAccountSheet(graph: graph) }
         .sheet(isPresented: $languages) { LanguageSheet(graph: graph).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $appearance) { AppearanceSheet(preference: graph.appearance).presentationDetents([.medium]) }
@@ -111,6 +117,7 @@ struct MoreScreen: View {
         case .team: path.append(.team)
         case .timeOff: path.append(.timeOff)
         case .rxSets: path.append(.rxSets)
+        case .selfCheckIn: selfCheckIn = true
         case .settings: settingsURL = URL(string: clinic.api.origin + "/settings")
         case .switchClinic: onSwitchClinic()
         case .language: languages = true
@@ -191,6 +198,7 @@ extension MoreTile {
         case .team: String(localized: "v7.tile.team")
         case .timeOff: TimeOffV10.t("timeoff.title")
         case .clinicQr: String(localized: "v7.tile.clinic_qr")
+        case .selfCheckIn: String(localized: "selfcheckin.tile")
         case .rxSets: String(localized: "v7.tile.rx_sets")
         case .settings: String(localized: "v7.tile.settings")
         case .switchClinic: String(localized: "v7.tile.switch_clinic")
@@ -211,6 +219,7 @@ extension MoreTile {
         case .team: String(localized: "v7.tile.team.sub")
         case .timeOff: TimeOffV10.t("timeoff.tile_sub")
         case .clinicQr: String(localized: "v7.tile.clinic_qr.sub")
+        case .selfCheckIn: String(localized: "selfcheckin.tile.sub")
         case .rxSets: String(localized: "v7.tile.rx_sets.sub")
         case .settings: String(localized: "v7.tile.settings.sub")
         case .language: "English · मराठी · हिंदी"
@@ -230,6 +239,7 @@ extension MoreTile {
         case .team: "team"
         case .timeOff: "cal"
         case .clinicQr: "qr"
+        case .selfCheckIn: "qr"
         case .rxSets: "rx"
         case .settings: "gear"
         case .switchClinic: "swap"

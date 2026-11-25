@@ -31,6 +31,7 @@ import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
+import com.aarogyam.staff.settings.SelfCheckInHolder
 import com.aarogyam.staff.share.RecordSharesStateHolder
 import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
@@ -199,6 +200,12 @@ fun AppGraph.queue(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): QueueStateHolder = queue(clinic, screen.scope)
+
+/** The self check-in settings (settings.manage), living as long as [screen]. */
+fun AppGraph.selfCheckIn(
+    clinic: ClinicContext,
+    screen: ScreenScope,
+): SelfCheckInHolder = selfCheckIn(clinic, screen.scope)
 
 /** The Schedule tab for [clinic], living as long as [screen]. */
 fun AppGraph.schedule(

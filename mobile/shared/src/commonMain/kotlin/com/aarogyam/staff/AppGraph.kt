@@ -66,6 +66,7 @@ import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
 import com.aarogyam.staff.schedule.WeekStateHolder
+import com.aarogyam.staff.settings.SelfCheckInHolder
 import com.aarogyam.staff.share.RecordSharesStateHolder
 import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
@@ -386,6 +387,11 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): QueueStateHolder = QueueStateHolder(clinic, scope, logger("aarogyam.queue"))
+
+    fun selfCheckIn(
+        clinic: ClinicContext,
+        scope: CoroutineScope,
+    ): SelfCheckInHolder = SelfCheckInHolder(clinic, scope, logger("aarogyam.selfcheckin"))
 
     fun calendar(
         clinic: ClinicContext,

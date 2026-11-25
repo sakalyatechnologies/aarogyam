@@ -25,6 +25,9 @@ enum class MoreTile {
     Team,
     TimeOff,
     ClinicQr,
+
+    /** The QR patients scan to check themselves in (settings.manage). */
+    SelfCheckIn,
     RxSets,
     Settings,
     SwitchClinic,
@@ -97,6 +100,7 @@ data class NavModel(
                     if (has(CHAT_USE) || has(STAFF_MANAGE)) add(MoreTile.Team)
                     if (has(TIME_OFF_REQUEST) || has(TIME_OFF_MANAGE)) add(MoreTile.TimeOff)
                     add(MoreTile.ClinicQr)
+                    if (has(SETTINGS_MANAGE)) add(MoreTile.SelfCheckIn)
                     if (has(PRESCRIPTIONS_ISSUE)) add(MoreTile.RxSets)
                     add(MoreTile.Settings)
                     if (clinicCount > 1) add(MoreTile.SwitchClinic)
@@ -119,6 +123,7 @@ data class NavModel(
         const val LABS_READ = "labs.read"
         const val CHAT_USE = "chat.use"
         const val STAFF_MANAGE = "staff.manage"
+        const val SETTINGS_MANAGE = "settings.manage"
         const val PRESCRIPTIONS_ISSUE = "prescriptions.issue"
         const val TIME_OFF_REQUEST = "time_off.request"
         const val TIME_OFF_MANAGE = "time_off.manage"

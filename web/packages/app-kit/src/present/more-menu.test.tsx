@@ -6,7 +6,7 @@ import { PRESENT_STYLES } from "./styles.js";
 
 afterEach(cleanup);
 
-const looks = PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label, beta: s.beta }));
+const looks = PRESENT_STYLES.map((s) => ({ id: s.id, label: s.label }));
 const base = (extra: Partial<MoreMenuProps> = {}): MoreMenuProps => ({
   looks, look: "story", onLook: () => undefined, orientation: "mirror", onOrientation: () => undefined,
   shade: 33, onShade: () => undefined, dark: false, onDark: () => undefined, onBrush: () => undefined, ...extra,
@@ -17,10 +17,10 @@ const open = (extra?: Partial<MoreMenuProps>) => {
 };
 
 describe("More menu", () => {
-  it("holds the looks (betas apart), picture knobs, dark screen and How to brush", () => {
+  it("holds the looks, picture knobs, dark screen and How to brush", () => {
     const onLook = vi.fn(), onDark = vi.fn(), onBrush = vi.fn(), onOrientation = vi.fn(), onShade = vi.fn();
     open({ onLook, onDark, onBrush, onOrientation, onShade });
-    expect(screen.getAllByRole("menuitemradio").map((r) => r.textContent.replace(/Beta|✓/g, ""))).toEqual(["Your visit", "Map + list", "3D smile", "Face to tooth"]);
+    expect(screen.getAllByRole("menuitemradio").map((r) => r.textContent.replace(/Beta|✓/g, ""))).toEqual(["Your visit", "Map + list"]);
     fireEvent.click(screen.getByRole("button", { name: "As in a photo" }));
     expect(onOrientation).toHaveBeenCalledWith("photo");
     fireEvent.change(screen.getByRole("slider", { name: "Tooth colour" }), { target: { value: "80" } });
@@ -30,8 +30,8 @@ describe("More menu", () => {
     fireEvent.click(screen.getByRole("button", { name: /How to brush/ }));
     expect(onBrush).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "More" }));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /Face to tooth/ }));
-    expect(onLook).toHaveBeenCalledWith("face");
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Map \+ list/ }));
+    expect(onLook).toHaveBeenCalledWith("painted");
   });
 
   it("offers Save colour only when the colour differs and saving is wired; disabled while saving", () => {

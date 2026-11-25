@@ -11,7 +11,7 @@ import { SHADE_TRACK, shadeSwatch, type Shade } from "./painter.js";
 interface Choice { value: string; label: string }
 
 export interface MoreMenuProps {
-  /** The Look: Your visit, Map + list, then any beta looks. The chart is not one of them. */
+  /** The Look: Your visit, Map + list. The chart is not one of them. */
   looks: readonly SwitcherOption[];
   look: string;
   onLook: (id: string) => void;
@@ -72,13 +72,12 @@ export function MoreMenu(p: MoreMenuProps): ReactElement {
       <li key={o.id} role="none">
         <button type="button" className="pm-more-row" role="menuitemradio" aria-checked={on} disabled={o.disabled !== undefined}
           onClick={() => { chart?.onActive(false); p.onLook(o.id); setOpen(false); }}>
-          <span>{o.label}{o.beta === true ? <span className="ps-beta">Beta</span> : null}{o.note === undefined ? null : <span className="ps-default">{o.note}</span>}</span>
+          <span>{o.label}{o.note === undefined ? null : <span className="ps-default">{o.note}</span>}</span>
           {o.disabled !== undefined ? <span className="ps-soon">{o.disabled}</span> : on ? <span className="ps-check" aria-hidden="true">✓</span> : null}
         </button>
       </li>
     );
   };
-  const betaLooks = p.looks.filter((o) => o.beta === true);
   return (
     <div className="pm-more" ref={ref}>
       <button ref={btn} type="button" className="pm-chip pm-morechip" aria-haspopup="true" aria-expanded={open} aria-controls={`${id}-panel`} aria-label="More" onClick={() => { setOpen(!open); }}>
@@ -88,13 +87,7 @@ export function MoreMenu(p: MoreMenuProps): ReactElement {
       {open ? (
         <div id={`${id}-panel`} className="pm-more-panel" role="group" aria-label="More options">
           <Group title="Look">
-            <ul className="pm-more-list" role="menu" aria-label="Look">{p.looks.filter((o) => o.beta !== true).map(lookRow)}</ul>
-            {betaLooks.length === 0 ? null : (
-              <>
-                <h4 className="pm-more-sub">Beta looks</h4>
-                <ul className="pm-more-list" role="menu" aria-label="Beta looks">{betaLooks.map(lookRow)}</ul>
-              </>
-            )}
+            <ul className="pm-more-list" role="menu" aria-label="Look">{p.looks.map(lookRow)}</ul>
           </Group>
           {chart === undefined && p.onOnlyToday === undefined ? null : (
             <Group title="Doctor's chart">

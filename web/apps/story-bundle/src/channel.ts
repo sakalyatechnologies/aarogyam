@@ -14,7 +14,7 @@ export type PageMessage =
   | { type: "exit" }
   | { type: "add_depth"; tooth: number }
   /** The doctor tapped "Make default"; the app saves it, the page never calls the API. */
-  | { type: "make_default"; style: "story" | "painted" | "smile3d" | "face" }
+  | { type: "make_default"; style: "story" | "painted" }
   /** The doctor tapped "Save colour": 0 (lightest) to 100 (deepest); the app PUTs `/patients/{id}/smile-shade`. */
   | { type: "save_shade"; shade: number }
   /** The doctor changed the pins on an X-ray (the whole set, empty = cleared); the app PUTs `/attachments/{attachment_id}/pins` with `{pins}`. Needs the `xrays` option. */

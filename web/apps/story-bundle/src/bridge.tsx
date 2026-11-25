@@ -24,7 +24,7 @@ export interface PresentOptions {
    * lists the recorded plan only, or is left out when the visit has none). Cancelled steps are ignored.
    */
   plans?: unknown;
-  /** Beta style ids to list in the switcher. */
+  /** Old phone builds may still send `betas`; it is ignored (the beta looks are gone). */
   betas?: string[];
   /** The patient's saved tooth colour from `GET /patients/{id}/smile-shade` (0 to 100); absent or null opens on the default. */
   shade?: number | null;
@@ -152,10 +152,9 @@ export function installBridge({ container, send = (m) => { post(m); }, loadRende
       const studio = parsedStudio !== undefined && options?.can_see_prices === false && parsedStudio.prices !== undefined ? { situations: parsedStudio.situations } : parsedStudio;
       const asked = options?.style;
       const style = asked === "painted" || asked === "story" ? asked : studio === undefined ? "painted" : "story";
-      const betas = Array.isArray(options?.betas) ? options.betas.filter((b) => typeof b === "string") : [];
       const raw = options?.shade;
       const shade = typeof raw === "number" && Number.isFinite(raw) ? Math.min(100, Math.max(0, Math.round(raw))) : undefined;
-      root.render(<PresentApp key={opened} snapshot={snapshot} dark={dark} send={send} controls={controls} style={style} studio={studio} plans={asPlans(options?.plans)} betas={betas} savedShade={shade} canSaveShade={options?.can_save_shade === true}
+      root.render(<PresentApp key={opened} snapshot={snapshot} dark={dark} send={send} controls={controls} style={style} studio={studio} plans={asPlans(options?.plans)} savedShade={shade} canSaveShade={options?.can_save_shade === true}
         xrays={asXrays(options?.xrays)} chart={asChart(options?.chart)} look={asLook(options?.look)} dentition={asDentition(options?.dentition)}
         discussions={asDiscussions(options?.discussions)} canWrite={options?.can_write !== false} />);
     },

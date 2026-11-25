@@ -15,7 +15,7 @@ import { DETAIL_CHIPS, DETAIL_VALUES } from "@aarogyam/app-kit/mouth-art";
 import { MouthView, brushingBand, preloadArt } from "@aarogyam/app-kit/mouth-view";
 import "@aarogyam/app-kit/mouth-view.css";
 import {
-  DEFAULT_SHADE, DEFAULT_STYLE, FaceSlot, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, Smile3dSlot, StorySlot, StudioProvider, isShipped, normalizeStyle, presentFacts, usePins,
+  DEFAULT_SHADE, DEFAULT_STYLE, HoldToExit, PRESENT_STYLES, PaintedSlot, PinsProvider, StorySlot, StudioProvider, isShipped, normalizeStyle, presentFacts, usePins,
   type Orientation, type PaintedView, type PresentStyleId, type Shade, type SwitcherOption,
 } from "@aarogyam/app-kit/present";
 import "@aarogyam/app-kit/hold-to-exit.css";
@@ -41,10 +41,10 @@ type Tab = "teeth" | "xrays";
 const TABS: readonly Tab[] = ["teeth", "xrays"];
 /** A Show patient style, or the doctor's chart look. */
 type View = PresentStyleId | "chart";
-/** The Look list in More: Your visit, Map + list, then the beta looks. Own X-ray is a Story card, not a look. */
+/** The Look list in More: Your visit, Map + list. Own X-ray is a Story card, not a look. */
 const looksFor = (saved: PresentStyleId): readonly SwitcherOption[] =>
   PRESENT_STYLES.map((s) => ({
-    id: s.id, label: s.label, beta: s.beta, note: s.id === saved ? "Default" : undefined,
+    id: s.id, label: s.label, note: s.id === saved ? "Default" : undefined,
     disabled: !isShipped(s.id) ? "Coming soon" : undefined,
   }));
 const isStyle = (v: string | undefined): v is PresentStyleId => PRESENT_STYLES.some((s) => s.id === v);
@@ -111,7 +111,7 @@ export function PresentPage() {
   const { session } = useClinic();
   const [prefs] = useChartPrefs(session.user.id);
   const [look, setLook] = useState<ChartLook>(prefs.look);
-  const [dentition, setDentition] = useState<ChartDentition>(prefs.dentition);
+  const [dentition, setDentition] = useState<ChartDentition>("adult");
   const chart = useDentalChart(patientId);
   const plans = usePlans(patientId);
   const planItems = plans.data?.items.flatMap((plan) => plan.items) ?? [];
@@ -179,17 +179,13 @@ export function PresentPage() {
             toothExtras={patientId === undefined ? undefined : (tooth) => <AddDepth snapshot={mouth.data} tooth={tooth} patientId={patientId} visitId={visitId} />}
             overview={view === "chart"
               ? (chart.data === undefined ? undefined : (slot) => <PresentChart look={look} dentition={dentition} chart={chart.data} planItems={planItems} slot={slot} />)
-              : model === undefined ? undefined : view === "face" ? (slot) => (
-                <FaceSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} {...shadeSave} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} />
-              ) : view === "story" ? (slot) => (
+              : model === undefined ? undefined : view === "story" ? (slot) => (
                 <StorySlot
                   model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} theme={theme} shade={shade} view={paintedView} onView={setPaintedView} load3d={load3d} plans={storyPlans}
                   xray={hasXray === true && patientId !== undefined ? (
                     <Suspense fallback={<p role="status" className="pm-wait">Loading the X-ray…</p>}><StoryXray patientId={patientId} visitId={visitId} /></Suspense>
                   ) : undefined}
                 />
-              ) : view === "smile3d" ? (slot) => (
-                <Smile3dSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} {...shadeSave} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               ) : (slot) => (
                 <PaintedSlot model={model} slot={slot} orientation={orientation} onOrientation={setOrientation} shade={shade} onShade={setShade} {...shadeSave} theme={theme} view={paintedView} onView={setPaintedView} load3d={load3d} toothSheet />
               )}

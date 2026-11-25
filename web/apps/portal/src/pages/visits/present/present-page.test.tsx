@@ -118,6 +118,8 @@ describe("Present mode (§1.12)", () => {
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     await within(shell).findByRole("heading", { name: /teeth$/ }, WAIT);
     await showChart(shell);
+    await openMore(shell);
+    await user.click(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Child" }));
     await drawn(shell, 20);
     fireEvent.click(toothEl(shell, 55));
     const group = await within(shell).findByRole("group", { name: "Add depth" }, WAIT);
@@ -195,15 +197,17 @@ describe("Present mode (§1.12)", () => {
     expect(shell.querySelector(".pc-classic .mv-tag-today")).not.toBeNull();
   });
 
-  it("opens in the saved look and dentition; a tooth opens its detail and Back returns to the same look", async () => {
+  it("opens in the saved look and the adult dentition; Child is one tap away; a tooth opens its detail and Back returns to the same look", async () => {
     const user = userEvent.setup();
     const { path, backend, wrap } = present();
     savePrefs("classic", "child");
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     await showChart(shell);
+    expect(await drawn(shell, 32)).toEqual([...ARCHES.adult.upper, ...ARCHES.adult.lower]);
+    expect(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Adult" }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Child" }));
     expect(await drawn(shell, 20)).toEqual([...ARCHES.child.upper, ...ARCHES.child.lower]);
-    expect(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Child" }).getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(toothEl(shell, 55));
     await user.click(within(shell).getByRole("button", { name: "Back to all teeth" }));
     expect(shell.querySelector(".mv")?.getAttribute("data-screen")).toBe("overview");
@@ -211,6 +215,16 @@ describe("Present mode (§1.12)", () => {
     await openMore(shell);
     await user.click(within(within(shell).getByRole("group", { name: "Dentition" })).getByRole("button", { name: "Adult" }));
     expect(await drawn(shell, 32)).toEqual([...ARCHES.adult.upper, ...ARCHES.adult.lower]);
+  });
+
+  it("a saved style of the removed beta looks (3D smile, Face to tooth) opens on Your visit", async () => {
+    const { path, backend, wrap } = present();
+    const client = await import("@aarogyam/app-kit/present");
+    expect(client.normalizeStyle("face")).toBe("story");
+    expect(client.normalizeStyle("smile3d")).toBe("story");
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
+    const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
+    await waitFor(() => { expect(shell.querySelector("[data-present-style='story']")).not.toBeNull(); }, WAIT);
   });
 
   it("opens on Your visit: the map card first, the dots open the tooth sheet; Map + list is one pick away", async () => {
@@ -236,13 +250,13 @@ describe("Present mode (§1.12)", () => {
     expect(shell.querySelector(".ps-dot[data-tooth='21']")).not.toBeNull();
   });
 
-  it("More lists the looks in order, Your visit and Map + list ready, betas apart; the chart shows its looks and back", async () => {
+  it("More lists the looks in order, Your visit and Map + list ready; the chart shows its looks and back", async () => {
     const { path, backend, wrap } = present();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const shell = await screen.findByRole("dialog", { name: "Present mode" }, WAIT);
     await openMore(shell);
     const names = within(shell).getAllByRole("menuitemradio").map((o) => [o.textContent, o.getAttribute("aria-checked")]);
-    expect(names).toEqual([["Your visitDefault✓", "true"], ["Map + list", "false"], ["3D smileBeta", "false"], ["Face to toothBeta", "false"]]);
+    expect(names).toEqual([["Your visitDefault✓", "true"], ["Map + list", "false"]]);
     expect(within(shell).queryByRole("menuitemradio", { name: /Own X-ray/ })).toBeNull();
     fireEvent.click(within(shell).getByRole("button", { name: "Show the chart" }));
     expect(within(shell).getByRole("group", { name: "Chart look" })).toBeTruthy();

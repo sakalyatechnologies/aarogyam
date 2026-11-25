@@ -22,13 +22,8 @@ export { XrayStyle, XrayView, XrayEdges, XRAY_EDGES, type XrayProps } from "./xr
 export { PaintedSlot } from "./painted-slot.js";
 export { PinsProvider, PinButton, usePins, pinOf, scenarioOf, type Pinned, type PinsApi } from "./pins.js";
 export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords, OPTION_ROWS } from "./options.js";
-export { Smile3dSlot } from "./smile3d-slot.js";
-export { smile3dAllowed, probePasses, SMILE3D_FALLBACK_LINE, type DeviceEnv } from "./smile3d-gate.js";
 export { MaterialChoice, ToothMaterials, materialGroupFor, materialScene } from "./materials.js";
 export { StorySlot } from "./story-slot.js";
-export { FaceSlot } from "./face-slot.js";
-export { SMILE_ZONE, inSmileZone } from "./smile-zone.js";
-export type { FaceProps } from "./face.js";
 export type { StoryProps, StoryCard, PlanLine } from "./story.js";
 
 /** The painted style's chunk (painter, front atlas and Open wide). Show patient prefetches it. */

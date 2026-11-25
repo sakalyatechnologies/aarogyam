@@ -81,6 +81,7 @@ dependencies = [
 name = "aarogyam-domain"
 version = "0.1.0"
 dependencies = [
+ "flate2",
  "sakalya-types",
  "serde",
  "serde_json",

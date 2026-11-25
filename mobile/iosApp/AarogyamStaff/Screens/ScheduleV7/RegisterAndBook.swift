@@ -31,6 +31,8 @@ struct RegisterAndBook: View {
                 .keyboardType(.emailAddress).textInputAutocapitalization(.never)
             V7Label(text: Self.t("t7.newpt.language"))
             SkChoiceChips(Array(PatientLanguage.allCases), selected: [state.language], label: { $0.ownName }) { holder.setLanguage(language: $0) }
+            V7Label(text: String(localized: "address.title"))
+            AddressFields(address: state.address) { holder.setAddress(field: $0, text: $1) }
             if let text = problemText {
                 Text(text).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(r.error.color)
             }

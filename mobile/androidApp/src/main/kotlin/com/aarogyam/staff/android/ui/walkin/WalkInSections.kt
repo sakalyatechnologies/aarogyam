@@ -131,5 +131,7 @@ internal fun NewPatientSection(
                 PickChip(text, selected = form.sex == sex, onClick = { holder.setSex(sex) })
             }
         }
+        Label(R.string.address_title)
+        AddressSection(form.address, holder::setAddress)
     }
 }

@@ -58,6 +58,18 @@ class WalkInStateHolder(
     /** None of the matches: register someone new with this number. */
     fun someoneNew() = edit { copy(who = Who.New, problem = null) }
 
+    private val autofill =
+        PincodeAutofill(clinic.api, scope, log) { change -> edit { copy(address = change(address)) } }
+
+    /** Types into one part of the address; a full PIN fills district and state. */
+    fun setAddress(
+        field: AddressField,
+        text: String,
+    ) {
+        edit { copy(address = address.with(field, text)) }
+        if (field == AddressField.Pincode) autofill.typed(AddressForm().with(field, text).pincode)
+    }
+
     fun setName(text: String) = edit { copy(name = text, problem = null) }
 
     /** Age in years; anything but digits is dropped. */

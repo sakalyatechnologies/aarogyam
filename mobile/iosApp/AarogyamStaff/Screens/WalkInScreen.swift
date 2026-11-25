@@ -71,6 +71,10 @@ private struct WalkInFormView: View {
         }
         .padding(.top, SkSpacing.s)
         WalkInMatches(holder: holder, form: form)
+        if form.showNewPatient {
+            GroupedHeader(String(localized: "address.title"))
+            AddressFields(address: form.address) { holder.setAddress(field: $0, text: $1) }
+        }
         GroupedHeader(String(localized: "v7.walk_in.allergies"))
         V7Flow(spacing: 8) {
             GlassChip(text: String(localized: "walk_in.no_known_allergies"), selected: form.noKnownAllergies, check: true) { holder.toggleNoKnownAllergies() }

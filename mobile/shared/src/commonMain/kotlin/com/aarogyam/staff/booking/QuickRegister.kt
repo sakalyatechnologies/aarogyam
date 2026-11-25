@@ -5,6 +5,9 @@ import com.aarogyam.staff.api.model.NewPatient
 import com.aarogyam.staff.api.registerPatient
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.Sex
+import com.aarogyam.staff.walkin.AddressField
+import com.aarogyam.staff.walkin.AddressForm
+import com.aarogyam.staff.walkin.PincodeAutofill
 import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +41,7 @@ data class QuickRegisterState(
     val mobile: String = "",
     val email: String = "",
     val language: PatientLanguage = PatientLanguage.English,
+    val address: AddressForm = AddressForm(),
     val saving: Boolean = false,
     val error: ScreenError? = null,
     /** The patient made, once: booking then goes on for them, and a retry never makes a second. */
@@ -79,6 +83,18 @@ class QuickRegisterStateHolder(
 
     fun setEmail(text: String) = edit { it.copy(email = text.trim().take(MAX_EMAIL)) }
 
+    private val autofill =
+        PincodeAutofill(clinic.api, scope, log) { change -> edit { it.copy(address = change(it.address)) } }
+
+    /** Types into one part of the address; a full PIN fills district and state. */
+    fun setAddress(
+        field: AddressField,
+        text: String,
+    ) {
+        edit { it.copy(address = it.address.with(field, text)) }
+        if (field == AddressField.Pincode) autofill.typed(AddressForm().with(field, text).pincode)
+    }
+
     fun setLanguage(language: PatientLanguage) = edit { it.copy(language = language) }
 
     /** The first problem, or null when Register and book can go. */
@@ -105,6 +121,7 @@ class QuickRegisterStateHolder(
                     email = s.email.takeIf { it.isNotEmpty() },
                     sex = s.sex?.wire,
                     preferredLanguage = s.language.tag,
+                    address = s.address.toApi(),
                 )
             when (val answer = clinic.api.registerPatient(body)) {
                 is Outcome.Success -> {

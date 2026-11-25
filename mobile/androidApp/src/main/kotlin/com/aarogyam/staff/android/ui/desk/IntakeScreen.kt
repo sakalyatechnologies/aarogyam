@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.label
 import com.aarogyam.staff.android.ui.message
+import com.aarogyam.staff.android.ui.walkin.AddressSection
 import com.aarogyam.staff.android.ui.walkin.PickChip
 import com.aarogyam.staff.patients.Sex
 import com.aarogyam.staff.walkin.IntakeDone
@@ -97,6 +98,8 @@ private fun IntakeFields(
         Text(stringResource(R.string.dk_iv_title), style = SkTypography.title, color = SkTheme.colors.text.color)
         form.submitError?.let { DeskNotice(submitText(it)) }
         IntakeDetails(holder, form)
+        DeskLabel(stringResource(R.string.address_title))
+        AddressSection(form.address, holder::setAddress)
         if (form.showFamily && family.isNotEmpty()) IntakeFamily(holder, family)
         AllergySection(holder, form)
         ConsentSection(holder, form)

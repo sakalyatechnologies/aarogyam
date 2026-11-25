@@ -114,6 +114,8 @@ struct IntakeV10Form: View {
                     GlassChip(text: sex.label ?? "", selected: form.sex == sex, check: true) { holder.setSex(value: sex) }
                 }
             }
+            GroupedHeader(String(localized: "address.title"))
+            AddressFields(address: form.address) { holder.setAddress(field: $0, text: $1) }
         }
     }
 

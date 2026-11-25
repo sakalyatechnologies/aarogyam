@@ -61,6 +61,7 @@ internal fun walkInRequest(form: WalkInForm): Result<WalkInRequest> {
                     ageYears = age,
                     phone = form.mobile.takeIf { it.isNotEmpty() }?.let { "+91$it" },
                     sex = form.sex?.wire(),
+                    address = form.address.toApi(),
                 ),
         ),
     )

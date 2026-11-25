@@ -20,6 +20,7 @@ import com.aarogyam.staff.android.ui.glass.GroupHeader
 import com.aarogyam.staff.android.ui.label
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.patient.v7
+import com.aarogyam.staff.android.ui.walkin.AddressSection
 import com.aarogyam.staff.booking.PatientLanguage
 import com.aarogyam.staff.booking.QuickRegisterStateHolder
 import com.aarogyam.staff.booking.RegisterProblem
@@ -67,6 +68,8 @@ internal fun RegisterAndBook(
             onToggle = holder::setLanguage,
             label = { it.ownName() },
         )
+        GroupHeader(stringResource(R.string.address_title))
+        AddressSection(state.address, holder::setAddress)
         val problem = if (tried) holder.problem(state) else null
         val text = problem?.let { stringResource(it.text()) } ?: state.error?.let { stringResource(it.message()) }
         text?.let { Text(it, style = v7(12.5f), color = SkTheme.palette.error.color) }

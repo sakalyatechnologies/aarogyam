@@ -63,6 +63,8 @@ data class WalkInForm(
     val doctors: List<DoctorOption> = emptyList(),
     /** Add-family-member: the existing patient and what the walk-in is to them (`family_of`). */
     val familyOf: FamilyOf? = null,
+    /** Optional postal address of a new patient. */
+    val address: AddressForm = AddressForm(),
     val allergyPicks: List<String> = emptyList(),
     val submitting: Boolean = false,
     val problem: WalkInProblem? = null,

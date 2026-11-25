@@ -66,6 +66,8 @@ data class IntakeForm(
     val reason: String = "",
     /** Shown only when `ServerCaps.family` is on. */
     val familyOf: FamilyOf? = null,
+    /** Optional postal address. */
+    val address: AddressForm = AddressForm(),
     val errors: Map<IntakeField, IntakeProblem> = emptyMap(),
     val submitting: Boolean = false,
     val submitError: IntakeSubmitError? = null,

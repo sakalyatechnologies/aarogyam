@@ -40,6 +40,12 @@ interface IntakeFormHolder {
     /** The phone typed in the lookup, prefilled; digits only (a `+91` or trunk `0` drops out). */
     fun setPhone(typed: String)
 
+    /** Types into one part of the address; a full PIN fills district and state. */
+    fun setAddress(
+        field: AddressField,
+        text: String,
+    )
+
     fun setName(text: String)
 
     /** `YYYY-MM-DD` typed or picked; clears the age. */
@@ -138,6 +144,17 @@ internal class IntakeFormStateHolder(
     }
 
     override fun setPhone(typed: String) = edit { copy(phone = mobileDigits(typed)).clear(IntakeField.Phone) }
+
+    private val autofill =
+        PincodeAutofill(clinic.api, scope, log) { change -> edit { copy(address = change(address)) } }
+
+    override fun setAddress(
+        field: AddressField,
+        text: String,
+    ) {
+        edit { copy(address = address.with(field, text)) }
+        if (field == AddressField.Pincode) autofill.typed(AddressForm().with(field, text).pincode)
+    }
 
     override fun setName(text: String) = edit { copy(name = text).clear(IntakeField.Name) }
 
@@ -268,6 +285,7 @@ internal class IntakeFormStateHolder(
                 patient.copy(
                     dateOfBirth = form.dateOfBirth.takeIf { it.isNotEmpty() },
                     email = form.email.trim().takeIf { it.isNotEmpty() },
+                    address = form.address.toApi(),
                 ),
             noticeId = form.notice?.id,
             reason = form.reason.trim().takeIf { checkIn && ServerCaps.walkInReason && it.isNotEmpty() },

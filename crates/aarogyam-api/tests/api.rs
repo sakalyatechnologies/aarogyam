@@ -511,6 +511,12 @@ async fn every_route_requires_sign_in_and_a_permission() {
             // patient data, throttled per IP); booking is covered by `signed_in_only` below.
             "/api/v1/public/booking",
             "/api/v1/public/availability",
+            // QR self check-in: the clinic's key (a capability, not patient data) gates the page and
+            // the arrival request, which creates no patient; the PIN directory holds no patient
+            // data. All throttled per IP (tests/self_check_in.rs).
+            "/api/v1/public/arrive",
+            "/api/v1/public/arrivals",
+            "/api/v1/public/pincodes/{pin}",
             // The published website and its pictures: public, no patient data (tests/website.rs).
             "/api/v1/public/site",
             "/api/v1/public/site/photos/{id}",

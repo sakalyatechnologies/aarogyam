@@ -58,6 +58,15 @@ pub enum AppError {
     /// Only a waiting patient can be reminded about (`409 not_waiting`).
     #[error("the patient is not waiting")]
     NotWaiting,
+    /// Someone else already accepted or dismissed the arrival (`409 already_handled`).
+    #[error("this arrival was already handled")]
+    ArrivalHandled,
+    /// The clinic has the most arrival requests waiting (`429 list_full`).
+    #[error("the clinic's arrival list is full")]
+    ArrivalListFull,
+    /// Too many arrival requests for the clinic or the phone this hour (`429 rate_limited`).
+    #[error("too many arrival requests")]
+    ArrivalBusy,
     /// A waiting patient was reminded less than a minute ago (`409 remind_too_soon`).
     #[error("this patient was reminded a moment ago")]
     RemindTooSoon {

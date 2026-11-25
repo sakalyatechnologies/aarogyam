@@ -884,6 +884,17 @@ export type QualityFailingTest = Schemas["QualityFailingTest"];
 export type QualityReport = Schemas["QualityReport"];
 // Walk-in fast path.
 export type WalkInRequest = Schemas["WalkInRequest"];
+export type PatientAddress = Schemas["PatientAddress"];
+export type SelfCheckInSettings = Schemas["SelfCheckInSettings"];
+export type SelfCheckInSwitch = Schemas["SelfCheckInSwitch"];
+export type CheckInChoice = Schemas["CheckInChoice"];
+export type ArrivePage = Schemas["ArrivePage"];
+export type NewArrivalBody = Schemas["NewArrivalBody"];
+export type Received = Schemas["Received"];
+export type Pincode = Schemas["Pincode"];
+export type Arrival = Schemas["Arrival"];
+export type ArrivalList = Schemas["ArrivalList"];
+export type AcceptBody = Schemas["AcceptBody"];
 export type WalkIn = Schemas["WalkIn"];
 export type PhoneLookup = Schemas["PhoneLookup"];
 export type PhoneMatch = Schemas["PhoneMatch"];

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.self_check_ins (branch_id, payload, phone_hash)\n           values ($1, $2, sha256(convert_to(app.tenant_id()::text || $3, 'UTF8')))\n           returning id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.self_check_ins",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "17b9b45eefca176ccc97a67e5e80cb982ea55fe3d8e9e6c8ff9d691cca046ffa"
+}

@@ -716,6 +716,12 @@ async fn drain(config: Config, every: Option<u64>) -> anyhow::Result<()> {
             Ok(_) => {}
             Err(error) => tracing::warn!(error = %error, "could not run staff tasks"),
         }
+        // QR check-in requests nobody acted on, and handled ones past their week.
+        match aarogyam_notify::sweep_self_check_ins(&db, time::OffsetDateTime::now_utc()).await {
+            Ok(0) => {}
+            Ok(deleted) => tracing::info!(deleted, "self check-in requests swept"),
+            Err(error) => tracing::warn!(error = %error, "could not sweep self check-in requests"),
+        }
         // Follow-ups that fell due and patients who have waited: alert staff once each.
         match aarogyam_notify::flag_alerts(&db, time::OffsetDateTime::now_utc()).await {
             Ok(report) if report != aarogyam_notify::FlagReport::default() => {

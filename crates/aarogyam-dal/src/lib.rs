@@ -84,6 +84,7 @@ pub mod retention;
 pub mod review_demo;
 pub mod roles;
 pub mod schedule;
+pub mod self_check_ins;
 pub mod sessions;
 pub mod settings;
 pub mod setup;

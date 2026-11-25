@@ -119,6 +119,7 @@ fn check_row(row: MappedRow, today: Date) -> Checked {
         phone: row.get(ImportField::Phone).map(str::to_owned),
         email: row.get(ImportField::Email).map(str::to_owned),
         preferred_language: row.get(ImportField::PreferredLanguage).map(str::to_owned),
+        address: None,
     };
     let patient = match validate(&input, today) {
         Ok(patient) => Some(patient),

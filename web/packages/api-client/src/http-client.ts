@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import type { ApiClient, DateRange } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
+import { arrivalList, arrivePage, pincodeInfo, received, selfCheckInSettings } from "./schemas.js";
 import {
   allergy,
   allergyList,
@@ -1302,6 +1303,23 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+    getSelfCheckInSettings: (opts) =>
+      call({ method: "GET", path: "/api/v1/settings/self-check-in", schema: selfCheckInSettings, signal: opts?.signal }),
+    setSelfCheckIn: (enabled, opts) =>
+      call({ method: "PUT", path: "/api/v1/settings/self-check-in", schema: selfCheckInSettings, body: { enabled }, signal: opts?.signal }),
+    newSelfCheckInKey: (opts) =>
+      call({ method: "POST", path: "/api/v1/settings/self-check-in/key", schema: selfCheckInSettings, signal: opts?.signal }),
+    getArrivePage: (key, opts) =>
+      call({ method: "GET", path: `/api/v1/public/arrive?k=${encodeURIComponent(key)}`, schema: arrivePage, signal: opts?.signal }),
+    sendArrival: (input, opts) =>
+      call({ method: "POST", path: "/api/v1/public/arrivals", schema: received, body: input, signal: opts?.signal }),
+    lookupPincode: (pin, opts) =>
+      call({ method: "GET", path: `/api/v1/public/pincodes/${encodeURIComponent(pin)}`, schema: pincodeInfo, signal: opts?.signal }),
+    listArrivals: (opts) => call({ method: "GET", path: "/api/v1/arrivals", schema: arrivalList, signal: opts?.signal }),
+    acceptArrival: (id, input, opts) =>
+      call({ method: "POST", path: `/api/v1/arrivals/${encodeURIComponent(id)}/accept`, schema: walkIn, body: input, signal: opts?.signal }),
+    dismissArrival: (id, opts) =>
+      call({ method: "POST", path: `/api/v1/arrivals/${encodeURIComponent(id)}/dismiss`, schema: voidResponse, signal: opts?.signal }),
     lookupPatientsByPhone: (phone, opts) =>
       call({ method: "POST", path: "/api/v1/patients/lookup", schema: phoneMatches, body: { phone }, signal: opts?.signal }),
     startVisitFromQueue: (id, opts) =>

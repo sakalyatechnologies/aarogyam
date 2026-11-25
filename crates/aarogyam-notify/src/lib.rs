@@ -30,6 +30,7 @@ mod messages;
 mod patient_templates;
 pub mod push;
 mod resend;
+mod self_check_in;
 mod staff;
 mod staff_ops;
 mod stock;
@@ -51,6 +52,7 @@ pub use lab::{LabReminderReport, remind_labs};
 pub use messages::MessageReport;
 pub use push::{Push, PushReport, PushSetup};
 pub use resend::Resend;
+pub use self_check_in::sweep_self_check_ins;
 pub use staff::{
     FlagReport, ReminderReport, StaffAlert, StaffChannel, flag_alerts, remind, remind_with,
 };

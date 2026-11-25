@@ -8,7 +8,7 @@ use aarogyam_domain::consent::Purpose;
 use aarogyam_domain::family::Relation;
 use aarogyam_domain::ids::{BranchId, PatientId, PatientRelationId, PractitionerId};
 use aarogyam_domain::permission::Permission;
-use sakalya_db::Db;
+use sakalya_db::{Db, ScopedTx};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
@@ -16,7 +16,7 @@ use crate::clock::clinic_today;
 use crate::error::AppError;
 use crate::family::{self, NewRelation};
 use crate::intake::{self, Intake};
-use crate::patients::{PatientView, RegisterPatient, existing, insert_new, validate};
+use crate::patients::{PatientView, RegisterPatient, existing, insert_new, save_address, validate};
 use crate::queue::{
     TokenExtras, TokenView, check_doctor, clean_reason, issue_token, view as token_view,
 };
@@ -25,6 +25,10 @@ use crate::scope::staff_scope as scope;
 
 /// Who the walk-in is.
 #[derive(Debug, Clone)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "built once per request and matched at once; boxing would touch every caller"
+)]
 pub enum WalkInPatient {
     /// Someone new, registered now.
     New(RegisterPatient),
@@ -100,6 +104,23 @@ pub async fn register(
     actor.require(Permission::PatientsWrite)?;
     actor.require(Permission::AppointmentsWrite)?;
     actor.require(Permission::IntakeWrite)?;
+    db.scoped(&scope(actor, request_id), async |tx| {
+        register_in(tx, actor, &input, now).await
+    })
+    .await
+}
+
+/// [`register`] inside an open transaction, for callers that do more in the same one (accepting
+/// a QR arrival). The caller has checked the permissions.
+///
+/// # Errors
+/// As [`register`], except for the permissions.
+pub(crate) async fn register_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    input: &NewWalkIn,
+    now: OffsetDateTime,
+) -> Result<WalkInView, AppError> {
     let intake = intake::check(&input.intake)?;
     let reason = clean_reason(input.reason.as_deref())?;
     let today = clinic_today(&actor.timezone, now);
@@ -107,75 +128,77 @@ pub async fn register(
         WalkInPatient::New(details) => Some(validate(details, today)?),
         WalkInPatient::Existing(_) => None,
     };
-    db.scoped(&scope(actor, request_id), async |tx| {
-        check_doctor(tx, actor, input.practitioner_id).await?;
-        let (mut patient, registered) = match (&input.patient, &new_patient) {
-            (_, Some(details)) => (
-                insert_new(tx, &actor.number_prefix, details, actor, today).await?,
-                true,
-            ),
-            (WalkInPatient::Existing(id), None) => (existing(tx, actor, *id, today).await?, false),
-            (WalkInPatient::New(_), None) => {
-                return Err(AppError::Internal("new patient not validated"));
-            }
-        };
-        let patient_id = patient.id.uuid();
-        let family_link_id = match input.family_of {
-            Some(of) => Some(
-                family::link_in(
-                    tx,
-                    actor,
-                    of.patient_id,
-                    NewRelation {
-                        related_patient_id: patient.id,
-                        relation: of.relation,
-                        is_primary_contact: false,
-                    },
-                )
-                .await?,
-            ),
-            None => None,
-        };
-        let recorded = intake::record(tx, patient_id, &intake, actor.membership_id.uuid()).await?;
-        // The patient was read before the intake: bring the flags up to date without a trip.
-        patient.allergy_alert |= recorded.allergies > 0;
-        patient.consent_pending &= !recorded.consents.contains(&Purpose::Care);
-        let token = if input.check_in {
-            let branch_id = resolve_branch(tx, input.branch_id).await?;
-            let token_id = issue_token(
+    check_doctor(tx, actor, input.practitioner_id).await?;
+    let (mut patient, registered) = match (&input.patient, &new_patient) {
+        (_, Some(details)) => (
+            insert_new(tx, &actor.number_prefix, details, actor, today).await?,
+            true,
+        ),
+        (WalkInPatient::Existing(id), None) => (existing(tx, actor, *id, today).await?, false),
+        (WalkInPatient::New(_), None) => {
+            return Err(AppError::Internal("new patient not validated"));
+        }
+    };
+    if let (WalkInPatient::New(details), true) = (&input.patient, registered)
+        && let Some(address) = &details.address
+    {
+        save_address(tx, &mut patient, address).await?;
+    }
+    let patient_id = patient.id.uuid();
+    let family_link_id = match input.family_of {
+        Some(of) => Some(
+            family::link_in(
                 tx,
-                &actor.timezone,
-                branch_id,
-                patient_id,
-                TokenExtras {
-                    practitioner_id: input.practitioner_id.map(PractitionerId::uuid),
-                    reason,
-                    ..TokenExtras::default()
+                actor,
+                of.patient_id,
+                NewRelation {
+                    related_patient_id: patient.id,
+                    relation: of.relation,
+                    is_primary_contact: false,
                 },
-                now,
             )
-            .await?;
-            // A patient this walk-in just registered gets the welcome, queued with the
-            // registration (before the token is read back, so it shows its welcome status).
-            if registered {
-                crate::auto_messages::welcome(tx, patient_id, token_id).await?;
-            }
-            Some(token_view(tx, token_id, now, today).await?)
-        } else {
-            None
-        };
-        Ok(WalkInView {
-            patient,
-            registered,
-            family_link_id,
-            token,
-            allergies_recorded: recorded.allergies,
-            conditions_recorded: recorded.conditions,
-            consents_recorded: recorded.consents,
-            consent_ids: recorded.consent_ids,
-        })
+            .await?,
+        ),
+        None => None,
+    };
+    let recorded = intake::record(tx, patient_id, &intake, actor.membership_id.uuid()).await?;
+    // The patient was read before the intake: bring the flags up to date without a trip.
+    patient.allergy_alert |= recorded.allergies > 0;
+    patient.consent_pending &= !recorded.consents.contains(&Purpose::Care);
+    let token = if input.check_in {
+        let branch_id = resolve_branch(tx, input.branch_id).await?;
+        let token_id = issue_token(
+            tx,
+            &actor.timezone,
+            branch_id,
+            patient_id,
+            TokenExtras {
+                practitioner_id: input.practitioner_id.map(PractitionerId::uuid),
+                reason,
+                ..TokenExtras::default()
+            },
+            now,
+        )
+        .await?;
+        // A patient this walk-in just registered gets the welcome, queued with the
+        // registration (before the token is read back, so it shows its welcome status).
+        if registered {
+            crate::auto_messages::welcome(tx, patient_id, token_id).await?;
+        }
+        Some(token_view(tx, token_id, now, today).await?)
+    } else {
+        None
+    };
+    Ok(WalkInView {
+        patient,
+        registered,
+        family_link_id,
+        token,
+        allergies_recorded: recorded.allergies,
+        conditions_recorded: recorded.conditions,
+        consents_recorded: recorded.consents,
+        consent_ids: recorded.consent_ids,
     })
-    .await
 }
 
 #[cfg(test)]

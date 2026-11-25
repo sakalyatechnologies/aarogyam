@@ -46,6 +46,8 @@ pub struct Intake {
     pub notice_id: Option<Uuid>,
     /// A notice label, for a notice that isn't published here.
     pub notice_version: Option<String>,
+    /// A note stored with each consent recorded now (at most 500 characters).
+    pub consent_note: Option<String>,
 }
 
 /// An intake checked without the database.
@@ -57,6 +59,7 @@ pub(crate) struct Checked {
     consents: Vec<DeskConsent>,
     notice_id: Option<Uuid>,
     pub(crate) notice_version: Option<String>,
+    consent_note: Option<String>,
 }
 
 /// What recording an intake did.
@@ -124,6 +127,7 @@ pub(crate) fn check(input: &Intake) -> Result<Checked, AppError> {
         consents: input.consents.clone(),
         notice_id: input.notice_id,
         notice_version: version,
+        consent_note: input.consent_note.clone(),
     })
 }
 
@@ -188,6 +192,7 @@ pub(crate) async fn record(
         &methods,
         notice,
         recorded_by,
+        intake.consent_note.as_deref(),
     )
     .await?;
     let consent_ids = recorded.iter().map(|(id, _)| *id).collect();

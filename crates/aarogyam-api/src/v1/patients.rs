@@ -6,6 +6,7 @@ use aarogyam_app::patients::{
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::PatientId;
 use aarogyam_domain::permission::require::{PatientsRead, PatientsWrite};
+use aarogyam_domain::self_check_in::{AddressParts, PatientAddress as DomainAddress};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -78,6 +79,56 @@ pub struct Patient {
     pub consent_pending: bool,
     /// Whether the patient has a photo (`GET /patients/{id}/photo`).
     pub has_photo: bool,
+    /// The postal address. Sent with a single patient (the record, a registration, an edit),
+    /// never in lists, and left out when none is stored.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(required = false)]
+    pub address: Option<PatientAddress>,
+}
+
+/// A postal address in India. Every part is optional; the PIN code, when given, is six digits.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct PatientAddress {
+    /// House, building and street.
+    pub line1: Option<String>,
+    /// Area or landmark.
+    pub locality: Option<String>,
+    /// City or town.
+    pub city: Option<String>,
+    /// District.
+    pub district: Option<String>,
+    /// State or union territory.
+    pub state: Option<String>,
+    /// Six-digit PIN code.
+    pub pincode: Option<String>,
+}
+
+impl PatientAddress {
+    /// Validates the parts into the domain's address.
+    pub(crate) fn parse(&self) -> Result<DomainAddress, ApiError> {
+        DomainAddress::parse(AddressParts {
+            line1: self.line1.as_deref(),
+            locality: self.locality.as_deref(),
+            city: self.city.as_deref(),
+            district: self.district.as_deref(),
+            state: self.state.as_deref(),
+            pincode: self.pincode.as_deref(),
+        })
+        .map_err(|error| super::bad("address", &error.to_string()))
+    }
+}
+
+impl From<DomainAddress> for PatientAddress {
+    fn from(address: DomainAddress) -> Self {
+        Self {
+            line1: address.line1,
+            locality: address.locality,
+            city: address.city,
+            district: address.district,
+            state: address.state,
+            pincode: address.pincode,
+        }
+    }
 }
 
 /// A patient's next booking.
@@ -116,6 +167,7 @@ impl From<PatientView> for Patient {
             allergy_alert: view.allergy_alert,
             consent_pending: view.consent_pending,
             has_photo: view.has_photo,
+            address: view.address.map(Into::into),
         }
     }
 }
@@ -373,6 +425,8 @@ pub struct NewPatient {
     pub email: Option<String>,
     /// Language tag such as `mr-IN` (default `en-IN`).
     pub preferred_language: Option<String>,
+    /// Postal address; optional, with the PIN code checked.
+    pub address: Option<PatientAddress>,
 }
 
 pub(super) fn parse_date(text: &str) -> Result<Date, ApiError> {
@@ -410,6 +464,11 @@ pub(crate) async fn register(
         phone: body.phone,
         email: body.email,
         preferred_language: body.preferred_language,
+        address: body
+            .address
+            .as_ref()
+            .map(PatientAddress::parse)
+            .transpose()?,
     };
     let view = app::register(
         state.db(),
@@ -474,6 +533,8 @@ pub struct PatientChanges {
     pub email: Option<String>,
     /// Language tag such as `mr-IN`.
     pub preferred_language: Option<String>,
+    /// Postal address; replaces the stored one, and an address with every part empty clears it.
+    pub address: Option<PatientAddress>,
 }
 
 /// Edits a patient's details with the same rules as registration. Changing the phone or email
@@ -519,6 +580,11 @@ pub(crate) async fn edit(
         phone: body.phone,
         email: body.email,
         preferred_language: body.preferred_language,
+        address: body
+            .address
+            .as_ref()
+            .map(PatientAddress::parse)
+            .transpose()?,
     };
     let view = app::edit(
         state.db(),
@@ -614,28 +680,34 @@ pub(crate) async fn lookup(
         OffsetDateTime::now_utc(),
     )
     .await?;
-    Ok(Json(PhoneMatches {
-        items: rows
-            .matches
-            .into_iter()
-            .map(|row| PhoneMatch {
-                id: row.id.uuid(),
-                number: row.number,
-                full_name: row.full_name,
-                age_years: row.age_years,
-                sex: row.sex,
-            })
-            .collect(),
-        family_group: rows
-            .family_group
-            .into_iter()
-            .map(|row| FamilyMember {
-                of_patient_id: row.of_patient_id.uuid(),
-                id: row.id.uuid(),
-                number: row.number,
-                full_name: row.full_name,
-                relation: row.relation,
-            })
-            .collect(),
-    }))
+    Ok(Json(rows.into()))
+}
+
+impl From<aarogyam_app::patients::PhoneLookupResult> for PhoneMatches {
+    fn from(rows: aarogyam_app::patients::PhoneLookupResult) -> Self {
+        Self {
+            items: rows
+                .matches
+                .into_iter()
+                .map(|row| PhoneMatch {
+                    id: row.id.uuid(),
+                    number: row.number,
+                    full_name: row.full_name,
+                    age_years: row.age_years,
+                    sex: row.sex,
+                })
+                .collect(),
+            family_group: rows
+                .family_group
+                .into_iter()
+                .map(|row| FamilyMember {
+                    of_patient_id: row.of_patient_id.uuid(),
+                    id: row.id.uuid(),
+                    number: row.number,
+                    full_name: row.full_name,
+                    relation: row.relation,
+                })
+                .collect(),
+        }
+    }
 }

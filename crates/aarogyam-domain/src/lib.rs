@@ -109,6 +109,7 @@ pub mod richtext;
 pub mod roles;
 pub mod schedule;
 pub mod search;
+pub mod self_check_in;
 pub mod setup;
 pub mod share;
 pub mod staff;

@@ -293,6 +293,7 @@ pub async fn sign(
             &methods,
             NoticeChoice::Named(&row.notice_version, row.notice_id),
             row.requested_by,
+            None,
         )
         .await?
         .iter()

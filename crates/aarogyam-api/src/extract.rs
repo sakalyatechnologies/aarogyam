@@ -199,6 +199,8 @@ pub struct ClinicHost {
     pub place: aarogyam_domain::access::ClinicPlace,
     /// The request ID, for the access record.
     pub request_id: Option<Uuid>,
+    /// The host name the request came to, such as `sunrise.aarogyam.example`.
+    pub host: String,
 }
 
 impl FromRequestParts<AppState> for ClinicHost {
@@ -223,6 +225,7 @@ impl FromRequestParts<AppState> for ClinicHost {
             clinic_id: clinic.clinic_id,
             place: clinic.place(),
             request_id: request_id(parts),
+            host,
         })
     }
 }

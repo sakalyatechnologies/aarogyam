@@ -152,6 +152,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/arrivals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The QR arrival requests waiting for the desk, oldest first, each with the patients who
+         *     share its phone.
+         */
+        get: operations["listArrivals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/arrivals/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accepts a request: registers the patient (or takes the one picked and fills only their blank
+         *     details), records the allergies, health flags and consents they gave, and issues a token, all
+         *     in one transaction. The answer is the walk-in's.
+         */
+        post: operations["acceptArrival"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/arrivals/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismisses a request (spam or a duplicate); what the patient typed is cleared at once. */
+        post: operations["dismissArrival"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/attachments/{id}/content": {
         parameters: {
             query?: never;
@@ -4478,6 +4536,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/arrivals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Public, no sign-in: sends the clinic an arrival request (not a patient). The front desk
+         *     accepts it. The answer never says whether the clinic knows the phone or name.
+         */
+        post: operations["sendArrival"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/arrive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public, no sign-in: the clinic's name, the form's choices and the notice. A wrong or missing
+         *     key, or a QR that is switched off, is a plain `404`.
+         */
+        get: operations["getArrivePage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/availability": {
         parameters: {
             query?: never;
@@ -4554,6 +4652,26 @@ export interface paths {
          *     against the notice the link showed and closes the link. Works once.
          */
         post: operations["signConsentLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/pincodes/{pin}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Public, no sign-in: the district and state of a PIN code, from the offline directory. The
+         *     answer never changes within a release, so it is cached for 30 days.
+         */
+        get: operations["lookupPincode"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5333,6 +5451,41 @@ export interface paths {
          */
         put: operations["updatePresentSettings"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/self-check-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The QR check-in settings and the address the QR code opens. */
+        get: operations["getSelfCheckInSettings"];
+        /** Switches the QR on or off. Switching on for the first time makes the clinic's QR key. */
+        put: operations["setSelfCheckIn"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/self-check-in/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Makes a new QR key, which voids every printed QR code, and returns the new address. */
+        post: operations["newSelfCheckInKey"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6772,6 +6925,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description What the desk decides when it accepts. */
+        AcceptBody: {
+            /** @description Issue a queue token (the default). */
+            check_in?: boolean;
+            /** @description A registered patient picked from the matches; a new patient is registered when absent. */
+            patient_id?: string | null;
+            /** @description The doctor; "any" when absent. */
+            practitioner_id?: string | null;
+        };
         /** @description An invitation to accept. */
         AcceptInvitation: {
             /** @description The name to show colleagues, when signing in for the first time. */
@@ -7298,6 +7460,81 @@ export interface components {
             portal_host: string;
             /** @description Its subdomain. */
             slug: string;
+        };
+        /** @description A request waiting for the desk. Phone and email are masked without `patients.contact`. */
+        Arrival: {
+            address?: components["schemas"]["PatientAddress"] | null;
+            /**
+             * Format: int32
+             * @description Age in years.
+             */
+            age_years?: number | null;
+            /** @description Allergies in the patient's words. */
+            allergies_text?: string | null;
+            /** @description The person who filled the form, when not the patient. */
+            contact_name?: string | null;
+            /** @description When the patient sent it (RFC 3339). */
+            created_at: string;
+            /** @description Date of birth, `YYYY-MM-DD`. */
+            date_of_birth?: string | null;
+            /** @description Email, masked without `patients.contact`. */
+            email?: string | null;
+            /** @description The patient's first name. */
+            first_name: string;
+            /** @description Whether the person who filled the form is the patient. */
+            for_self: boolean;
+            /** @description Health codes the patient ticked. */
+            health: string[];
+            /** @description The health flags in words. */
+            health_labels: string[];
+            /** @description Identifier. */
+            id: string;
+            /** @description The patient's last name, when given. */
+            last_name?: string | null;
+            /**
+             * @description Patients already registered with the phone, and their relatives. The desk picks one or
+             *     "new patient"; the default is a new patient.
+             */
+            matches: components["schemas"]["PhoneMatches"];
+            /** @description The phone, masked without `patients.contact`. */
+            phone: string;
+            /** @description The reasons in words. */
+            reason_labels: string[];
+            /** @description A line in the patient's words. */
+            reason_text?: string | null;
+            /** @description Reason codes. */
+            reasons: string[];
+            /** @description What that person is to the patient. */
+            relation?: string | null;
+            /** @description The patient ticked appointment reminders. */
+            reminders: boolean;
+            /** @description `female`, `male` or `other`. */
+            sex?: string | null;
+        };
+        /** @description The requests waiting for the desk. */
+        ArrivalList: {
+            /** @description Oldest first. */
+            items: components["schemas"]["Arrival"][];
+        };
+        /** @description What the check-in page needs to start. */
+        ArrivePage: {
+            /** @description The clinic's name. */
+            clinic_name: string;
+            /** @description "Any of these?" health choices. */
+            health_flags: components["schemas"]["CheckInChoice"][];
+            /**
+             * @description The clinic's published privacy notice; empty when it has none, and the page then links
+             *     `notice_url`.
+             */
+            notice_text?: string | null;
+            /** @description The standard privacy page, on the site that serves this one. */
+            notice_url: string;
+            /** @description The notice version the patient agrees to. */
+            notice_version: string;
+            /** @description "What brings you in?" choices. */
+            reasons: components["schemas"]["CheckInChoice"][];
+            /** @description What the person filling the form is to the patient, for "my child / family member". */
+            relations: components["schemas"]["CheckInChoice"][];
         };
         /** @description A patient file's details. The bytes come from its download link. */
         Attachment: {
@@ -7931,6 +8168,13 @@ export interface components {
              * @description The file: JPEG, PNG or PDF, up to 5 MB. Its type is read from its content.
              */
             file: string;
+        };
+        /** @description A choice on the check-in form. */
+        CheckInChoice: {
+            /** @description What the API carries. */
+            code: string;
+            /** @description What the patient reads. */
+            label: string;
         };
         /**
          * @description What the desk records at check-in. Every field is optional; details left out stay as they
@@ -11990,6 +12234,52 @@ export interface components {
             /** @description Start (RFC 3339). */
             starts_at: string;
         };
+        /** @description A patient's arrival. */
+        NewArrivalBody: {
+            address?: components["schemas"]["PatientAddress"] | null;
+            /**
+             * Format: int32
+             * @description Age in years; not together with `date_of_birth`.
+             */
+            age_years?: number | null;
+            /** @description Allergies in the patient's words. */
+            allergies_text?: string | null;
+            /**
+             * @description The patient agrees to the clinic keeping their health record to treat them. Must be
+             *     `true`.
+             */
+            consent_care: boolean;
+            /** @description The person filling the form, when not the patient. */
+            contact_name?: string | null;
+            /** @description Date of birth, `YYYY-MM-DD`. */
+            date_of_birth?: string | null;
+            /** @description Email. */
+            email?: string | null;
+            /** @description The patient's first name. */
+            first_name: string;
+            /** @description Whether the person filling the form is the patient. */
+            for_self: boolean;
+            /** @description Health codes from the form's list. */
+            health?: string[];
+            /** @description The QR key. */
+            k: string;
+            /** @description The patient's last name; optional. */
+            last_name?: string | null;
+            /** @description The phone; +91 is assumed without a country code. */
+            phone: string;
+            /** @description A line in the patient's words, at most 200 characters. */
+            reason_text?: string | null;
+            /** @description Reason codes from the form's list; give at least one, or `reason_text`. */
+            reasons?: string[];
+            /** @description What that person is to the patient, a code from `relations`. */
+            relation?: string | null;
+            /** @description Appointment reminders by message. */
+            reminders?: boolean;
+            /** @description `female`, `male` or `other`. */
+            sex?: string | null;
+            /** @description A hidden field real people leave empty; when it is filled nothing is stored. */
+            website?: string | null;
+        };
         /** @description A booking. */
         NewBooking: {
             /** @description The patient's full name. */
@@ -12281,6 +12571,7 @@ export interface components {
         };
         /** @description A patient to register. */
         NewPatient: {
+            address?: components["schemas"]["PatientAddress"] | null;
             /**
              * Format: int32
              * @description Age in years when the date of birth is unknown.
@@ -13409,6 +13700,7 @@ export interface components {
         };
         /** @description A patient. Phone and email are masked (`+91******3210`) unless the role has `patients.contact`. */
         Patient: {
+            address?: components["schemas"]["PatientAddress"] | null;
             /**
              * Format: int32
              * @description Age in whole years today.
@@ -13467,6 +13759,21 @@ export interface components {
             sex: string;
             /** @description `active`, `inactive`, `deceased` or `merged`. */
             status: string;
+        };
+        /** @description A postal address in India. Every part is optional; the PIN code, when given, is six digits. */
+        PatientAddress: {
+            /** @description City or town. */
+            city?: string | null;
+            /** @description District. */
+            district?: string | null;
+            /** @description House, building and street. */
+            line1?: string | null;
+            /** @description Area or landmark. */
+            locality?: string | null;
+            /** @description Six-digit PIN code. */
+            pincode?: string | null;
+            /** @description State or union territory. */
+            state?: string | null;
         };
         /** @description A record's patient-app access. */
         PatientAppAccess: {
@@ -13664,6 +13971,7 @@ export interface components {
          *     `date_of_birth` clears it.
          */
         PatientChanges: {
+            address?: components["schemas"]["PatientAddress"] | null;
             /**
              * Format: int32
              * @description Age in years when the date of birth is unknown.
@@ -14198,6 +14506,15 @@ export interface components {
             file: string;
             /** @description `logo`, `hero`, `about`, `doctor` or `gallery` (default). */
             kind?: string | null;
+        };
+        /** @description Where a PIN code is. */
+        Pincode: {
+            /** @description The district. */
+            district: string;
+            /** @description The six-digit PIN code. */
+            pin: string;
+            /** @description The state or union territory. */
+            state: string;
         };
         /** @description A treatment plan with its estimate. */
         Plan: {
@@ -15078,6 +15395,8 @@ export interface components {
             /** @description The day it arrived, `YYYY-MM-DD`; today by default. */
             received_on?: string | null;
         };
+        /** @description An empty answer: the same whatever happened to the request. */
+        Received: Record<string, unknown>;
         /** @description A consent to record. */
         RecordConsent: {
             /** @description When the patient agreed (RFC 3339); now when absent. Not in the future. */
@@ -15619,6 +15938,21 @@ export interface components {
             recalls_due?: boolean;
             /** @description Only patients with a balance on issued bills (needs `billing.read`). */
             with_balance?: boolean;
+        };
+        /** @description The clinic's QR check-in settings. */
+        SelfCheckInSettings: {
+            /** @description Whether scanning the QR code works. */
+            enabled: boolean;
+            /**
+             * @description The address the QR code opens, with its key; left out until a QR code is made. Anyone
+             *     with it can send arrival requests, so show it only to staff who print or display it.
+             */
+            url?: string | null;
+        };
+        /** @description Switch the QR on or off. */
+        SelfCheckInSwitch: {
+            /** @description Whether scanning the QR code works. Switching on makes the first QR code. */
+            enabled: boolean;
         };
         /** @description A message to send to patients. */
         SendMessages: {
@@ -18797,6 +19131,149 @@ export interface operations {
             };
             /** @description Confirming a request for a doctor who is on leave then (`practitioner_on_leave`) */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listArrivals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArrivalList"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    acceptArrival: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The arrival request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalkIn"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks intake.write, patients.write or appointments.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request (or patient) in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `already_handled`: someone else accepted or dismissed it */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dismissArrival: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The arrival request */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dismissed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such request in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `already_handled`: someone else accepted or dismissed it */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -32659,6 +33136,86 @@ export interface operations {
             };
         };
     };
+    sendArrival: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewArrivalBody"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Received"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, wrong key, or the QR is off */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `list_full` (the desk has 200 requests waiting) or `rate_limited` */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getArrivePage: {
+        parameters: {
+            query: {
+                /** @description The QR key */
+                k: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArrivePage"];
+                };
+            };
+            /** @description Not a clinic, wrong key, or the QR is off */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests from this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listFreeSlots: {
         parameters: {
             query: {
@@ -32878,6 +33435,49 @@ export interface operations {
             };
             /** @description Expired */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    lookupPincode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A six-digit PIN code */
+                pin: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pincode"];
+                };
+            };
+            /** @description Not a PIN code */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or a PIN code not in the directory */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too many requests from this address */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -35493,6 +36093,109 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getSelfCheckInSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfCheckInSettings"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setSelfCheckIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelfCheckInSwitch"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfCheckInSettings"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks settings.manage */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    newSelfCheckInKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfCheckInSettings"];
+                };
             };
             /** @description Not signed in */
             401: {

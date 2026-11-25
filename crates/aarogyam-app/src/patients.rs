@@ -10,6 +10,7 @@ use aarogyam_domain::patient::{
 };
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::search::PatientQuery;
+use aarogyam_domain::self_check_in::PatientAddress;
 use sakalya_db::{Db, ScopedTx};
 use sakalya_types::{CallingCode, PhoneE164};
 use time::{Date, OffsetDateTime};
@@ -72,6 +73,9 @@ pub struct PatientView {
     pub consent_pending: bool,
     /// The patient has a photo (`GET /patients/{id}/photo`).
     pub has_photo: bool,
+    /// The postal address; read with a single patient (the record, a registration, an edit),
+    /// never in lists.
+    pub address: Option<PatientAddress>,
 }
 
 /// A patient's next booking.
@@ -117,9 +121,11 @@ pub struct RegisterPatient {
     pub email: Option<String>,
     /// Language tag such as `hi-IN`; `en-IN` when absent.
     pub preferred_language: Option<String>,
+    /// Postal address, already validated.
+    pub address: Option<PatientAddress>,
 }
 
-fn parse_birth_date(
+pub(crate) fn parse_birth_date(
     date_of_birth: Option<Date>,
     age_years: Option<u16>,
     today: Date,
@@ -207,6 +213,8 @@ pub struct EditPatient {
     pub email: Option<String>,
     /// Language tag such as `hi-IN`.
     pub preferred_language: Option<String>,
+    /// Postal address, already validated; replaces the stored one, and an empty one clears it.
+    pub address: Option<PatientAddress>,
 }
 
 impl EditPatient {
@@ -287,7 +295,9 @@ fn apply_edit(
     })
 }
 
-pub(crate) fn mask_email(email: &str) -> String {
+/// An email with all but its first letter hidden: `p***@example.in`.
+#[must_use]
+pub fn mask_email(email: &str) -> String {
     match email.split_once('@') {
         Some((local, domain)) => {
             let first: String = local.chars().take(1).collect();
@@ -348,7 +358,31 @@ fn view(
         allergy_alert: flags.allergy_alert,
         consent_pending: flags.consent_pending,
         has_photo: flags.has_photo,
+        address: None,
     }
+}
+
+/// The address object a patient row holds, as the view shows it (`None` when empty or unreadable).
+fn stored_address(stored: Option<serde_json::Value>) -> Option<PatientAddress> {
+    stored
+        .and_then(|value| serde_json::from_value::<PatientAddress>(value).ok())
+        .filter(|address| !address.is_empty())
+}
+
+/// Saves an address on the patient (an empty one clears it) and shows it on the view.
+pub(crate) async fn save_address(
+    tx: &mut ScopedTx,
+    view: &mut PatientView,
+    address: &PatientAddress,
+) -> Result<(), AppError> {
+    let value = if address.is_empty() {
+        None
+    } else {
+        Some(serde_json::to_value(address).map_err(|_| AppError::Internal("address not saved"))?)
+    };
+    patients::set_address(tx.conn(), view.id.uuid(), value.as_ref()).await?;
+    view.address = (!address.is_empty()).then(|| address.clone());
+    Ok(())
 }
 
 /// The patient as the API shows it, with the summary read beside it. Money shows only with
@@ -391,7 +425,11 @@ pub async fn register(
             .ok_or(AppError::NotFound("clinic"))?;
         let today = clinic_today(&profile.timezone, now);
         let patient = validate(&input, today)?;
-        insert_new(tx, &profile.number_prefix, &patient, actor, today).await
+        let mut view = insert_new(tx, &profile.number_prefix, &patient, actor, today).await?;
+        if let Some(address) = &input.address {
+            save_address(tx, &mut view, address).await?;
+        }
+        Ok(view)
     })
     .await
 }
@@ -407,7 +445,9 @@ pub(crate) async fn existing(
     let found = patients::get_flagged(tx.conn(), patient_id.uuid(), reach)
         .await?
         .ok_or(AppError::NotFound("patient"))?;
-    Ok(view(found.patient, found.flags, actor, today))
+    let mut view = view(found.patient, found.flags, actor, today);
+    view.address = stored_address(found.address);
+    Ok(view)
 }
 
 /// Issues the clinic's next number and saves a validated patient, inside an open transaction.
@@ -489,7 +529,7 @@ pub(crate) async fn edit_in(
     let found = patients::get_for_update_flagged(tx.conn(), patient_id.uuid(), reach)
         .await?
         .ok_or(AppError::NotFound("patient"))?;
-    let (current, flags) = (found.patient, found.flags);
+    let (current, flags, stored) = (found.patient, found.flags, found.address);
     AppError::check_version(expected_version, current.row_version)?;
     let edited = apply_edit(&current, input, today)?;
     let row = patients::update(
@@ -506,7 +546,12 @@ pub(crate) async fn edit_in(
         },
     )
     .await?;
-    Ok(view(row, flags, actor, today))
+    let mut view = view(row, flags, actor, today);
+    match &input.address {
+        Some(address) => save_address(tx, &mut view, address).await?,
+        None => view.address = stored_address(stored),
+    }
+    Ok(view)
 }
 
 /// Finds patients by what the front desk typed: a number (`SD-1042` or `1042`), a phone
@@ -760,7 +805,9 @@ pub async fn open(
         )
         .await?
         .ok_or(AppError::NotFound("patient"))?;
-        Ok(listed(row, actor, today))
+        let mut view = listed(row.listed, actor, today);
+        view.address = stored_address(row.address);
+        Ok(view)
     })
     .await
 }
@@ -1019,8 +1066,21 @@ pub async fn lookup_phone(
     actor.require(Permission::PatientsRead)?;
     let phone = parse_phone(phone)?.ok_or(AppError::invalid("phone", "is required"))?;
     let today = clinic_today(&actor.timezone, now);
-    let reach = actor.reach(Permission::PatientsRead).member();
     db.scoped(&scope(actor, request_id), async |tx| {
+        lookup_phone_in(tx, actor, &phone, today).await
+    })
+    .await
+}
+
+/// [`lookup_phone`] inside an open transaction; the caller has checked `patients.read`.
+pub(crate) async fn lookup_phone_in(
+    tx: &mut ScopedTx,
+    actor: &ClinicActor,
+    phone: &PhoneE164,
+    today: Date,
+) -> Result<PhoneLookupResult, AppError> {
+    let reach = actor.reach(Permission::PatientsRead).member();
+    {
         let rows =
             patients::lookup_phone(tx.conn(), phone.as_e164(), MAX_PHONE_MATCHES, reach).await?;
         let ids: Vec<Uuid> = rows.iter().map(|row| row.id).collect();
@@ -1050,6 +1110,5 @@ pub async fn lookup_phone(
             matches,
             family_group,
         })
-    })
-    .await
+    }
 }

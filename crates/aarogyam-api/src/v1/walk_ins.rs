@@ -171,6 +171,11 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
             phone: details.phone,
             email: details.email,
             preferred_language: details.preferred_language,
+            address: details
+                .address
+                .as_ref()
+                .map(super::patients::PatientAddress::parse)
+                .transpose()?,
         }),
         (None, Some(id)) => {
             WalkInPatient::Existing(PatientId::from_uuid(parse_id("patient_id", &id)?))
@@ -216,6 +221,7 @@ fn input(body: WalkInRequest) -> Result<NewWalkIn, ApiFailure> {
                 .map(|text| parse_id("notice_id", text))
                 .transpose()?,
             notice_version: body.notice_version,
+            consent_note: None,
         },
         reason: body.reason,
         check_in: body.check_in,

@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select count(*) filter (where status = 'pending') as \"pending!\",\n                  count(*) filter (where created_at > $2::timestamptz - interval '1 hour') as \"clinic!\",\n                  count(*) filter (where created_at > $2::timestamptz - interval '1 hour'\n                                     and phone_hash = sha256(convert_to(app.tenant_id()::text || $1, 'UTF8'))) as \"phone!\"\n           from aarogyam.self_check_ins",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "pending!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "clinic!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "phone!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "3ca556567c2970b391c34f14e24166c8be82f1bf7e51d41000431e97c274e158"
+}

@@ -213,6 +213,7 @@ impl From<Denied> for ApiFailure {
 }
 
 impl From<AppError> for ApiFailure {
+    #[expect(clippy::too_many_lines, reason = "one arm per application error")]
     fn from(error: AppError) -> Self {
         match error {
             AppError::Denied(denied) => denied.into(),
@@ -274,6 +275,16 @@ impl From<AppError> for ApiFailure {
                 "not_waiting",
                 "Only a waiting patient can be reminded about.",
             )),
+            AppError::ArrivalHandled => Self::Error(ApiError::conflict(
+                "already_handled",
+                "Someone else already handled this arrival.",
+            )),
+            AppError::ArrivalListFull => Self::Error(ApiError::new(
+                ErrorKind::TooManyRequests,
+                "list_full",
+                "The front desk has too many check-ins waiting. Please tell the desk.",
+            )),
+            AppError::ArrivalBusy => Self::Error(ApiError::too_many_requests()),
             AppError::RemindTooSoon {
                 retry_after_seconds,
             } => Self::Counted {

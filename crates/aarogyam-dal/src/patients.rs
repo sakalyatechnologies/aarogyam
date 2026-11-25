@@ -159,6 +159,8 @@ pub struct FlaggedPatient {
     pub patient: PatientRow,
     /// The flags.
     pub flags: Flags,
+    /// The stored address object, read in the same statement.
+    pub address: Option<serde_json::Value>,
 }
 
 /// [`get`], with the patient's flags read in the same statement.
@@ -174,7 +176,7 @@ pub async fn get_flagged(
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,
                   p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
-                  f.has_photo as "has_photo!"
+                  f.has_photo as "has_photo!", p.address
            from aarogyam.patients p
            cross join lateral app.patient_flags(p.id) f
            where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)"#,
@@ -204,6 +206,7 @@ pub async fn get_flagged(
             consent_pending: row.consent_pending,
             has_photo: row.has_photo,
         },
+        address: row.address,
     }))
 }
 
@@ -220,7 +223,7 @@ pub async fn get_for_update_flagged(
         r#"select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,
                   p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,
                   f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
-                  f.has_photo as "has_photo!"
+                  f.has_photo as "has_photo!", p.address
            from aarogyam.patients p
            cross join lateral app.patient_flags(p.id) f
            where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)
@@ -251,6 +254,7 @@ pub async fn get_for_update_flagged(
             consent_pending: row.consent_pending,
             has_photo: row.has_photo,
         },
+        address: row.address,
     }))
 }
 
@@ -305,6 +309,25 @@ pub async fn update(
     .fetch_one(conn)
     .await?;
     Ok(row)
+}
+
+/// Saves the patient's address object (`None` clears it).
+///
+/// # Errors
+/// [`DbError`] on a database failure.
+pub async fn set_address(
+    conn: &mut PgConnection,
+    id: Uuid,
+    address: Option<&serde_json::Value>,
+) -> Result<(), DbError> {
+    sqlx::query!(
+        "update aarogyam.patients set address = $2 where id = $1 and deleted_at is null",
+        id,
+        address
+    )
+    .execute(conn)
+    .await?;
+    Ok(())
 }
 
 /// One row of the access record: someone opened a patient's record.
@@ -959,9 +982,8 @@ pub async fn open(
     access: &AccessEntry<'_>,
     at: SummaryAt,
     member: Option<Uuid>,
-) -> Result<Option<ListedPatient>, DbError> {
-    let row = sqlx::query_as!(
-        ListedPatient,
+) -> Result<Option<OpenedPatient>, DbError> {
+    let row = sqlx::query!(
         r#"with found as (
              select * from aarogyam.patients
              where id = $1 and deleted_at is null and app.patient_in_reach(id, $10)
@@ -975,7 +997,7 @@ pub async fn open(
                   s.next_starts_at, s.next_practitioner, s.balance_paise as "balance_paise!",
                   s.lifetime_paid_paise as "lifetime_paid_paise!", s.recall_due as "recall_due!",
                   f.allergy_alert as "allergy_alert!", f.consent_pending as "consent_pending!",
-                  f.has_photo as "has_photo!"
+                  f.has_photo as "has_photo!", p.address
            from found p
            cross join lateral app.patient_summary(p.id, $8, $9) s
            cross join lateral app.patient_flags(p.id) f"#,
@@ -992,7 +1014,41 @@ pub async fn open(
     )
     .fetch_optional(conn)
     .await?;
-    Ok(row)
+    Ok(row.map(|row| OpenedPatient {
+        listed: ListedPatient {
+            id: row.id,
+            number: row.number,
+            full_name: row.full_name,
+            sex: row.sex,
+            date_of_birth: row.date_of_birth,
+            birth_date_estimated: row.birth_date_estimated,
+            phone_e164: row.phone_e164,
+            email: row.email,
+            preferred_language: row.preferred_language,
+            status: row.status,
+            created_at: row.created_at,
+            last_visit_at: row.last_visit_at,
+            row_version: row.row_version,
+            next_starts_at: row.next_starts_at,
+            next_practitioner: row.next_practitioner,
+            balance_paise: row.balance_paise,
+            lifetime_paid_paise: row.lifetime_paid_paise,
+            recall_due: row.recall_due,
+            allergy_alert: row.allergy_alert,
+            consent_pending: row.consent_pending,
+            has_photo: row.has_photo,
+        },
+        address: row.address,
+    }))
+}
+
+/// A patient opened by [`open`]: the list row and the stored address object.
+#[derive(Debug, Clone)]
+pub struct OpenedPatient {
+    /// The patient with the summary the list shows.
+    pub listed: ListedPatient,
+    /// The stored address object.
+    pub address: Option<serde_json::Value>,
 }
 
 /// The oldest active patient of the current clinic with this email, if any, counting a record

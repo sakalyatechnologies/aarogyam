@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update aarogyam.org_settings set self_check_in = $1 where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b359b600748f6a309d52669c68bc39d7e9038686e96a01add84b348c1b68dcc"
+}

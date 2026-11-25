@@ -139,6 +139,7 @@ async function runAction(page, action) {
   else if ("fill" in action) await page.locator(action.fill).first().fill(action.text, t);
   else if ("select" in action) await page.locator(action.select).first().selectOption({ label: action.label }, t);
   else if ("press" in action) await page.keyboard.press(action.press);
+  else if ("goto" in action) await page.evaluate((to) => { window.history.pushState({}, "", to); window.dispatchEvent(new PopStateEvent("popstate")); }, action.goto);
   else await page.waitForTimeout(action.wait);
 }
 
@@ -158,6 +159,7 @@ async function renderGuide(browser, converter, guide, speech) {
   const dir = join(outRoot, guide.id);
   const context = await browser.newContext({ viewport: { width: 1366, height: 768 }, deviceScaleFactor: 1 });
   const page = await context.newPage();
+  if (process.env["GUIDES_DEBUG_CONSOLE"] !== undefined) page.on("console", (m) => console.log("PAGE:", m.text()));
   await page.addInitScript(() => {
     const style = document.createElement("style");
     style.textContent = "*{caret-color:transparent!important}";

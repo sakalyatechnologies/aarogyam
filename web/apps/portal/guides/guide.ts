@@ -8,6 +8,8 @@ export type GuideAction =
   | { fill: string; text: string }
   | { select: string; label: string }
   | { press: string }
+  /** Moves to another route inside the running app (history push), so the fake API keeps its state. */
+  | { goto: string }
   | { wait: number };
 
 export type GuideRole = "getting-started" | "front-desk" | "doctor" | "billing" | "owner";

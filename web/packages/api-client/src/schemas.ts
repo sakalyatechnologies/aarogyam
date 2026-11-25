@@ -4068,6 +4068,73 @@ export type PhoneMatch = z.output<typeof phoneMatch>;
 export const phoneMatches = z.object({ items: z.array(phoneMatch), family_group: z.array(familyMember) }) satisfies z.ZodType<C.PhoneMatches>;
 export type PhoneMatchPage = z.output<typeof phoneMatches>;
 
+/** A postal address in India; every part optional. */
+export const patientAddress = z.object({
+  line1: z.string().nullable().exactOptional(),
+  locality: z.string().nullable().exactOptional(),
+  city: z.string().nullable().exactOptional(),
+  district: z.string().nullable().exactOptional(),
+  state: z.string().nullable().exactOptional(),
+  pincode: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.PatientAddress>;
+export type PatientAddress = z.output<typeof patientAddress>;
+
+/** QR check-in settings; `url` is the address the QR code opens (with its key). */
+export const selfCheckInSettings = z.object({
+  enabled: z.boolean(),
+  url: z.string().nullable().exactOptional(),
+}) satisfies z.ZodType<C.SelfCheckInSettings>;
+export type SelfCheckInSettings = z.output<typeof selfCheckInSettings>;
+
+const checkInChoice = z.object({ code: z.string(), label: z.string() }) satisfies z.ZodType<C.CheckInChoice>;
+
+/** What the public check-in page starts from. */
+export const arrivePage = z.object({
+  clinic_name: z.string(),
+  reasons: z.array(checkInChoice),
+  health_flags: z.array(checkInChoice),
+  relations: z.array(checkInChoice),
+  notice_version: z.string(),
+  notice_text: z.string().nullable().exactOptional(),
+  notice_url: z.string(),
+}) satisfies z.ZodType<C.ArrivePage>;
+export type ArrivePage = z.output<typeof arrivePage>;
+
+/** The empty answer to a sent arrival. */
+export const received = z.object({}) satisfies z.ZodType<C.Received>;
+
+export const pincodeInfo = z.object({ pin: z.string(), district: z.string(), state: z.string() }) satisfies z.ZodType<C.Pincode>;
+export type PincodeInfo = z.output<typeof pincodeInfo>;
+
+/** One QR arrival request waiting for the desk. */
+export const arrival = z.object({
+  id: z.string().min(1),
+  created_at: timestamp,
+  first_name: z.string(),
+  last_name: z.string().nullable().exactOptional(),
+  phone: z.string(),
+  for_self: z.boolean(),
+  contact_name: z.string().nullable().exactOptional(),
+  relation: z.string().nullable().exactOptional(),
+  reasons: z.array(z.string()),
+  reason_labels: z.array(z.string()),
+  reason_text: z.string().nullable().exactOptional(),
+  health: z.array(z.string()),
+  health_labels: z.array(z.string()),
+  allergies_text: z.string().nullable().exactOptional(),
+  email: z.string().nullable().exactOptional(),
+  sex: z.string().nullable().exactOptional(),
+  age_years: z.number().int().nonnegative().nullable().exactOptional(),
+  date_of_birth: z.string().nullable().exactOptional(),
+  address: patientAddress.nullable().exactOptional(),
+  reminders: z.boolean(),
+  matches: phoneMatches,
+}) satisfies z.ZodType<C.Arrival>;
+export type Arrival = z.output<typeof arrival>;
+
+export const arrivalList = z.object({ items: z.array(arrival) }) satisfies z.ZodType<C.ArrivalList>;
+export type ArrivalList = z.output<typeof arrivalList>;
+
 /** What `POST /api/v1/walk-ins` did. */
 export const walkIn = z.object({
   patient,

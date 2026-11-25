@@ -77,6 +77,7 @@ pub(crate) mod registrations;
 pub(crate) mod reports;
 pub(crate) mod roles;
 pub(crate) mod schedule;
+pub(crate) mod self_check_in;
 pub(crate) mod settings;
 pub(crate) mod setup;
 pub(crate) mod smart_import;
@@ -693,6 +694,21 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/public/booking", get(public_booking::booking_options))
         .route("/public/availability", get(public_booking::free_slots))
         .route("/public/bookings", post(public_booking::book_online))
+        // Public, on the clinic's host, behind the QR key: patients checking themselves in.
+        .route("/public/arrive", get(self_check_in::arrive))
+        .route(
+            "/public/arrivals",
+            post(self_check_in::send_arrival).layer(DefaultBodyLimit::max(8 * 1024)),
+        )
+        .route("/public/pincodes/{pin}", get(self_check_in::pincode))
+        .route("/arrivals", get(self_check_in::list))
+        .route("/arrivals/{id}/accept", post(self_check_in::accept))
+        .route("/arrivals/{id}/dismiss", post(self_check_in::dismiss))
+        .route(
+            "/settings/self-check-in",
+            get(self_check_in::get_settings).put(self_check_in::put_settings),
+        )
+        .route("/settings/self-check-in/key", post(self_check_in::new_key))
         // Public, on the clinic's host: the published website and its pictures.
         .route("/public/site", get(website::public_site))
         .route("/public/site/photos/{id}", get(website::public_photo))

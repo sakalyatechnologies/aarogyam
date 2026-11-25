@@ -88,6 +88,7 @@ pub mod roles;
 pub mod schedule;
 mod scope;
 pub mod self_booking;
+pub mod self_check_in;
 pub mod sessions;
 pub mod settings;
 pub mod setup;

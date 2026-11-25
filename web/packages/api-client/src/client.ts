@@ -1,6 +1,8 @@
 /** The one interface both the HTTP client and the fake client implement. */
 
 import type { ApiResult } from "./result.js";
+import type * as C from "./contract.js";
+import type * as S from "./schemas.js";
 import type {
   Audience,
   AudiencePreview,
@@ -1225,6 +1227,25 @@ export interface ApiClient {
   // Walk-in fast path.
   /** Clinic host: registers (or picks) a walk-in, records reported allergies and desk consents, and issues a token, in one step. Needs `intake.write`, `patients.write` and `appointments.write`. */
   registerWalkIn(input: WalkInRequest, options?: RequestOptions): Promise<ApiResult<WalkIn>>;
+  // QR self check-in.
+  /** Clinic host, needs `settings.manage`: whether the QR works and the address it opens. */
+  getSelfCheckInSettings(options?: RequestOptions): Promise<ApiResult<S.SelfCheckInSettings>>;
+  /** Clinic host, needs `settings.manage`: switches the QR on or off (the first time makes its key). */
+  setSelfCheckIn(enabled: boolean, options?: RequestOptions): Promise<ApiResult<S.SelfCheckInSettings>>;
+  /** Clinic host, needs `settings.manage`: a new QR key, which voids every printed QR code. */
+  newSelfCheckInKey(options?: RequestOptions): Promise<ApiResult<S.SelfCheckInSettings>>;
+  /** Clinic host, public: the check-in page's name, choices and notice; `404` for a wrong key or the QR off. */
+  getArrivePage(key: string, options?: RequestOptions): Promise<ApiResult<S.ArrivePage>>;
+  /** Clinic host, public: sends an arrival request (never a patient); the answer is the same whatever the clinic knows. */
+  sendArrival(input: C.NewArrivalBody, options?: RequestOptions): Promise<ApiResult<Record<string, never>>>;
+  /** Clinic host, public: district and state of a PIN code; `404` when unknown. */
+  lookupPincode(pin: string, options?: RequestOptions): Promise<ApiResult<S.PincodeInfo>>;
+  /** Clinic host: QR arrival requests waiting, oldest first, each with phone matches. Needs `patients.read`. */
+  listArrivals(options?: RequestOptions): Promise<ApiResult<S.ArrivalList>>;
+  /** Clinic host: registers or matches the patient, records consents and issues a token. Needs `patients.write`, `appointments.write`, `intake.write`; `409 already_handled` when someone else got there. */
+  acceptArrival(id: string, input: C.AcceptBody, options?: RequestOptions): Promise<ApiResult<WalkIn>>;
+  /** Clinic host: dismisses a request and clears what the patient typed. Needs `patients.write`. */
+  dismissArrival(id: string, options?: RequestOptions): Promise<ApiResult<void>>;
   /** Clinic host: patients registered with a phone (sent in the body), with only id, number, name, age and sex. Needs `patients.read`. */
   lookupPatientsByPhone(phone: string, options?: RequestOptions): Promise<ApiResult<PhoneMatchPage>>;
   /** Clinic host: total, new this month and recalls due (and, with `billing.read`, how many owe money). Needs `patients.read`. */

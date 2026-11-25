@@ -189,6 +189,12 @@ pub enum Event {
     RecurringExpenseRecorded,
     /// A walk-in was registered (or found), checked in and given a token in one step.
     WalkInRegistered,
+    /// A patient sent an arrival request by scanning the clinic's QR code.
+    SelfCheckInSubmitted,
+    /// The front desk accepted a QR arrival request.
+    SelfCheckInAccepted,
+    /// The front desk dismissed a QR arrival request.
+    SelfCheckInDismissed,
     /// A clinician confirmed a patient-reported allergy.
     AllergyConfirmed,
     /// A clinic granted a Sakalya staff member read access.
@@ -359,6 +365,9 @@ impl Event {
             Self::RecurringExpenseChanged => "recurring_expense.changed",
             Self::RecurringExpenseRecorded => "recurring_expense.recorded",
             Self::WalkInRegistered => "walk_in.registered",
+            Self::SelfCheckInSubmitted => "self_check_in.submitted",
+            Self::SelfCheckInAccepted => "self_check_in.accepted",
+            Self::SelfCheckInDismissed => "self_check_in.dismissed",
             Self::ConsentRequested => "consent.requested",
             Self::ConsentSigned => "consent.signed",
             Self::PatientPhotoChanged => "patient.photo_changed",

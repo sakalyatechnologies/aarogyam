@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select self_check_in as \"self_check_in!\" from aarogyam.org_settings where org_id = app.tenant_id()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "self_check_in!",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.org_settings",
+            "name": "self_check_in"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e353744298d8af86754af35a29a013192cdf609a09b5e2fe3a22bef6c528b2c4"
+}

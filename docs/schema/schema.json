@@ -2206,6 +2206,7 @@
     "membership_branches.branch_id",
     "queue_tokens.branch_id",
     "rooms.branch_id",
+    "self_check_ins.branch_id",
     "working_hours.branch_id"
    ],
    "sensitivity": "internal",
@@ -2498,6 +2499,13 @@
      "nullable": false,
      "ref": null,
      "note": "staff to-dos, time off: time_off.requires_approval (default true), tasks.remind_every_minutes (default 60)"
+    },
+    {
+     "name": "self_check_in",
+     "type": "jsonb",
+     "nullable": false,
+     "ref": null,
+     "note": "QR check-in: enabled, key (the QR's capability, replaced by New QR; migration 0759)"
     }
    ],
    "referenced_by": [],
@@ -3366,6 +3374,7 @@
     "promo_redemptions.patient_id",
     "queue_tokens.patient_id",
     "recalls.patient_id",
+    "self_check_ins.patient_id",
     "share_links.patient_id",
     "specialty_records.patient_id",
     "treatment_plan_items.patient_id",
@@ -4308,6 +4317,78 @@
    "offline": "read_write"
   },
   {
+   "name": "self_check_ins",
+   "domain": "scheduling",
+   "purpose": "Arrival requests from patients who scanned the clinic's QR code; the front desk accepts or dismisses each.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "ephemeral",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0759). Not audited, so the payload never reaches the change history. Pending rows are deleted after 24 hours and handled rows after 7 days by app.sweep_self_check_ins; erasure deletes the rows of the patient. At most 200 pending per clinic.",
+   "cols": [
+    {
+     "name": "branch_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "branches",
+     "note": ""
+    },
+    {
+     "name": "status",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "pending, accepted, dismissed"
+    },
+    {
+     "name": "payload",
+     "type": "jsonb",
+     "nullable": true,
+     "ref": null,
+     "note": "what the patient typed (personal and health data); cleared the moment the request is handled"
+    },
+    {
+     "name": "phone_hash",
+     "type": "bytea",
+     "nullable": false,
+     "ref": null,
+     "note": "sha256(org_id || phone), for the per-phone cap after the payload is cleared"
+    },
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "patients",
+     "note": "set on accept"
+    },
+    {
+     "name": "token_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "queue_tokens",
+     "note": "set on accept with a check-in"
+    },
+    {
+     "name": "handled_at",
+     "type": "timestamptz",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "handled_by",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "the accepting member"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "personal",
+   "offline": "server_only"
+  },
+  {
    "name": "queue_tokens",
    "domain": "scheduling",
    "purpose": "Walk-in tokens shown on the waiting-room screen.",
@@ -4412,6 +4493,7 @@
    ],
    "referenced_by": [
     "encounters.queue_token_id",
+    "self_check_ins.token_id",
     "staff_notifications.queue_token_id"
    ],
    "sensitivity": "personal",

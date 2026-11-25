@@ -343,6 +343,10 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   const imagePins = new Map<string, S.ImagePins["pins"]>();
   /** Saved tooth colours by patient, shared by every client of this backend. */
   const smileShades = new Map<string, number>();
+  /** QR check-in settings by clinic id (`self_check_in`). */
+  const qrSettings = new Map<string, { enabled: boolean; key: string | null }>();
+  /** QR arrival requests still waiting (handled ones are removed: the payload is cleared on the server). */
+  const arrivalRows: { id: string; clinic_id: string; created_at: string; body: Omit<C.NewArrivalBody, "k" | "website"> }[] = [];
 
   function client(options: FakeClientOptions = {}): ApiClient {
     const clock = options.now ?? (() => new Date());
@@ -10260,6 +10264,211 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           token.trim() === "" || token.length > 100 ? notFound : reply({ unsubscribed: true } satisfies C.Unsubscribed),
         ),
 
+      // QR self check-in.
+      getSelfCheckInSettings: (opts) =>
+        respond(S.selfCheckInSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply(qrView(caller.clinic, qrSettings.get(caller.clinic.id)));
+        }),
+      setSelfCheckIn: (enabled, opts) =>
+        respond(S.selfCheckInSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const current = qrSettings.get(caller.clinic.id) ?? { enabled: false, key: null };
+          const next = { enabled, key: current.key ?? (enabled ? fakeKey(random) : null) };
+          qrSettings.set(caller.clinic.id, next);
+          return reply(qrView(caller.clinic, next));
+        }),
+      newSelfCheckInKey: (opts) =>
+        respond(S.selfCheckInSettings, opts?.signal, async () => {
+          const caller = await inClinic("settings.manage");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const next = { enabled: qrSettings.get(caller.clinic.id)?.enabled ?? false, key: fakeKey(random) };
+          qrSettings.set(caller.clinic.id, next);
+          return reply(qrView(caller.clinic, next));
+        }),
+      getArrivePage: (key, opts) =>
+        respond(S.arrivePage, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          if (clinic === undefined || !qrOpen(clinic, qrSettings.get(clinic.id), key)) {
+            return notFound;
+          }
+          return reply({
+            clinic_name: clinic.name,
+            reasons: QR_REASONS,
+            health_flags: QR_HEALTH,
+            relations: QR_RELATIONS,
+            notice_version: "v1 2026-10",
+            notice_url: "/privacy",
+          } satisfies C.ArrivePage);
+        }),
+      sendArrival: (input, opts) =>
+        respond(S.received, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          if (clinic === undefined || !qrOpen(clinic, qrSettings.get(clinic.id), input.k)) {
+            return notFound;
+          }
+          if ((input.website ?? "").trim() !== "") {
+            // The honeypot: answer as if stored, store nothing.
+            return reply({});
+          }
+          if (!input.consent_care) {
+            return invalid("consent_care", "must be agreed to check in");
+          }
+          if (input.first_name.trim() === "") {
+            return invalid("first_name", "must be 1 to 100 characters of text");
+          }
+          if (input.phone.replace(/\D/g, "").length < 10) {
+            return invalid("phone", "is not a valid phone number");
+          }
+          const reasons = input.reasons ?? [];
+          if (reasons.some((r) => !QR_REASONS.some((c) => c.code === r))) {
+            return invalid("reasons", "unknown value");
+          }
+          if (reasons.length === 0 && (input.reason_text ?? "").trim() === "") {
+            return invalid("reasons", "choose at least one");
+          }
+          if ((input.health ?? []).some((h) => !QR_HEALTH.some((c) => c.code === h))) {
+            return invalid("health", "unknown value");
+          }
+          if (!input.for_self && ((input.contact_name ?? "").trim() === "" || !QR_RELATIONS.some((c) => c.code === input.relation))) {
+            return invalid("contact_name", "name the person and what they are to the patient");
+          }
+          if (input.address?.pincode != null && !/^[1-9][0-9]{5}$/.test(input.address.pincode)) {
+            return invalid("address", "pincode must be six digits, not starting with 0");
+          }
+          if (arrivalRows.filter((r) => r.clinic_id === clinic.id).length >= 200) {
+            return refuse(429, "list_full", "The front desk has too many check-ins waiting. Please tell the desk.");
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the key and the honeypot are not kept for the desk
+          const { k, website, ...body } = input;
+          arrivalRows.push({ id: fakeUuid(random, clock()), clinic_id: clinic.id, created_at: clock().toISOString(), body });
+          return reply({});
+        }),
+      lookupPincode: (pin, opts) =>
+        respond(S.pincodeInfo, opts?.signal, () => {
+          const clinic = state.clinics.find((c) => c.host === options.host);
+          if (clinic === undefined) {
+            return notFound;
+          }
+          if (!/^[1-9][0-9]{5}$/.test(pin)) {
+            return invalid("pin", "pincode must be six digits, not starting with 0");
+          }
+          const found = FAKE_PINCODES[pin];
+          return found === undefined ? notFound : reply({ pin, district: found[0], state: found[1] } satisfies C.Pincode);
+        }),
+      listArrivals: (opts) =>
+        respond(S.arrivalList, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const items = arrivalRows
+            .filter((r) => r.clinic_id === caller.clinic.id)
+            .map((r): C.Arrival => {
+              const digits = r.body.phone.replace(/\D/g, "").slice(-10);
+              const matches = clinicPatients(caller).filter((p) => (p.phone ?? "").replace(/\D/g, "").endsWith(digits));
+              return {
+                id: r.id,
+                created_at: r.created_at,
+                first_name: r.body.first_name,
+                last_name: r.body.last_name ?? null,
+                phone: hasPermission(caller.membership.role.permissions, "patients.contact") ? `+91${digits}` : `+91******${digits.slice(-4)}`,
+                for_self: r.body.for_self,
+                contact_name: r.body.contact_name ?? null,
+                relation: r.body.relation ?? null,
+                reasons: r.body.reasons ?? [],
+                reason_labels: (r.body.reasons ?? []).flatMap((code) => QR_REASONS.filter((c) => c.code === code).map((c) => c.label)),
+                reason_text: r.body.reason_text ?? null,
+                health: r.body.health ?? [],
+                health_labels: (r.body.health ?? []).flatMap((code) => QR_HEALTH.filter((c) => c.code === code).map((c) => c.label)),
+                allergies_text: r.body.allergies_text ?? null,
+                email: r.body.email ?? null,
+                sex: r.body.sex ?? null,
+                age_years: r.body.age_years ?? null,
+                date_of_birth: r.body.date_of_birth ?? null,
+                address: r.body.address ?? null,
+                reminders: r.body.reminders ?? false,
+                matches: {
+                  items: matches.map((p) => ({ id: p.id, number: p.number, full_name: p.full_name, sex: p.sex, age_years: null })),
+                  family_group: [],
+                },
+              };
+            });
+          return reply({ items } satisfies C.ArrivalList);
+        }),
+      acceptArrival: (id, input, opts) =>
+        respond(S.walkIn, opts?.signal, async () => {
+          const caller = await inClinic("intake.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const perms = caller.membership.role.permissions;
+          if (!hasPermission(perms, "patients.write") || !hasPermission(perms, "appointments.write")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const row = arrivalRows.find((r) => r.id === id && r.clinic_id === caller.clinic.id);
+          if (row === undefined) {
+            return notFound;
+          }
+          const b = row.body;
+          const reason = [...(b.reasons ?? []).flatMap((code) => QR_REASONS.filter((c) => c.code === code).map((c) => c.label)), ...(b.reason_text ? [b.reason_text] : [])]
+            .join(", ")
+            .slice(0, 200);
+          const consents = [{ purpose: "care", method: "app" }, ...(b.reminders === true ? [{ purpose: "reminders", method: "app" }] : [])];
+          const request: C.WalkInRequest = {
+            ...(input.patient_id != null
+              ? { patient_id: input.patient_id }
+              : {
+                  patient: {
+                    full_name: [b.first_name, b.last_name].filter((x) => x != null && x !== "").join(" "),
+                    phone: `+91${b.phone.replace(/\D/g, "").slice(-10)}`,
+                    ...(b.sex != null ? { sex: b.sex } : {}),
+                    ...(b.email != null ? { email: b.email } : {}),
+                    ...(b.date_of_birth != null ? { date_of_birth: b.date_of_birth } : {}),
+                    ...(b.age_years != null ? { age_years: b.age_years } : {}),
+                  },
+                }),
+            ...(input.practitioner_id != null ? { practitioner_id: input.practitioner_id } : {}),
+            allergies: (b.allergies_text ?? "")
+              .split(/[,;\n]/)
+              .map((a) => a.trim().slice(0, 200))
+              .filter((a) => a !== "")
+              .slice(0, 20),
+            conditions: (b.health ?? []).flatMap((code) => QR_HEALTH.filter((c) => c.code === code).map((c) => c.label)),
+            consents,
+            ...(reason === "" ? {} : { reason }),
+            check_in: input.check_in ?? true,
+          };
+          // The same path as a walk-in, then the request is handled and removed.
+          const done = await api.registerWalkIn(request);
+          if (!done.ok) {
+            return refuse(done.error.status, done.error.code, done.error.message);
+          }
+          arrivalRows.splice(arrivalRows.indexOf(row), 1);
+          return reply(done.value);
+        }),
+      dismissArrival: (id, opts) =>
+        respond(S.voidResponse, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const at = arrivalRows.findIndex((r) => r.id === id && r.clinic_id === caller.clinic.id);
+          if (at < 0) {
+            return notFound;
+          }
+          arrivalRows.splice(at, 1);
+          return reply(undefined);
+        }),
+
       // Walk-in fast path.
       registerWalkIn: (input, opts) =>
         respond(S.walkIn, opts?.signal, async () => {
@@ -10837,6 +11046,51 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
 }
 
 /** A fake client over its own copy of `fixtures`. Use `createFakeBackend` to share data between hosts. */
+const QR_REASONS: C.CheckInChoice[] = [
+  { code: "tooth_pain", label: "Tooth pain" },
+  { code: "cleaning", label: "Cleaning" },
+  { code: "check_up", label: "Check-up" },
+  { code: "broken_tooth", label: "Broken tooth" },
+  { code: "braces", label: "Braces" },
+  { code: "follow_up", label: "Follow-up" },
+  { code: "other", label: "Other" },
+];
+const QR_HEALTH: C.CheckInChoice[] = [
+  { code: "diabetes", label: "Diabetes" },
+  { code: "high_bp", label: "High BP" },
+  { code: "heart", label: "Heart condition" },
+  { code: "pregnant", label: "Pregnant" },
+  { code: "blood_thinners", label: "Blood thinners" },
+];
+const QR_RELATIONS: C.CheckInChoice[] = [
+  { code: "parent", label: "Parent" },
+  { code: "spouse", label: "Spouse" },
+  { code: "child", label: "Child" },
+  { code: "sibling", label: "Sibling" },
+  { code: "other", label: "Other" },
+];
+/** A few PIN codes: district and state. */
+const FAKE_PINCODES: Record<string, [string, string]> = {
+  "411001": ["Pune", "Maharashtra"],
+  "400001": ["Mumbai", "Maharashtra"],
+  "110001": ["New Delhi", "Delhi"],
+};
+
+function fakeKey(random: { next(): number }): string {
+  return Array.from({ length: 22 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(random.next() * 36)]).join("");
+}
+
+function qrView(clinic: { host: string }, settings: { enabled: boolean; key: string | null } | undefined): C.SelfCheckInSettings {
+  return {
+    enabled: settings?.enabled ?? false,
+    ...(settings?.key != null ? { url: `https://${clinic.host}/arrive?k=${settings.key}` } : {}),
+  };
+}
+
+function qrOpen(_clinic: unknown, settings: { enabled: boolean; key: string | null } | undefined, key: string): boolean {
+  return settings?.enabled === true && settings.key !== null && key !== "" && settings.key === key;
+}
+
 export function createFakeClient(fixtures: Fixtures, options: FakeClientOptions = {}): ApiClient {
   return createFakeBackend(fixtures).client(options);
 }

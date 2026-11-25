@@ -105,6 +105,18 @@ pub fn standard_throttle_with(
         RuleConfig::new("ip-public-booking", KeyKind::Ip, 10, 60 * 60)
             .on_paths(&["/api/v1/public/bookings"])
             .on_methods(&["POST"]),
+        // QR self check-in: a clinic's Wi-Fi and mobile networks share addresses, so the cap per
+        // IP is wider than booking's. The per-clinic (120/hour) and per-phone (6/hour) caps are
+        // counted in the database, in the insert's own transaction, so they hold across instances.
+        RuleConfig::new("ip-public-arrive", KeyKind::Ip, 60, 60)
+            .on_paths(&["/api/v1/public/arrive"])
+            .on_methods(&["GET"]),
+        RuleConfig::new("ip-public-arrivals", KeyKind::Ip, 20, 10 * 60)
+            .on_paths(&["/api/v1/public/arrivals"])
+            .on_methods(&["POST"]),
+        RuleConfig::new("ip-pincode", KeyKind::Ip, 60, 60)
+            .on_paths(&["/api/v1/public/pincodes/"])
+            .on_methods(&["GET"]),
         RuleConfig::new("public-booking-identity", KeyKind::Custom, 6, 60 * 60),
         // Unknown offer codes per member (the handler checks on each miss); per instance.
         RuleConfig::new("member-promo-miss", KeyKind::Custom, 10, 10 * 60),

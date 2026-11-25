@@ -1,0 +1,47 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with chosen as (\n             select n.id, n.label from aarogyam.consent_notices n\n             where $7 order by n.version desc limit 1\n           )\n           insert into aarogyam.patient_consents\n             (patient_id, purpose, notice_version, given_at, method, recorded_by, notice_id, note)\n           select $1, c.purpose, coalesce((select label from chosen), $4), now(), c.method, $5,\n                  coalesce((select id from chosen), $6), $8\n\n           from unnest($2::text[], $3::text[]) as c(purpose, method)\n           on conflict (org_id, patient_id, purpose) where status = 'given' do nothing\n           returning id, purpose",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_consents",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "purpose",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patient_consents",
+            "name": "purpose"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray",
+        "TextArray",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "cde782538c13a8633091c661dc0f5d5d120f9258b80cafa3f5cc595971c56e22"
+}

@@ -240,6 +240,7 @@ pub async fn insert_many(
     methods: &[String],
     notice: NoticeChoice<'_>,
     recorded_by: Uuid,
+    note: Option<&str>,
 ) -> Result<Vec<(Uuid, String)>, DbError> {
     let (label, id, current) = match notice {
         NoticeChoice::Named(label, id) => (label, id, false),
@@ -251,9 +252,10 @@ pub async fn insert_many(
              where $7 order by n.version desc limit 1
            )
            insert into aarogyam.patient_consents
-             (patient_id, purpose, notice_version, given_at, method, recorded_by, notice_id)
+             (patient_id, purpose, notice_version, given_at, method, recorded_by, notice_id, note)
            select $1, c.purpose, coalesce((select label from chosen), $4), now(), c.method, $5,
-                  coalesce((select id from chosen), $6)
+                  coalesce((select id from chosen), $6), $8
+
            from unnest($2::text[], $3::text[]) as c(purpose, method)
            on conflict (org_id, patient_id, purpose) where status = 'given' do nothing
            returning id, purpose"#,
@@ -263,7 +265,8 @@ pub async fn insert_many(
         label,
         recorded_by,
         id,
-        current
+        current,
+        note
     )
     .fetch_all(conn)
     .await?;

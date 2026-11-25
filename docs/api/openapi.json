@@ -529,6 +529,140 @@
         ]
       }
     },
+    "/api/v1/arrivals": {
+      "get": {
+        "tags": [
+          "self-check-in"
+        ],
+        "summary": "The QR arrival requests waiting for the desk, oldest first, each with the patients who\nshare its phone.",
+        "operationId": "listArrivals",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArrivalList"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/arrivals/{id}/accept": {
+      "post": {
+        "tags": [
+          "self-check-in"
+        ],
+        "summary": "Accepts a request: registers the patient (or takes the one picked and fills only their blank\ndetails), records the allergies, health flags and consents they gave, and issues a token, all\nin one transaction. The answer is the walk-in's.",
+        "operationId": "acceptArrival",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The arrival request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalkIn"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks intake.write, patients.write or appointments.write"
+          },
+          "404": {
+            "description": "No such request (or patient) in this clinic"
+          },
+          "409": {
+            "description": "`already_handled`: someone else accepted or dismissed it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/arrivals/{id}/dismiss": {
+      "post": {
+        "tags": [
+          "self-check-in"
+        ],
+        "summary": "Dismisses a request (spam or a duplicate); what the patient typed is cleared at once.",
+        "operationId": "dismissArrival",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The arrival request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Dismissed"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such request in this clinic"
+          },
+          "409": {
+            "description": "`already_handled`: someone else accepted or dismissed it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/attachments/{id}/content": {
       "get": {
         "tags": [
@@ -14746,6 +14880,82 @@
         ]
       }
     },
+    "/api/v1/public/arrivals": {
+      "post": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: sends the clinic an arrival request (not a patient). The front desk\naccepts it. The answer never says whether the clinic knows the phone or name.",
+        "operationId": "sendArrival",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewArrivalBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Received"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "404": {
+            "description": "Not a clinic, wrong key, or the QR is off"
+          },
+          "429": {
+            "description": "`list_full` (the desk has 200 requests waiting) or `rate_limited`"
+          }
+        }
+      }
+    },
+    "/api/v1/public/arrive": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: the clinic's name, the form's choices and the notice. A wrong or missing\nkey, or a QR that is switched off, is a plain `404`.",
+        "operationId": "getArrivePage",
+        "parameters": [
+          {
+            "name": "k",
+            "in": "query",
+            "description": "The QR key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArrivePage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not a clinic, wrong key, or the QR is off"
+          },
+          "429": {
+            "description": "Too many requests from this address"
+          }
+        }
+      }
+    },
     "/api/v1/public/availability": {
       "get": {
         "tags": [
@@ -14955,6 +15165,46 @@
           },
           "410": {
             "description": "Expired"
+          }
+        }
+      }
+    },
+    "/api/v1/public/pincodes/{pin}": {
+      "get": {
+        "tags": [
+          "public"
+        ],
+        "summary": "Public, no sign-in: the district and state of a PIN code, from the offline directory. The\nanswer never changes within a release, so it is cached for 30 days.",
+        "operationId": "lookupPincode",
+        "parameters": [
+          {
+            "name": "pin",
+            "in": "path",
+            "description": "A six-digit PIN code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pincode"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a PIN code"
+          },
+          "404": {
+            "description": "Not a clinic, or a PIN code not in the directory"
+          },
+          "429": {
+            "description": "Too many requests from this address"
           }
         }
       }
@@ -17518,6 +17768,107 @@
           },
           "400": {
             "description": "Invalid input; the message names the key"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/self-check-in": {
+      "get": {
+        "tags": [
+          "self-check-in"
+        ],
+        "summary": "The QR check-in settings and the address the QR code opens.",
+        "operationId": "getSelfCheckInSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfCheckInSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "self-check-in"
+        ],
+        "summary": "Switches the QR on or off. Switching on for the first time makes the clinic's QR key.",
+        "operationId": "setSelfCheckIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelfCheckInSwitch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfCheckInSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks settings.manage"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/settings/self-check-in/key": {
+      "post": {
+        "tags": [
+          "self-check-in"
+        ],
+        "summary": "Makes a new QR key, which voids every printed QR code, and returns the new address.",
+        "operationId": "newSelfCheckInKey",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelfCheckInSettings"
+                }
+              }
+            }
           },
           "401": {
             "description": "Not signed in"
@@ -21804,6 +22155,30 @@
   },
   "components": {
     "schemas": {
+      "AcceptBody": {
+        "type": "object",
+        "description": "What the desk decides when it accepts.",
+        "properties": {
+          "check_in": {
+            "type": "boolean",
+            "description": "Issue a queue token (the default)."
+          },
+          "patient_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A registered patient picked from the matches; a new patient is registered when absent."
+          },
+          "practitioner_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The doctor; \"any\" when absent."
+          }
+        }
+      },
       "AcceptInvitation": {
         "type": "object",
         "description": "An invitation to accept.",
@@ -23066,6 +23441,227 @@
           "slug": {
             "type": "string",
             "description": "Its subdomain."
+          }
+        }
+      },
+      "Arrival": {
+        "type": "object",
+        "description": "A request waiting for the desk. Phone and email are masked without `patients.contact`.",
+        "required": [
+          "id",
+          "created_at",
+          "first_name",
+          "phone",
+          "for_self",
+          "reasons",
+          "reason_labels",
+          "health",
+          "health_labels",
+          "reminders",
+          "matches"
+        ],
+        "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientAddress",
+                "description": "Address."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in years.",
+            "minimum": 0
+          },
+          "allergies_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Allergies in the patient's words."
+          },
+          "contact_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person who filled the form, when not the patient."
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When the patient sent it (RFC 3339)."
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth, `YYYY-MM-DD`."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email, masked without `patients.contact`."
+          },
+          "first_name": {
+            "type": "string",
+            "description": "The patient's first name."
+          },
+          "for_self": {
+            "type": "boolean",
+            "description": "Whether the person who filled the form is the patient."
+          },
+          "health": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Health codes the patient ticked."
+          },
+          "health_labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The health flags in words."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "last_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's last name, when given."
+          },
+          "matches": {
+            "$ref": "#/components/schemas/PhoneMatches",
+            "description": "Patients already registered with the phone, and their relatives. The desk picks one or\n\"new patient\"; the default is a new patient."
+          },
+          "phone": {
+            "type": "string",
+            "description": "The phone, masked without `patients.contact`."
+          },
+          "reason_labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The reasons in words."
+          },
+          "reason_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A line in the patient's words."
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Reason codes."
+          },
+          "relation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What that person is to the patient."
+          },
+          "reminders": {
+            "type": "boolean",
+            "description": "The patient ticked appointment reminders."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`female`, `male` or `other`."
+          }
+        }
+      },
+      "ArrivalList": {
+        "type": "object",
+        "description": "The requests waiting for the desk.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Arrival"
+            },
+            "description": "Oldest first."
+          }
+        }
+      },
+      "ArrivePage": {
+        "type": "object",
+        "description": "What the check-in page needs to start.",
+        "required": [
+          "clinic_name",
+          "reasons",
+          "health_flags",
+          "relations",
+          "notice_version",
+          "notice_url"
+        ],
+        "properties": {
+          "clinic_name": {
+            "type": "string",
+            "description": "The clinic's name."
+          },
+          "health_flags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "\"Any of these?\" health choices."
+          },
+          "notice_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The clinic's published privacy notice; empty when it has none, and the page then links\n`notice_url`."
+          },
+          "notice_url": {
+            "type": "string",
+            "description": "The standard privacy page, on the site that serves this one."
+          },
+          "notice_version": {
+            "type": "string",
+            "description": "The notice version the patient agrees to."
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "\"What brings you in?\" choices."
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "What the person filling the form is to the patient, for \"my child / family member\"."
           }
         }
       },
@@ -24525,6 +25121,24 @@
             "type": "string",
             "format": "binary",
             "description": "The file: JPEG, PNG or PDF, up to 5 MB. Its type is read from its content."
+          }
+        }
+      },
+      "CheckInChoice": {
+        "type": "object",
+        "description": "A choice on the check-in form.",
+        "required": [
+          "code",
+          "label"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "What the API carries."
+          },
+          "label": {
+            "type": "string",
+            "description": "What the patient reads."
           }
         }
       },
@@ -34126,6 +34740,140 @@
           }
         }
       },
+      "NewArrivalBody": {
+        "type": "object",
+        "description": "A patient's arrival.",
+        "required": [
+          "k",
+          "first_name",
+          "phone",
+          "consent_care",
+          "for_self"
+        ],
+        "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientAddress",
+                "description": "Address, with the PIN code checked."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "age_years": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Age in years; not together with `date_of_birth`.",
+            "minimum": 0
+          },
+          "allergies_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Allergies in the patient's words."
+          },
+          "consent_care": {
+            "type": "boolean",
+            "description": "The patient agrees to the clinic keeping their health record to treat them. Must be\n`true`."
+          },
+          "contact_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The person filling the form, when not the patient."
+          },
+          "date_of_birth": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Date of birth, `YYYY-MM-DD`."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Email."
+          },
+          "first_name": {
+            "type": "string",
+            "description": "The patient's first name."
+          },
+          "for_self": {
+            "type": "boolean",
+            "description": "Whether the person filling the form is the patient."
+          },
+          "health": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Health codes from the form's list."
+          },
+          "k": {
+            "type": "string",
+            "description": "The QR key."
+          },
+          "last_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The patient's last name; optional."
+          },
+          "phone": {
+            "type": "string",
+            "description": "The phone; +91 is assumed without a country code."
+          },
+          "reason_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A line in the patient's words, at most 200 characters."
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Reason codes from the form's list; give at least one, or `reason_text`."
+          },
+          "relation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What that person is to the patient, a code from `relations`."
+          },
+          "reminders": {
+            "type": "boolean",
+            "description": "Appointment reminders by message."
+          },
+          "sex": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`female`, `male` or `other`."
+          },
+          "website": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A hidden field real people leave empty; when it is filled nothing is stored."
+          }
+        }
+      },
       "NewBooking": {
         "type": "object",
         "description": "A booking.",
@@ -34859,6 +35607,17 @@
           "full_name"
         ],
         "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientAddress",
+                "description": "Postal address; optional, with the PIN code checked."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "age_years": {
             "type": [
               "integer",
@@ -37522,6 +38281,17 @@
           "has_photo"
         ],
         "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientAddress",
+                "description": "The postal address. Sent with a single patient (the record, a registration, an edit),\nnever in lists, and left out when none is stored."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "age_years": {
             "type": [
               "integer",
@@ -37638,6 +38408,54 @@
           "status": {
             "type": "string",
             "description": "`active`, `inactive`, `deceased` or `merged`."
+          }
+        }
+      },
+      "PatientAddress": {
+        "type": "object",
+        "description": "A postal address in India. Every part is optional; the PIN code, when given, is six digits.",
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "City or town."
+          },
+          "district": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "District."
+          },
+          "line1": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "House, building and street."
+          },
+          "locality": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Area or landmark."
+          },
+          "pincode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Six-digit PIN code."
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "State or union territory."
           }
         }
       },
@@ -38082,6 +38900,17 @@
         "type": "object",
         "description": "Changes to a patient. Fields left out stay as they are; an empty `phone`, `email` or\n`date_of_birth` clears it.",
         "properties": {
+          "address": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientAddress",
+                "description": "Postal address; replaces the stored one, and an address with every part empty clears it."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "age_years": {
             "type": [
               "integer",
@@ -39428,6 +40257,29 @@
               "null"
             ],
             "description": "`logo`, `hero`, `about`, `doctor` or `gallery` (default)."
+          }
+        }
+      },
+      "Pincode": {
+        "type": "object",
+        "description": "Where a PIN code is.",
+        "required": [
+          "pin",
+          "district",
+          "state"
+        ],
+        "properties": {
+          "district": {
+            "type": "string",
+            "description": "The district."
+          },
+          "pin": {
+            "type": "string",
+            "description": "The six-digit PIN code."
+          },
+          "state": {
+            "type": "string",
+            "description": "The state or union territory."
           }
         }
       },
@@ -41710,6 +42562,10 @@
           }
         }
       },
+      "Received": {
+        "type": "object",
+        "description": "An empty answer: the same whatever happened to the request."
+      },
       "RecordConsent": {
         "type": "object",
         "description": "A consent to record.",
@@ -43004,6 +43860,39 @@
           "with_balance": {
             "type": "boolean",
             "description": "Only patients with a balance on issued bills (needs `billing.read`)."
+          }
+        }
+      },
+      "SelfCheckInSettings": {
+        "type": "object",
+        "description": "The clinic's QR check-in settings.",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether scanning the QR code works."
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The address the QR code opens, with its key; left out until a QR code is made. Anyone\nwith it can send arrival requests, so show it only to staff who print or display it."
+          }
+        }
+      },
+      "SelfCheckInSwitch": {
+        "type": "object",
+        "description": "Switch the QR on or off.",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether scanning the QR code works. Switching on makes the first QR code."
           }
         }
       },

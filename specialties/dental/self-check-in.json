@@ -1,0 +1,25 @@
+{
+  "reasons": [
+    { "code": "tooth_pain", "label": "Tooth pain" },
+    { "code": "cleaning", "label": "Cleaning" },
+    { "code": "check_up", "label": "Check-up" },
+    { "code": "broken_tooth", "label": "Broken tooth" },
+    { "code": "braces", "label": "Braces" },
+    { "code": "follow_up", "label": "Follow-up" },
+    { "code": "other", "label": "Other" }
+  ],
+  "health_flags": [
+    { "code": "diabetes", "label": "Diabetes", "condition": "Diabetes" },
+    { "code": "high_bp", "label": "High BP", "condition": "High blood pressure" },
+    { "code": "heart", "label": "Heart condition", "condition": "Heart condition" },
+    { "code": "pregnant", "label": "Pregnant", "condition": "Pregnant" },
+    { "code": "blood_thinners", "label": "Blood thinners", "condition": "On blood thinners" }
+  ],
+  "relations": [
+    { "code": "parent", "label": "Parent" },
+    { "code": "spouse", "label": "Spouse" },
+    { "code": "child", "label": "Child" },
+    { "code": "sibling", "label": "Sibling" },
+    { "code": "other", "label": "Other" }
+  ]
+}

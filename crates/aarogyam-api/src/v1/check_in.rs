@@ -106,6 +106,7 @@ pub(crate) async fn check_in(
                 .map(|text| parse_id("notice_id", text))
                 .transpose()?,
             notice_version: body.notice_version,
+            consent_note: None,
         },
     };
     let done = app::check_in(

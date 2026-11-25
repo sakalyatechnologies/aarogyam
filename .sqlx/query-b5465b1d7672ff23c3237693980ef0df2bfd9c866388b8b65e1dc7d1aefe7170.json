@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "with found as (\n             select * from aarogyam.patients\n             where id = $1 and deleted_at is null and app.patient_in_reach(id, $10)\n           ), recorded as (\n             insert into audit.access_log\n               (actor_user_id, actor_kind, patient_id, resource, action, purpose, request_id)\n             select $2, $3, found.id, $4, $5, $6, $7 from found\n           )\n           select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated,\n                  p.phone_e164, p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  s.next_starts_at, s.next_practitioner, s.balance_paise as \"balance_paise!\",\n                  s.lifetime_paid_paise as \"lifetime_paid_paise!\", s.recall_due as \"recall_due!\",\n                  f.allergy_alert as \"allergy_alert!\", f.consent_pending as \"consent_pending!\",\n                  f.has_photo as \"has_photo!\"\n           from found p\n           cross join lateral app.patient_summary(p.id, $8, $9) s\n           cross join lateral app.patient_flags(p.id) f",
+  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,\n                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  f.allergy_alert as \"allergy_alert!\", f.consent_pending as \"consent_pending!\",\n                  f.has_photo as \"has_photo!\", p.address\n           from aarogyam.patients p\n           cross join lateral app.patient_flags(p.id) f\n           where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)",
   "describe": {
     "columns": [
       {
@@ -148,64 +148,37 @@
       },
       {
         "ordinal": 13,
-        "name": "next_starts_at",
-        "type_info": "Timestamptz",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 14,
-        "name": "next_practitioner",
-        "type_info": "Text",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 15,
-        "name": "balance_paise!",
-        "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 16,
-        "name": "lifetime_paid_paise!",
-        "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 17,
-        "name": "recall_due!",
-        "type_info": "Bool",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 18,
         "name": "allergy_alert!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 19,
+        "ordinal": 14,
         "name": "consent_pending!",
         "type_info": "Bool",
         "origin": "Expression"
       },
       {
-        "ordinal": 20,
+        "ordinal": 15,
         "name": "has_photo!",
         "type_info": "Bool",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "address",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "address"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid",
-        "Text",
-        "Text",
-        "Text",
-        "Text",
-        "Text",
-        "Timestamptz",
-        "Date",
         "Uuid"
       ]
     },
@@ -226,12 +199,8 @@
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null
+      true
     ]
   },
-  "hash": "8d5886672656d885d98274729244fdb9c8ef6287c5f1cf443647ff0fe3a44226"
+  "hash": "b5465b1d7672ff23c3237693980ef0df2bfd9c866388b8b65e1dc7d1aefe7170"
 }

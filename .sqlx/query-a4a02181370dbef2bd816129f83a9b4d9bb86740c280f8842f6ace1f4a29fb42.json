@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,\n                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  f.allergy_alert as \"allergy_alert!\", f.consent_pending as \"consent_pending!\",\n                  f.has_photo as \"has_photo!\"\n           from aarogyam.patients p\n           cross join lateral app.patient_flags(p.id) f\n           where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)",
+  "query": "select p.id, p.number, p.full_name, p.sex, p.date_of_birth, p.birth_date_estimated, p.phone_e164,\n                  p.email, p.preferred_language, p.status, p.created_at, p.last_visit_at, p.row_version,\n                  f.allergy_alert as \"allergy_alert!\", f.consent_pending as \"consent_pending!\",\n                  f.has_photo as \"has_photo!\", p.address\n           from aarogyam.patients p\n           cross join lateral app.patient_flags(p.id) f\n           where p.id = $1 and p.deleted_at is null and app.patient_in_reach(p.id, $2)\n           for update of p",
   "describe": {
     "columns": [
       {
@@ -163,6 +163,17 @@
         "name": "has_photo!",
         "type_info": "Bool",
         "origin": "Expression"
+      },
+      {
+        "ordinal": 16,
+        "name": "address",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.patients",
+            "name": "address"
+          }
+        }
       }
     ],
     "parameters": {
@@ -187,8 +198,9 @@
       false,
       null,
       null,
-      null
+      null,
+      true
     ]
   },
-  "hash": "05c1f101b1284845f3fc1a9fd38aa0a5e9544b821ff468947b985d713d92fade"
+  "hash": "a4a02181370dbef2bd816129f83a9b4d9bb86740c280f8842f6ace1f4a29fb42"
 }

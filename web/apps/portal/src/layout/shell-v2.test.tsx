@@ -44,6 +44,17 @@ describe("Shell v2 rail", () => {
     expect(rail()).toBeNull();
   });
 
+  it.each([
+    ["the owner", PEOPLE.asha],
+    ["front desk", PEOPLE.farah],
+  ])("lists Guides for %s, just above Settings", async (_who, id) => {
+    renderPortal("/today", { as: id });
+    const guides = await screen.findByRole("link", { name: "Guides" });
+    expect(guides.getAttribute("href")).toBe("/guides");
+    const links = inRail().getAllByRole("link");
+    expect(links[links.indexOf(guides) + 1]?.getAttribute("href")).toBe("/settings");
+  });
+
   it("starts as an icon rail, expands to show labels, collapses again, and remembers the choice", async () => {
     const user = userEvent.setup();
     renderPortal("/today", { as: PEOPLE.asha });

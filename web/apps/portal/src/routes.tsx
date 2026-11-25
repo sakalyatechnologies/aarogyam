@@ -94,6 +94,8 @@ export const routes: RouteObject[] = [
               },
               { path: "messages", lazy: lazyPage(() => import("./pages/messages/messages-page.js"), (m) => m.MessagesPage) },
               { path: "staff", element: <Navigate to="/settings?tab=team" replace /> },
+              { path: "guides", lazy: lazyPage(() => import("./pages/guides/guides-page.js"), (m) => m.GuidesPage) },
+              { path: "guides/:id", lazy: lazyPage(() => import("./pages/guides/guide-page.js"), (m) => m.GuidePage) },
               { path: "settings", lazy: lazyPage(() => import("./pages/settings/settings-page.js"), (m) => m.SettingsPage) },
               { path: "*", lazy: lazyPage(() => import("./pages/not-found-page.js"), (m) => m.NotFoundPage) },
             ],

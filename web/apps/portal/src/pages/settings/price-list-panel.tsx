@@ -237,7 +237,8 @@ function PriceItemDialog({ dialog, onClose }: { dialog: { item?: PriceItem } | u
           <TextInput
             value={values.name}
             onChange={(event) => {
-              setValues((prev) => ({ ...prev, name: event.currentTarget.value }));
+              const { value } = event.currentTarget;
+              setValues((prev) => ({ ...prev, name: value }));
             }}
           />
         </Field>
@@ -246,7 +247,8 @@ function PriceItemDialog({ dialog, onClose }: { dialog: { item?: PriceItem } | u
             <TextInput
               value={values.code}
               onChange={(event) => {
-                setValues((prev) => ({ ...prev, code: event.currentTarget.value }));
+                const { value } = event.currentTarget;
+                setValues((prev) => ({ ...prev, code: value }));
               }}
             />
           </Field>
@@ -265,7 +267,8 @@ function PriceItemDialog({ dialog, onClose }: { dialog: { item?: PriceItem } | u
             inputMode="decimal"
             value={values.rupees}
             onChange={(event) => {
-              setValues((prev) => ({ ...prev, rupees: event.currentTarget.value }));
+              const { value } = event.currentTarget;
+              setValues((prev) => ({ ...prev, rupees: value }));
             }}
           />
         </Field>
@@ -285,7 +288,8 @@ function PriceItemDialog({ dialog, onClose }: { dialog: { item?: PriceItem } | u
               <TextInput
                 value={values.sacHsn}
                 onChange={(event) => {
-                  setValues((prev) => ({ ...prev, sacHsn: event.currentTarget.value }));
+                  const { value } = event.currentTarget;
+                  setValues((prev) => ({ ...prev, sacHsn: value }));
                 }}
               />
             </Field>

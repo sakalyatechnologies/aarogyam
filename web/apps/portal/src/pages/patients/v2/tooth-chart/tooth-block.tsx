@@ -14,6 +14,7 @@ import { ExplainMode } from "../explain/explain-mode.js";
 import { Bento, PillButton, Pills, PopoverPill } from "../kit.js";
 import { useVisitSession } from "../visit-session.js";
 import { useToothHealthSaver } from "./health-row.js";
+import { MultiQuickPlan } from "./multi-quick-plan.js";
 import { ProgressLine } from "./progress-line.js";
 import { ChartKey, DENTITIONS, LOOKS, ToothChart, VIEWS } from "./tooth-chart.js";
 import { ToothPanel } from "./tooth-panel.js";
@@ -38,6 +39,21 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
   const dictated = useCallback(() => {
     setDictate(undefined);
   }, []);
+  // Select several teeth: the teeth picked so far (in order), or none when the mode is off.
+  const [multi, setMulti] = useState<readonly number[] | undefined>(undefined);
+  const startMulti = useCallback((tooth: number) => {
+    setMulti((now) => (now === undefined ? [tooth] : now.includes(tooth) ? now : [...now, tooth]));
+    setSelected(undefined);
+    setSurface(null);
+  }, []);
+  useEffect(() => {
+    if (multi === undefined) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMulti(undefined);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); };
+  }, [multi === undefined]);
   const [explaining, setExplaining] = useState(false);
   const navigate = useNavigate();
   // Show patient opens on the open visit, or else on the patient's latest visit, so it works from any patient page.
@@ -95,6 +111,17 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
       onDictateStarted={dictated}
     />
   );
+  const multiOpen = canWrite && visit.canWrite && visit.visit !== undefined;
+  const multiPanel =
+    multi === undefined ? null : (
+      <aside className="tc-panel" aria-label="Selected teeth panel">
+        {multiOpen && visit.visit !== undefined ? (
+          <MultiQuickPlan key={multi.join(",")} patientId={patientId} teeth={multi} visitId={visit.visit.id} terms={chart.data.terms} planItems={planItems} entries={chart.data.current} />
+        ) : (
+          <p className="tc-empty">Open a visit to plan treatment on these teeth.</p>
+        )}
+      </aside>
+    );
   return (
     <Bento
       level={2}
@@ -136,6 +163,16 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
         />
       ) : null}
       <div className="tc-wrap">
+        <div className="tc-multibar" role="status">
+          {multi === undefined ? null : (
+            <>
+              <span>{`${String(multi.length)} ${multi.length === 1 ? "tooth" : "teeth"} selected`}</span>
+              <button type="button" className="tc-chip" onClick={() => { setMulti(undefined); }}>
+                Clear
+              </button>
+            </>
+          )}
+        </div>
         <ProgressLine history={chart.data.current} procedures={procedures.data?.items ?? []} since={visits.data?.items.map((v) => v.started_at).sort()[0]} />
         {prefs.look === "classic" ? (
           // The existing odontogram with its five surfaces; a tooth opens the same panel as the other views.
@@ -158,7 +195,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
             }}
           />
         ) : (
-          <div className="tc-split" data-open={selected === undefined ? undefined : ""}>
+          <div className="tc-split" data-open={selected === undefined && multi === undefined ? undefined : ""}>
             <ToothChart
               look={prefs.look}
               dentition={prefs.dentition}
@@ -166,16 +203,19 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
               current={chart.data.current}
               statuses={statuses}
               planItems={planItems}
-              selected={selected}
-              onSelect={(tooth) => {
-                setSelected(tooth);
-                setSurface(null);
+              selected={multi === undefined ? selected : undefined}
+              multi={multi === undefined ? undefined : new Set(multi)}
+              onSelect={(tooth, how) => {
+                if (multi !== undefined) {
+                  const rest = multi.filter((t) => t !== tooth);
+                  setMulti(rest.length === multi.length ? [...multi, tooth] : rest.length === 0 ? undefined : rest);
+                } else if (how?.shift === true) startMulti(tooth);
+                else {
+                  setSelected(tooth);
+                  setSurface(null);
+                }
               }}
-              onLongPress={(tooth) => {
-                setSelected(tooth);
-                setSurface(null);
-                setDictate(tooth);
-              }}
+              onLongPress={startMulti}
               onHealthKey={
                 canWrite
                   ? (tooth, health) => {
@@ -187,7 +227,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
                   : undefined
               }
             />
-            {panel}
+            {multi === undefined ? panel : multiPanel}
           </div>
         )}
       </div>

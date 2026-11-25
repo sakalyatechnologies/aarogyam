@@ -560,27 +560,6 @@ describe("tooth health and a quick note", () => {
     expect(recogniser?.aborted).toBe(true);
   });
 
-  it("starts dictating on a long press, while a click stays a plain select", async () => {
-    installVoiceDoubles();
-    const user = userEvent.setup();
-    const { path, backend, wrap } = seeded();
-    renderPortal(path, { as: PEOPLE.asha, backend, wrap });
-    await ready();
-    await user.click(tooth(15));
-    await screen.findByRole("complementary", { name: "Tooth 15 panel" });
-    expect(FakeRecognition.instances).toHaveLength(0);
-
-    fireEvent.pointerDown(tooth(14));
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    fireEvent.pointerUp(tooth(14));
-    fireEvent.click(tooth(14));
-    const panel = await screen.findByRole("complementary", { name: "Tooth 14 panel" });
-    await waitFor(() => {
-      expect(FakeRecognition.instances.at(-1)?.started).toBe(1);
-    });
-    expect(within(panel).getByRole("button", { name: "Stop dictating" }).getAttribute("aria-pressed")).toBe("true");
-  });
-
   it("shows the health set for a tooth on the Classic chart too: a coloured dot and the hover text", async () => {
     localStorage.setItem(chartPrefsKey(PEOPLE.asha), JSON.stringify({ look: "classic", dentition: "adult", view: "treatment" }));
     const user = userEvent.setup();

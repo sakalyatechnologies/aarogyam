@@ -53,4 +53,35 @@
     <string name="queue_done">झाले</string>
     <string name="queue_left">गेले</string>
     <string name="queue_start_visit">भेट सुरू करा</string>
+    <plurals name="checkin_strip">
+        <item quantity="one">QR ने %d चेक-इन</item>
+        <item quantity="other">QR ने %d चेक-इन</item>
+    </plurals>
+    <string name="checkin_title">QR ने चेक-इन</string>
+    <string name="checkin_empty">कोणीही प्रतीक्षेत नाही.</string>
+    <string name="checkin_new_patient">नवीन रुग्ण</string>
+    <string name="checkin_pick">आधीच नोंदवलेले? त्यांना निवडा.</string>
+    <string name="checkin_add">रांगेत जोडा</string>
+    <string name="checkin_dismiss">काढून टाका</string>
+    <string name="checkin_handled">हे आधीच दुसऱ्याने हाताळले आहे</string>
+    <string name="selfcheckin_tile">स्वतः चेक-इन</string>
+    <string name="selfcheckin_tile_sub">रुग्ण QR</string>
+    <string name="selfcheckin_title">स्वतः चेक-इन</string>
+    <string name="selfcheckin_switch">रुग्ण QR ने चेक-इन करू शकतात</string>
+    <string name="selfcheckin_message">रुग्ण कोड स्कॅन करून छोटा फॉर्म भरतात. ते रांगेत तुमच्या स्वीकारासाठी दिसतात.</string>
+    <string name="selfcheckin_off">QR कोड बनवण्यासाठी चालू करा.</string>
+    <string name="selfcheckin_code">चेक-इनसाठी QR कोड</string>
+    <string name="selfcheckin_share">शेअर करा</string>
+    <string name="selfcheckin_new_key">नवीन QR बनवा</string>
+    <string name="selfcheckin_new_key_title">नवीन QR बनवायचा?</string>
+    <string name="selfcheckin_new_key_body">छापलेला QR काम करणे थांबेल. रुग्णांना नवीन QR लागेल.</string>
+    <string name="selfcheckin_cancel">रद्द करा</string>
+    <string name="address_title">पत्ता (ऐच्छिक)</string>
+    <string name="address_line1">घर आणि रस्ता</string>
+    <string name="address_locality">परिसर किंवा खूण</string>
+    <string name="address_city">शहर किंवा गाव</string>
+    <string name="address_district">जिल्हा</string>
+    <string name="address_state">राज्य</string>
+    <string name="address_pincode">पिन कोड</string>
+    <string name="address_pincode_hint">सर्व 6 अंक लिहा</string>
 </resources>

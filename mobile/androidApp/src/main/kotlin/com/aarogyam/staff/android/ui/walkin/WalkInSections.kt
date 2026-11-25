@@ -13,6 +13,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.label
 import com.aarogyam.staff.patients.Sex
 import com.aarogyam.staff.walkin.LookupState
+import com.aarogyam.staff.walkin.PhoneMatchRow
 import com.aarogyam.staff.walkin.WalkInForm
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.aarogyam.staff.walkin.Who
@@ -66,43 +67,47 @@ private fun Matches(
     if (lookup.items.isEmpty()) Hint(R.string.walk_in_no_match)
     SkCard(contentPadding = 0.dp) {
         lookup.items.forEach { match ->
-            val chosen = who is Who.Existing && who.id == match.id
-            val age = match.ageYears?.let { stringResource(R.string.age_years, it) }
-            val sex = match.sex.label()?.let { stringResource(it) }
-            SkListRow(
-                title = match.name,
-                subtitle = listOfNotNull(match.number, age, sex).joinToString(" · "),
-                onClick = { holder.pick(match) },
-                leading = { SkAvatar(match.name) },
-                trailing =
-                    if (chosen) {
-                        (
-                            {
-                                SkChip(
-                                    stringResource(R.string.walk_in_selected),
-                                    tone = SkTone.Success,
-                                )
-                            }
-                        )
-                    } else {
-                        null
-                    },
-            )
+            MatchRow(match, chosen = who is Who.Existing && who.id == match.id, onClick = { holder.pick(match) })
             SkDivider()
         }
-        SkListRow(
-            title = stringResource(R.string.walk_in_someone_new),
+        SomeoneNewRow(
+            stringResource(R.string.walk_in_someone_new),
+            chosen = who == Who.New,
             onClick = holder::someoneNew,
-            trailing =
-                if (who ==
-                    Who.New
-                ) {
-                    ({ SkChip(stringResource(R.string.walk_in_selected), tone = SkTone.Success) })
-                } else {
-                    null
-                },
         )
     }
+}
+
+/** One registered patient with the typed number; shared with the QR arrivals sheet. */
+@Composable
+internal fun MatchRow(
+    match: PhoneMatchRow,
+    chosen: Boolean,
+    onClick: () -> Unit,
+) {
+    val age = match.ageYears?.let { stringResource(R.string.age_years, it) }
+    val sex = match.sex.label()?.let { stringResource(it) }
+    SkListRow(
+        title = match.name,
+        subtitle = listOfNotNull(match.number, age, sex).joinToString(" · "),
+        onClick = onClick,
+        leading = { SkAvatar(match.name) },
+        trailing = if (chosen) ({ SkChip(stringResource(R.string.walk_in_selected), tone = SkTone.Success) }) else null,
+    )
+}
+
+/** The "someone new" choice at the end of a list of matches. */
+@Composable
+internal fun SomeoneNewRow(
+    title: String,
+    chosen: Boolean,
+    onClick: () -> Unit,
+) {
+    SkListRow(
+        title = title,
+        onClick = onClick,
+        trailing = if (chosen) ({ SkChip(stringResource(R.string.walk_in_selected), tone = SkTone.Success) }) else null,
+    )
 }
 
 /** Name, age and sex for someone not registered yet. */

@@ -152,8 +152,30 @@ private struct WalkInMatches: View {
     }
 
     private func matchRow(_ title: String, line: String?, on: Bool, new: Bool = false, action: @escaping () -> Void) -> some View {
+        PatientChoiceRow(title: title, line: line, on: on, new: new, action: action)
+    }
+
+    private func isChosen(_ match: PhoneMatchRow) -> Bool {
+        if case .existing(let who) = onEnum(of: form.who) { who.id == match.id } else { false }
+    }
+
+    private var isNew: Bool {
+        if case .new = onEnum(of: form.who) { true } else { false }
+    }
+}
+
+/// One registered patient (or "someone new") to pick; shared with the QR arrivals sheet.
+struct PatientChoiceRow: View {
+    let title: String
+    let line: String?
+    let on: Bool
+    var new = false
+    let action: () -> Void
+    @Environment(\.skTheme) private var theme
+
+    var body: some View {
         let r = theme.roles
-        return Button(action: action) {
+        Button(action: action) {
             HStack(spacing: 12) {
                 if new {
                     Image(systemName: "person.badge.plus").font(.body.weight(.semibold)).foregroundStyle(r.primary.color)
@@ -171,14 +193,6 @@ private struct WalkInMatches: View {
         }
         .buttonStyle(GroupedRowStyle())
         .accessibilityAddTraits(on ? .isSelected : [])
-    }
-
-    private func isChosen(_ match: PhoneMatchRow) -> Bool {
-        if case .existing(let who) = onEnum(of: form.who) { who.id == match.id } else { false }
-    }
-
-    private var isNew: Bool {
-        if case .new = onEnum(of: form.who) { true } else { false }
     }
 }
 

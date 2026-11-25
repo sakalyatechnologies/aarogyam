@@ -55,6 +55,7 @@ struct QueueV7Screen: View {
         if let error = loaded.actionError {
             Text(error.message).skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.error.color).padding(.top, 4)
         }
+        ArrivalsStrip(holder: holder.arrivals)
         TodaySectionHeader(title: String(localized: "t7.queue.now_serving", table: "TodayV7"))
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {

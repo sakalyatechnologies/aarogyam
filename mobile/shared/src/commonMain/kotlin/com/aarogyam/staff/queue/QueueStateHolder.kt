@@ -34,6 +34,9 @@ class QueueStateHolder(
     /** The current screen state. */
     val state: StateFlow<QueueState> = mutableState.asStateFlow()
 
+    /** QR check-ins waiting at the desk; read again whenever the queue loads. */
+    val arrivals = ArrivalsHolder(clinic, scope, onHandled = ::refresh)
+
     /** Visits started here, once each, for the screen to open. */
     val opened: SharedFlow<VisitOpened> = mutableOpened.asSharedFlow()
 
@@ -117,6 +120,7 @@ class QueueStateHolder(
             .map { QueueChair(it.id, it.name, it.branchId) }
 
     private fun load() {
+        arrivals.refresh()
         scope.launch {
             // No-shows are appointments, not tokens: they come from the day's counts, read alongside.
             val today = async { (clinic.api.today() as? Outcome.Success)?.value?.counts?.noShows }

@@ -112,6 +112,7 @@ private fun Board(
             modifier = Modifier.padding(top = 4.dp),
         )
     }
+    ArrivalsStrip(holder.arrivals)
     SectionHeader(stringResource(R.string.sh_s_q_now))
     ChairRow(s, holder, onOpenPatient)
     SectionHeader(

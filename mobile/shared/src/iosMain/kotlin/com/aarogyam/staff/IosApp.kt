@@ -31,6 +31,7 @@ import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
+import com.aarogyam.staff.share.RecordSharesStateHolder
 import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
@@ -262,6 +263,13 @@ fun AppGraph.visit(
     appointmentId: String?,
     screen: ScreenScope,
 ): VisitStateHolder = visit(clinic, patientId, tokenId, appointmentId, screen.scope)
+
+/** "Share record" on Patient 360 for [patientId], living as long as [screen]. */
+fun AppGraph.recordShares(
+    clinic: ClinicContext,
+    patientId: String,
+    screen: ScreenScope,
+): RecordSharesStateHolder = RecordSharesStateHolder(clinic, patientId, screen.scope)
 
 /** "Share visit summary" for [visitId], living as long as [screen]. */
 fun AppGraph.visitShare(

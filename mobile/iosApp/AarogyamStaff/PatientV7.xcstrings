@@ -3153,29 +3153,6 @@
         }
       }
     },
-    "pv.share.no_rx": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "There is no issued prescription to share yet."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "शेयर करने के लिए अभी कोई जारी प्रिस्क्रिप्शन नहीं है।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "शेअर करण्यासाठी अजून जारी केलेले प्रिस्क्रिप्शन नाही."
-          }
-        }
-      }
-    },
     "pv.share.pin": {
       "extractionState": "manual",
       "localizations": {
@@ -3195,75 +3172,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "PIN, रुग्णाला सांगा"
-          }
-        }
-      }
-    },
-    "pv.share.pin_note": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The PIN is shown once and never sent with the link."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN एक बार दिखता है और लिंक के साथ कभी नहीं भेजा जाता।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN एकदाच दिसतो आणि लिंकसोबत कधीही पाठवला जात नाही."
-          }
-        }
-      }
-    },
-    "pv.share.preview": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview: needs server support. Today the link holds the prescription and lasts 7 days."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्यू: सर्वर सहायता चाहिए। अभी लिंक में प्रिस्क्रिप्शन है और 7 दिन चलता है।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्ह्यू: सर्व्हर सहाय्य हवे. सध्या लिंकमध्ये प्रिस्क्रिप्शन असते आणि ती 7 दिवस चालते."
-          }
-        }
-      }
-    },
-    "pv.share.rx": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last Rx"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "पिछला Rx"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मागील Rx"
           }
         }
       }
@@ -4910,6 +4818,213 @@
           "stringUnit": {
             "state": "translated",
             "value": "अधिक"
+          }
+        }
+      }
+    },
+    "pv.share.pin_note": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The PIN is shown once. Send it separately from the link."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PIN एक बार दिखता है। इसे लिंक से अलग भेजें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PIN एकदाच दिसतो. तो लिंकपासून वेगळा पाठवा."
+          }
+        }
+      }
+    },
+    "pv.share.active": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active links"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चालू लिंक"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सुरू असलेल्या लिंक"
+          }
+        }
+      }
+    },
+    "pv.share.none": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No links yet."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी कोई लिंक नहीं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अजून कोणतीही लिंक नाही."
+          }
+        }
+      }
+    },
+    "pv.share.usable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Works until %@"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ तक चलेगा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ पर्यंत चालेल"
+          }
+        }
+      }
+    },
+    "pv.share.expired": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expired"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "समाप्त"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कालबाह्य"
+          }
+        }
+      }
+    },
+    "pv.share.locked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Locked after wrong PINs"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "गलत PIN के बाद बंद"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चुकीच्या PIN नंतर बंद"
+          }
+        }
+      }
+    },
+    "pv.share.opened": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opened %lld times"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld बार खोला गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld वेळा उघडली"
+          }
+        }
+      }
+    },
+    "pv.share.no_kinds": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your role cannot share any records."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपकी भूमिका कोई रिकॉर्ड शेयर नहीं कर सकती।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमची भूमिका कोणतेही रेकॉर्ड शेअर करू शकत नाही."
+          }
+        }
+      }
+    },
+    "pv.share.another": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make another link"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक और लिंक बनाएं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आणखी एक लिंक बनवा"
           }
         }
       }

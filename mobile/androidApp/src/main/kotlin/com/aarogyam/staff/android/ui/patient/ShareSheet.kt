@@ -4,10 +4,8 @@ import android.content.Intent
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -17,62 +15,28 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.display
+import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.clinic.ClinicContext
-import com.aarogyam.staff.prescriptions.RxListState
-import com.aarogyam.staff.prescriptions.RxStatus
-import com.sakalya.mobile.core.Outcome
+import com.aarogyam.staff.share.RecordKind
+import com.aarogyam.staff.share.RecordSharesStateHolder
+import com.aarogyam.staff.share.ShareExpiry
+import com.aarogyam.staff.share.ShareLinkState
+import com.aarogyam.staff.share.SharePhase
+import com.aarogyam.staff.share.ShareRow
 import com.sakalya.mobile.designcompose.SkChoiceChips
 import com.sakalya.mobile.designcompose.SkModalSheet
 import com.sakalya.mobile.designcompose.SkPillButton
 import com.sakalya.mobile.designcompose.SkPillVariant
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
-import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Instant
-
-/** The record kinds the share sheet offers; only the prescription has a link on the server yet. */
-private enum class ShareKind(
-    val real: Boolean,
-) {
-    Chart(false),
-    Rx(true),
-    Xrays(false),
-    Bills(false),
-}
-
-/** The expiry chips; the server's link lasts seven days whatever is chosen. */
-private enum class ShareExpiry(
-    val real: Boolean,
-) {
-    Hour(false),
-    Day(false),
-    Week(true),
-}
-
-private sealed interface SharePhase {
-    data object Idle : SharePhase
-
-    data object Creating : SharePhase
-
-    data object Failed : SharePhase
-
-    data class Ready(
-        val url: String,
-        val pin: String,
-        val expires: String?,
-    ) : SharePhase
-}
 
 @Composable
-private fun ShareKind.title(): String =
+private fun RecordKind.title(): String =
     stringResource(
         when (this) {
-            ShareKind.Chart -> R.string.pv_share_chart
-            ShareKind.Rx -> R.string.pv_share_rx
-            ShareKind.Xrays -> R.string.pv_share_xrays
-            ShareKind.Bills -> R.string.pv_share_bills
+            RecordKind.Chart -> R.string.pv_share_chart
+            RecordKind.Xrays -> R.string.pv_share_xrays
+            RecordKind.Bills -> R.string.pv_share_bills
         },
     )
 
@@ -86,7 +50,10 @@ private fun ShareExpiry.title(): String =
         },
     )
 
-/** "Share record": an expiring link with a PIN. The prescription link is real; chart, X-rays and bills are Preview. */
+/**
+ * "Share record": pick what to include and how long the link works, then make it (`POST /patients/{id}/record-shares`)
+ * and open the system share sheet. The PIN is shown once and is told to the patient apart from the link.
+ */
 @Composable
 internal fun ShareSheet(
     graph: AppGraph,
@@ -95,98 +62,101 @@ internal fun ShareSheet(
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val list = remember { graph.rxList(clinic, patientId, scope) }
-    val state by list.state.collectAsStateWithLifecycle()
-    var kinds by remember { mutableStateOf(setOf(ShareKind.Chart, ShareKind.Rx)) }
-    var expiry by remember { mutableStateOf(ShareExpiry.Week) }
-    var phase by remember { mutableStateOf<SharePhase>(SharePhase.Idle) }
-    val loaded = state as? RxListState.Loaded
-    val target = loaded?.items?.firstOrNull { it.status == RxStatus.Issued }
-    val p = SkTheme.palette
-    val clinicName = clinic.session.clinic.name
+    val holder = remember { graph.recordShares(clinic, patientId, scope) }
+    val state by holder.state.collectAsStateWithLifecycle()
     SkModalSheet(
         stringResource(R.string.pv_share_title),
         onDismiss,
         subtitle = stringResource(R.string.pv_share_message),
     ) {
-        val ready = phase as? SharePhase.Ready
-        if (ready != null) {
-            V7Label(stringResource(R.string.pv_share_pin))
-            Text(
-                ready.pin,
-                style = v7(34f, FontWeight.ExtraBold).copy(fontFamily = FontFamily.Monospace, letterSpacing = 4.sp),
-                color = p.onSurface.color,
-            )
-            V7Muted(stringResource(R.string.pv_share_pin_note))
-            ready.expires?.let { V7Muted(stringResource(R.string.pv_share_expires_on, it)) }
-            val text = stringResource(R.string.pv_share_text, clinicName) + " " + ready.url
-            SkPillButton(
-                stringResource(R.string.pv_share_send),
-                {
-                    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
-                    context.startActivity(Intent.createChooser(send, null))
-                },
-                wide = true,
-            )
-            SkPillButton(stringResource(R.string.done), onDismiss, variant = SkPillVariant.Ghost, wide = true)
-        } else {
-            V7Label(stringResource(R.string.pv_share_expires))
-            val expiryTitles = ShareExpiry.entries.associateWith { it.title() }
-            SkChoiceChips(ShareExpiry.entries, setOf(expiry), { expiry = it }, { expiryTitles.getValue(it) })
-            val kindTitles = ShareKind.entries.associateWith { it.title() }
-            SkChoiceChips(
-                ShareKind.entries,
-                kinds,
-                { kinds = if (it in kinds) kinds - it else kinds + it },
-                { kindTitles.getValue(it) },
-                single = false,
-            )
-            if (!expiry.real || kinds.any { !it.real }) V7Pill(stringResource(R.string.pv_share_preview), PillKind.Warm)
-            if (target == null && loaded != null) V7Muted(stringResource(R.string.pv_share_no_rx))
-            if (phase == SharePhase.Failed) {
-                Text(
-                    stringResource(R.string.pv_share_failed),
-                    style = v7(12.5f, FontWeight.SemiBold),
-                    color = p.error.color,
-                )
+        val phase = state.phase
+        when {
+            phase is SharePhase.Ready -> {
+                Ready(phase, clinic.session.clinic.name, holder::reset, onDismiss)
             }
-            SkPillButton(
-                stringResource(R.string.pv_share_create),
-                {
-                    val id = target?.id ?: return@SkPillButton
-                    phase = SharePhase.Creating
-                    scope.launch { phase = create(clinic, id) }
-                },
-                wide = true,
-                loading = phase == SharePhase.Creating,
-                enabled = target != null && ShareKind.Rx in kinds,
-            )
+
+            !state.allowed -> {
+                V7Muted(stringResource(R.string.pv_share_no_kinds))
+            }
+
+            else -> {
+                Form(holder, clinic.session.clinic.name)
+            }
         }
     }
 }
 
-/** Creates the patient's link for one issued prescription (`POST /prescriptions/{id}/share`). */
-private suspend fun create(
-    clinic: ClinicContext,
-    id: String,
-): SharePhase =
-    when (val result = clinic.api.sharePrescription(id)) {
-        is Outcome.Success -> {
-            val link = result.value
-            val expires =
-                runCatching {
-                    Instant
-                        .parse(
-                            link.expiresAt,
-                        ).toLocalDateTime(TimeZone.of(clinic.session.clinic.timezone))
-                        .date
-                        .display()
-                }.getOrNull()
-            SharePhase.Ready(clinic.api.origin + "/shared/" + link.token, link.pin, expires)
-        }
+@Composable
+private fun Ready(
+    ready: SharePhase.Ready,
+    clinicName: String,
+    onAnother: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    V7Label(stringResource(R.string.pv_share_pin))
+    Text(
+        ready.pin,
+        style = v7(34f, FontWeight.ExtraBold).copy(fontFamily = FontFamily.Monospace, letterSpacing = 4.sp),
+        color = SkTheme.palette.onSurface.color,
+    )
+    V7Muted(stringResource(R.string.pv_share_pin_note))
+    ready.expiresOn?.let { V7Muted(stringResource(R.string.pv_share_expires_on, it.display())) }
+    val text = stringResource(R.string.pv_share_text, clinicName) + " " + ready.url
+    SkPillButton(
+        stringResource(R.string.pv_share_send),
+        {
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+            context.startActivity(Intent.createChooser(send, null))
+        },
+        wide = true,
+    )
+    SkPillButton(stringResource(R.string.pv_share_another), onAnother, variant = SkPillVariant.Tonal, wide = true)
+    SkPillButton(stringResource(R.string.done), onDismiss, variant = SkPillVariant.Ghost, wide = true)
+}
 
-        is Outcome.Failure -> {
-            SharePhase.Failed
-        }
+@Composable
+private fun Form(
+    holder: RecordSharesStateHolder,
+    clinicName: String,
+) {
+    val state by holder.state.collectAsStateWithLifecycle()
+    V7Label(stringResource(R.string.pv_share_expires))
+    val expiryTitles = ShareExpiry.entries.associateWith { it.title() }
+    SkChoiceChips(ShareExpiry.entries, setOf(state.expiry), holder::setExpiry, { expiryTitles.getValue(it) })
+    val kindTitles = state.kinds.associateWith { it.title() }
+    SkChoiceChips(state.kinds, state.selected, holder::toggle, { kindTitles.getValue(it) }, single = false)
+    (state.phase as? SharePhase.Failed)?.let {
+        Text(
+            stringResource(R.string.pv_share_failed),
+            style = v7(12.5f, FontWeight.SemiBold),
+            color = SkTheme.palette.error.color,
+        )
     }
+    SkPillButton(
+        stringResource(R.string.pv_share_create),
+        holder::create,
+        wide = true,
+        loading = state.phase == SharePhase.Creating,
+        enabled = state.selected.isNotEmpty(),
+    )
+    V7Label(stringResource(R.string.pv_share_active))
+    state.linksError?.let { V7Muted(stringResource(it.message())) }
+    if (state.links.isEmpty() && state.linksError == null) V7Muted(stringResource(R.string.pv_share_none))
+    // TODO(BK-9): Revoke on each usable link, once the API has a revoke route for record shares.
+    state.links.forEach { LinkRow(it) }
+}
+
+@Composable
+private fun LinkRow(link: ShareRow) {
+    val titles = RecordKind.entries.associateWith { it.title() }
+    val kinds = link.kinds.joinToString(" · ") { titles.getValue(it) }
+    val status =
+        when (link.state) {
+            ShareLinkState.Usable -> stringResource(R.string.pv_share_usable, link.expiresOn?.display().orEmpty())
+            ShareLinkState.Expired -> stringResource(R.string.pv_share_expired)
+            ShareLinkState.Locked -> stringResource(R.string.pv_share_locked)
+        }
+    Text(kinds, style = v7(13.5f, FontWeight.SemiBold), color = SkTheme.palette.onSurface.color)
+    V7Muted(status + " · " + stringResource(R.string.pv_share_opened, link.openCount))
+}

@@ -65,6 +65,7 @@ import com.aarogyam.staff.prescriptions.RxSheetStateHolder
 import com.aarogyam.staff.queue.QueueStateHolder
 import com.aarogyam.staff.schedule.ScheduleStateHolder
 import com.aarogyam.staff.schedule.WeekStateHolder
+import com.aarogyam.staff.share.RecordSharesStateHolder
 import com.aarogyam.staff.signin.DeleteAccountHolder
 import com.aarogyam.staff.signin.InviteStateHolder
 import com.aarogyam.staff.signin.RegistrationStateHolder
@@ -342,6 +343,12 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): ConsentsStateHolder = ConsentsStateHolder(clinic, patientId, scope, logger("aarogyam.consents"))
+
+    fun recordShares(
+        clinic: ClinicContext,
+        patientId: String,
+        scope: CoroutineScope,
+    ): RecordSharesStateHolder = RecordSharesStateHolder(clinic, patientId, scope, logger("aarogyam.recordshare"))
 
     fun rxList(
         clinic: ClinicContext,

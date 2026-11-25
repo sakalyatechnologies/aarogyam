@@ -3038,29 +3038,6 @@
         }
       }
     },
-    "c.rx.swap.preview": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preview: swap suggestions need server support"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्यू: विकल्प सुझाने के लिए सर्वर सहायता चाहिए"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "प्रीव्ह्यू: पर्याय सुचवण्यासाठी सर्व्हर सपोर्ट हवा"
-          }
-        }
-      }
-    },
     "c.rx.title": {
       "extractionState": "manual",
       "localizations": {

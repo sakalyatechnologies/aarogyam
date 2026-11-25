@@ -312,7 +312,7 @@ private struct V9MedCard: View {
 }
 
 /// The allergy swap card: what clashed, a way to take the medicine off and the reason to override.
-/// Swap suggestions need the server (Preview).
+/// Each flagged medicine can be swapped from its Alternatives list.
 private struct V9AllergyCard: View {
     let rx: RxSheetStateHolder
     let state: RxSheetState
@@ -323,6 +323,16 @@ private struct V9AllergyCard: View {
             ForEach(Array(state.warnings.enumerated()), id: \.offset) { _, warning in
                 Text(warning.text).v7Text(12.5)
                 SkPillButton(CLf("c.rx.allergy.remove", warning.drug), wide: true) { rx.remove(key: warning.lineKey) }
+                if state.lines.contains(where: { $0.key == warning.lineKey && $0.drugId != nil }) {
+                    let shown = state.alternatives?.lineKey == warning.lineKey
+                    SkPillButton(String(localized: "rx.alt.action"), variant: .tonal, wide: true) {
+                        if shown { rx.closeAlternatives() } else { rx.openAlternatives(key: warning.lineKey) }
+                    }
+                    .accessibilityLabel(String(format: String(localized: "rx.alt.named"), warning.drug))
+                    if let alternatives = state.alternatives, shown {
+                        RxAlternativesList(alternatives: alternatives) { rx.swapDrug(key: warning.lineKey, drug: $0) }
+                    }
+                }
             }
             ForEach(Array(state.serverAlerts.enumerated()), id: \.offset) { _, alert in
                 Text(alert.message).v7Text(12.5)
@@ -330,7 +340,6 @@ private struct V9AllergyCard: View {
             if state.serverAlert, state.serverAlerts.isEmpty { Text("rx.server_alert").v7Text(12.5) }
             SkField(String(localized: "rx.override.label"), text: Binding(get: { state.overrideReason }, set: { rx.setOverrideReason(text: $0) }))
             Text("rx.override.help").v7Text(11.5)
-            PreviewNotice(text: CL("c.rx.swap.preview"))
         }
     }
 }

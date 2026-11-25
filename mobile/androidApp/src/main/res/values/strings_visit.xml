@@ -208,6 +208,5 @@
     <string name="vv_c_rx_send_whatsapp">WhatsApp</string>
     <string name="vv_c_rx_sent_message">The link is on its way. Read the PIN out to the patient.</string>
     <string name="vv_c_rx_sent_title">Sent</string>
-    <string name="vv_c_rx_swap_preview">Preview: swap suggestions need server support</string>
     <string name="vv_outbox_badge" tools:ignore="PluralsCandidate">Saved, will send · %1$d</string>
 </resources>

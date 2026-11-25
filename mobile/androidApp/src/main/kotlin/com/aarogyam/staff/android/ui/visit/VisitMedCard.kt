@@ -255,6 +255,17 @@ internal fun AllergyCard(
             SkButton(stringResource(R.string.vv_c_rx_allergy_remove, warning.drug), onClick = {
                 rx.remove(warning.lineKey)
             }, variant = SkButtonVariant.Secondary, modifier = Modifier.fillMaxWidth())
+            if (state.lines.any { it.key == warning.lineKey && it.drugId != null }) {
+                val shown = state.alternatives?.lineKey == warning.lineKey
+                SkButton(stringResource(R.string.rx_alt_action), onClick = {
+                    if (shown) rx.closeAlternatives() else rx.openAlternatives(warning.lineKey)
+                }, variant = SkButtonVariant.Secondary, modifier = Modifier.fillMaxWidth())
+                state.alternatives?.takeIf { shown }?.let {
+                    RxAlternativesPanel(
+                        it,
+                    ) { drug -> rx.swapDrug(warning.lineKey, drug) }
+                }
+            }
         }
         state.serverAlerts.forEach { Text(it.message, style = SkTypography.footnote, color = colors.dangerText.color) }
         if (state.serverAlert &&
@@ -273,7 +284,6 @@ internal fun AllergyCard(
             supportingText = stringResource(R.string.rx_override_help),
             modifier = Modifier.fillMaxWidth(),
         )
-        Muted(stringResource(R.string.vv_c_rx_swap_preview))
     }
 }
 

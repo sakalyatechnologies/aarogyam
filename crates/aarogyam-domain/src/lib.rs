@@ -98,6 +98,7 @@ pub mod outbox;
 pub mod patient;
 pub mod patient_app;
 pub mod permission;
+pub mod pincode;
 pub mod prescription;
 pub mod present;
 pub mod present_discussion;

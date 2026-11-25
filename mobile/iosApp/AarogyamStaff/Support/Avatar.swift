@@ -3,8 +3,8 @@ import PhotosUI
 import SakalyaUI
 import SwiftUI
 
-/// The person's avatar: one of the illustrated dentists, or a photo kept on this phone only
-/// (server storage is BK-10). The choice lives in the shared preferences.
+/// The person's avatar: one of the illustrated dentists, or a photo kept on this phone and saved on
+/// the server (BK-10; the device copy is the cache). The choice lives in the shared preferences.
 enum AvatarChoice {
     static let photoKey = "photo"
     static let defaultArt = "d1"
@@ -26,8 +26,17 @@ enum AvatarChoice {
         return dir.appendingPathComponent("avatar.jpg")
     }
 
-    /// Keeps a square, small copy of [data] as the avatar photo.
-    @MainActor static func savePhoto(_ data: Data, graph: AppGraph) {
+    /// On a phone with no choice yet, takes the server's avatar as the device copy. True when it did.
+    @MainActor static func pull(graph: AppGraph, clinic: ClinicContext) async -> Bool {
+        let url = photoURL
+        let changed = try? await graph.avatars.pullIfMissing(api: clinic.api, avatar: clinic.session.user.avatar) { bytes in
+            try? bytes.data.write(to: url, options: [.atomic, .completeFileProtection])
+        }
+        return changed?.boolValue ?? false
+    }
+
+    /// Keeps a square, small copy of [data] as the avatar photo, and saves it on the server.
+    @MainActor static func savePhoto(_ data: Data, graph: AppGraph, clinic: ClinicContext) {
         guard let image = UIImage(data: data) else { return }
         let side = min(image.size.width, image.size.height)
         let crop = CGRect(x: (image.size.width - side) / 2, y: (image.size.height - side) / 2, width: side, height: side)
@@ -38,6 +47,7 @@ enum AvatarChoice {
         guard let jpeg = small.jpegData(compressionQuality: 0.85) else { return }
         try? jpeg.write(to: photoURL, options: [.atomic, .completeFileProtection])
         graph.preferences.set(key: .avatarChoice, value: photoKey)
+        Task { try? await graph.avatars.savePhoto(api: clinic.api, jpeg: jpeg.kotlinBytes) }
     }
 }
 
@@ -58,6 +68,7 @@ struct MyAvatar: View {
 /// "Your avatar": the eight illustrated dentists, or a photo from the camera or library.
 struct AvatarPicker: View {
     let graph: AppGraph
+    let clinic: ClinicContext
     var onChange: () -> Void = {}
     @State private var chosen: String?
     @State private var camera = false
@@ -79,6 +90,7 @@ struct AvatarPicker: View {
                             chosen = id
                             graph.preferences.set(key: .avatarChoice, value: id)
                             onChange()
+                            Task { try? await graph.avatars.savePreset(api: clinic.api, id: id) }
                         } label: {
                             ArtView(piece: AvatarArt.shared.all[id]!)
                                 .aspectRatio(1, contentMode: .fit)
@@ -107,7 +119,7 @@ struct AvatarPicker: View {
         }
         .sheet(isPresented: $camera) {
             CameraPicker { data in
-                AvatarChoice.savePhoto(data, graph: graph)
+                AvatarChoice.savePhoto(data, graph: graph, clinic: clinic)
                 onChange()
             }
             .ignoresSafeArea()
@@ -115,7 +127,7 @@ struct AvatarPicker: View {
         .onChange(of: library) { _, item in
             Task {
                 if let data = try? await item?.loadTransferable(type: Data.self) {
-                    AvatarChoice.savePhoto(data, graph: graph)
+                    AvatarChoice.savePhoto(data, graph: graph, clinic: clinic)
                     onChange()
                     dismiss()
                 }

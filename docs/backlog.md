@@ -224,7 +224,7 @@ The staff apps build these screens fully but show "Preview: needs server support
 - **BK-7** Notifications feed API (A in `docs/handoff.md`).
 - **BK-8** Messages inbox for clinic and patient conversations (T3 in `docs/handoff.md`).
 - **BK-9** Share links: expiry choice (1 h, 24 h, 7 d) and sharing the chart, X-rays and bills, not just prescriptions.
-- **BK-10** The staff avatar choice and photo stored on the server (today on the device only).
+- ~~**BK-10** The staff avatar choice and photo stored on the server~~: done 24 Nov 2026 in the staff apps. A choice or photo is also saved with `PUT /me/avatar`; a phone with no choice adopts the server's; the team list shows members' avatars. The device copy is the cache.
 - **BK-11** Phone number OTP by SMS (needs DLT and a paid provider) and Google/Apple sign-in.
 - **BK-12** App Links and Universal Links on the product domain (today `aarogyam://invite`).
 - **BK-13** UPI collect request or payment link from a bill.

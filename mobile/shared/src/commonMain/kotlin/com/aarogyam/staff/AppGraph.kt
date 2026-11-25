@@ -3,6 +3,7 @@ package com.aarogyam.staff
 import com.aarogyam.staff.analytics.AnalyticsStateHolder
 import com.aarogyam.staff.api.SessionEndWatch
 import com.aarogyam.staff.api.revokeCurrent
+import com.aarogyam.staff.avatar.AvatarSync
 import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.booking.QuickRegisterStateHolder
@@ -438,6 +439,9 @@ class AppGraph private constructor(
 
     /** Light, dark or the phone's look (More, Appearance); kept on this device. */
     val appearance: AppearancePreference = AppearancePreference(preferences)
+
+    /** The staff photo kept on the server, with this device as its cache (BK-10). */
+    val avatars: AvatarSync = AvatarSync(preferences)
 
     private val signedInUser: String?
         get() = (sessions.state.value as? SessionState.SignedIn)?.userId?.toString()

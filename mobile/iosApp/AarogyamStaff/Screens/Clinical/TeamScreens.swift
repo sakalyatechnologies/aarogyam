@@ -39,7 +39,7 @@ struct TeamPage: View {
                             chattingWith = row.name
                             holder.message(membershipId: row.membershipId)
                         } label: {
-                            MemberRowView(row: row, chat: canChat && !row.me)
+                            MemberRowView(row: row, chat: canChat && !row.me, graph: graph, clinic: clinic)
                                 .background(r.card.color, in: UnevenRoundedRectangle(cornerRadii: MoreSizes.listRadii(index, of: rows.count), style: .continuous))
                         }
                         .buttonStyle(.skPressable)
@@ -159,12 +159,15 @@ struct TeamPage: View {
 private struct MemberRowView: View {
     let row: MemberRow
     let chat: Bool
+    let graph: AppGraph
+    let clinic: ClinicContext
+    @State private var photo: UIImage?
     @Environment(\.skTheme) private var theme
 
     var body: some View {
         let r = theme.roles
         HStack(spacing: 10) {
-            SkAvatar(row.name, tone: row.active ? .brand : .neutral, size: 38, shape: .rounded)
+            avatar
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.name).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.onSurface.color)
                 Text(row.roleName).font(.system(size: 11.5)).foregroundStyle(r.onSurfaceVariant.color)
@@ -176,6 +179,25 @@ private struct MemberRowView: View {
         .padding(.vertical, 9).padding(.horizontal, 11)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+        .task(id: row.avatar?.photoUrl?.components(separatedBy: "?").first) {
+            guard row.avatar?.preset.flatMap({ AvatarArt.shared.all[$0] }) == nil,
+                  let bytes = try? await graph.avatars.photoOf(api: clinic.api, avatar: row.avatar) else { return }
+            photo = UIImage(data: bytes.data)
+        }
+    }
+
+    /// Their illustration or photo (BK-10); initials when they have none.
+    @ViewBuilder private var avatar: some View {
+        let r = theme.roles
+        if let piece = row.avatar?.preset.flatMap({ AvatarArt.shared.all[$0] }) {
+            SkAvatarFrame(shape: .rounded, size: 38, background: r.primaryContainer.color) { ArtView(piece: piece) }
+        } else if let photo {
+            SkAvatarFrame(shape: .rounded, size: 38, background: r.primaryContainer.color) {
+                Image(uiImage: photo).resizable().scaledToFill()
+            }
+        } else {
+            SkAvatar(row.name, tone: row.active ? .brand : .neutral, size: 38, shape: .rounded)
+        }
     }
 }
 

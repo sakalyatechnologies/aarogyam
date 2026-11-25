@@ -39,6 +39,7 @@ val apiModels =
         "SearchRequest",
         "PatientList",
         "Patient",
+        "PatientAddress",
         "NextAppointment",
         "ClinicalFlags",
         "Allergy",

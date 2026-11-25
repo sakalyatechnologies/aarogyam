@@ -95,4 +95,17 @@
     <string name="v7_notif_today">Today</string>
     <string name="v7_notif_earlier">Earlier</string>
     <string name="v7_notif_filter_none">Nothing here for this filter.</string>
+    <plurals name="v7_me_stat_seen">
+        <item quantity="one">%1$d seen</item>
+        <item quantity="other">%1$d seen</item>
+    </plurals>
+    <plurals name="v7_me_stat_procedures">
+        <item quantity="one">%1$d procedure</item>
+        <item quantity="other">%1$d procedures</item>
+    </plurals>
+    <plurals name="v7_me_stat_rx">
+        <item quantity="one">%1$d prescription</item>
+        <item quantity="other">%1$d prescriptions</item>
+    </plurals>
+    <string name="v7_me_stat_collected">%1$s collected by you</string>
 </resources>

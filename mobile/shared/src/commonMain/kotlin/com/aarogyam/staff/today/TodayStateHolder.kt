@@ -2,6 +2,7 @@ package com.aarogyam.staff.today
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.expenses
+import com.aarogyam.staff.api.myStats
 import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Logger
@@ -100,7 +101,7 @@ class TodayStateHolder(
             return
         }
         scope.launch {
-            val (result, money) = load()
+            val (result, money, stats) = load()
             mutableState.value =
                 when (result) {
                     is Outcome.Success -> {
@@ -112,7 +113,7 @@ class TodayStateHolder(
                                     clinic.timeZone,
                                     clinic.session.membership.id,
                                     clinic.session.membership.roleKey,
-                                ).copy(money = money),
+                                ).let { v -> v.copy(money = money, me = v.me?.copy(stats = stats)) },
                         )
                     }
 
@@ -137,6 +138,7 @@ class TodayStateHolder(
         coroutineScope {
             val day = async { clinic.api.today() }
             val money = if (FINANCE_VIEW in clinic.permissions) async { money() } else null
+            val mine = if (CLINICAL_READ in clinic.permissions) async { clinic.api.myStats() } else null
             val moneyView =
                 when (val answer = money?.await()) {
                     is Outcome.Success -> {
@@ -152,7 +154,23 @@ class TodayStateHolder(
                         null
                     }
                 }
-            day.await() to moneyView
+            // The member's own figures; a failure leaves the card as it was.
+            val stats =
+                when (val answer = mine?.await()) {
+                    is Outcome.Success -> {
+                        answer.value.toView()
+                    }
+
+                    is Outcome.Failure -> {
+                        log.warn("today.stats_failed") { code("error", answer.error.code.value) }
+                        null
+                    }
+
+                    null -> {
+                        null
+                    }
+                }
+            Triple(day.await(), moneyView, stats)
         }
 
     private suspend fun loadMoneyOnly(current: TodayState): TodayState =
@@ -206,5 +224,6 @@ class TodayStateHolder(
     private companion object {
         const val APPOINTMENTS_READ = "appointments.read"
         const val FINANCE_VIEW = "finance.view"
+        const val CLINICAL_READ = "clinical.read"
     }
 }

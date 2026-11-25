@@ -94,4 +94,17 @@
     <string name="v7_notif_today">आज</string>
     <string name="v7_notif_earlier">पहले</string>
     <string name="v7_notif_filter_none">इस फ़िल्टर में कुछ नहीं।</string>
+    <plurals name="v7_me_stat_seen">
+        <item quantity="one">%1$d मरीज़ देखे</item>
+        <item quantity="other">%1$d मरीज़ देखे</item>
+    </plurals>
+    <plurals name="v7_me_stat_procedures">
+        <item quantity="one">%1$d प्रक्रियाएँ</item>
+        <item quantity="other">%1$d प्रक्रियाएँ</item>
+    </plurals>
+    <plurals name="v7_me_stat_rx">
+        <item quantity="one">%1$d पर्चे</item>
+        <item quantity="other">%1$d पर्चे</item>
+    </plurals>
+    <string name="v7_me_stat_collected">आपने %1$s जमा किए</string>
 </resources>

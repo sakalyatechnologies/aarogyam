@@ -352,6 +352,43 @@ class TodayStateHolderTest {
             assertEquals(emptyList(), me?.mine)
         }
 
+    private fun doctorDay() =
+        todayBody().replace(
+            "\"team\":[]",
+            """"team":[{"member_id":"m1","practitioner":{"id":"d1","display_name":"Dr. Patil","calendar_color":null},
+               "shifts":[],"on_leave":false,"appointments":0,"specialty":null}]""",
+        )
+
+    @Test
+    fun the_me_card_carries_the_members_own_stats() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today", { json(doctorDay()) })
+            backend.on(
+                "$SUNRISE/api/v1/me/stats",
+                {
+                    json(
+                        """{"date":"2026-10-05","patients_seen":5,"procedures_done":3,"prescriptions_issued":4,"collected_paise":125000}""",
+                    )
+                },
+            )
+            val (graph, clinic) = open(backend, this, backgroundScope, listOf("appointments.read", "clinical.read"))
+            val me = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view.me
+            assertEquals(MyStatsView(5, 3, 4, 125000), me?.stats)
+        }
+
+    @Test
+    fun a_failed_stats_fetch_leaves_the_me_card_as_it_was() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on("$SUNRISE/api/v1/today", { json(doctorDay()) })
+            backend.on("$SUNRISE/api/v1/me/stats", { apiError(HttpStatusCode.NotImplemented, "internal") })
+            val (graph, clinic) = open(backend, this, backgroundScope, listOf("appointments.read", "clinical.read"))
+            val me = (graph.today(clinic, this).state.first { it is TodayState.Loaded } as TodayState.Loaded).view.me
+            assertEquals("d1", me?.practitionerId)
+            assertEquals(null, me?.stats)
+        }
+
     @Test
     fun late_arrivals_and_long_waits_need_attention() =
         runTest {

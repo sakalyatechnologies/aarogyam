@@ -2,6 +2,7 @@ package com.aarogyam.staff.today
 
 import com.aarogyam.staff.api.model.Appointment
 import com.aarogyam.staff.api.model.Expense
+import com.aarogyam.staff.api.model.MyStats
 import com.aarogyam.staff.api.model.TeamMemberToday
 import com.aarogyam.staff.api.model.TodayResponse
 import kotlinx.datetime.LocalTime
@@ -30,7 +31,19 @@ data class MeView(
     val treatments: List<TreatmentCount>,
     val shifts: List<ShiftView>,
     val onLeave: Boolean,
+    /** The member's own figures for today from `/me/stats`; null when not fetched or the fetch failed. */
+    val stats: MyStatsView? = null,
 )
+
+/** The member's own day from `/me/stats`. [collectedPaise] is null without `billing.read`. */
+data class MyStatsView(
+    val patientsSeen: Long,
+    val proceduresDone: Long,
+    val prescriptionsIssued: Long,
+    val collectedPaise: Long?,
+)
+
+internal fun MyStats.toView() = MyStatsView(patientsSeen, proceduresDone, prescriptionsIssued, collectedPaise)
 
 /** A booked reason and how many of the member's remaining appointments have it. */
 data class TreatmentCount(

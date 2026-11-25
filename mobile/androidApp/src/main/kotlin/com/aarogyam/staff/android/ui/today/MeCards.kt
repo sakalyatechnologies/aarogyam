@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.doctor.WaitingForMe
+import com.aarogyam.staff.android.ui.rupees
 import com.aarogyam.staff.today.MeView
 import com.aarogyam.staff.today.ScheduleItem
 import com.aarogyam.staff.today.VisitStatus
@@ -183,6 +184,13 @@ private fun chips(
         if (me.practitionerId != null) {
             add(pluralText(R.plurals.v7_me_for_you, me.remaining + queued))
             me.treatments.take(2).forEach { add("${it.count} ${it.name}") }
+            // The member's own figures from /me/stats; absent when the fetch failed.
+            me.stats?.let { st ->
+                add(pluralText(R.plurals.v7_me_stat_seen, st.patientsSeen.toInt()))
+                add(pluralText(R.plurals.v7_me_stat_procedures, st.proceduresDone.toInt()))
+                add(pluralText(R.plurals.v7_me_stat_rx, st.prescriptionsIssued.toInt()))
+                st.collectedPaise?.let { add(stringResource(R.string.v7_me_stat_collected, it.rupees())) }
+            }
         } else {
             add(pluralText(R.plurals.v7_me_waiting, waiting))
         }

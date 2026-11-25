@@ -198,10 +198,18 @@ private struct DayContent: View {
     }
 
     private func model(_ me: MeView, waiting: Int) -> MeCardModel {
-        let chips = TodayV7.meChips(
+        var chips = TodayV7.meChips(
             isDoctor: me.practitionerId != nil, remaining: Int(me.remaining) + (me.practitionerId != nil ? queue.count : 0),
             treatments: me.treatments.map { ($0.name, Int($0.count)) }, waiting: waiting, onLeave: me.onLeave
         )
+        if me.practitionerId != nil, let stats = me.stats {
+            chips.append(String(localized: "t7.me.stat_seen \(Int(stats.patientsSeen))", table: "TodayV7"))
+            chips.append(String(localized: "t7.me.stat_procedures \(Int(stats.proceduresDone))", table: "TodayV7"))
+            chips.append(String(localized: "t7.me.stat_rx \(Int(stats.prescriptionsIssued))", table: "TodayV7"))
+            if let paise = stats.collectedPaise {
+                chips.append(String(format: String(localized: "t7.me.stat_collected", table: "TodayV7"), ClinicFormat.rupees(paise: paise.int64Value)))
+            }
+        }
         var progress: MeCardModel.Progress?
         if let day = TodayV7.dayProgress(total: me.mine.count, remaining: Int(me.remaining)) {
             let ends = me.shifts.last.map { ClinicFormat.time(minuteOfDay: $0.ends.minuteOfDay) }

@@ -423,6 +423,7 @@ export const clinicSettings = z.object({
   branding: clinicBranding,
   online_booking: onlineBooking,
   letterhead,
+  month_revenue_target_paise: paise.nullable().exactOptional(),
 }) satisfies z.ZodType<C.ClinicSettings>;
 export type ClinicSettings = z.output<typeof clinicSettings>;
 
@@ -943,6 +944,7 @@ const teamMemberToday = z.object({
   on_leave: z.boolean(),
   appointments: count,
   shifts: z.array(todayShift),
+  day_ends_at: timestamp.nullable().exactOptional(),
 }) satisfies z.ZodType<C.TeamMemberToday>;
 export type TeamMemberToday = z.output<typeof teamMemberToday>;
 
@@ -1029,6 +1031,7 @@ export const todayResponse = z.object({
   low_stock: z.array(lowStockAlert).nullable().exactOptional(),
   completed_visits: z.array(completedVisit),
   money: dayMoneyFigures.nullable().exactOptional(),
+  sterilisation_cycles_today: count,
 }) satisfies z.ZodType<C.TodayResponse>;
 export type Today = z.output<typeof todayResponse>;
 
@@ -3037,6 +3040,8 @@ export const todayMoney = z.object({
   pending: z.array(pendingItem),
   revenue_mix: z.array(mixItem),
   upi_share_bps: z.number().int(),
+  month_target_paise: paise.nullable().exactOptional(),
+  month_collected_paise: paise,
 }) satisfies z.ZodType<C.TodayMoney>;
 export type TodayMoney = z.output<typeof todayMoney>;
 

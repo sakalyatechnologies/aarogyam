@@ -169,6 +169,11 @@ function TodayBody({ today, timeZone, showMoney }: { today: Today; timeZone: str
                     {compactRupees(money.data.collected_this_month_paise)} this month
                   </span>
                 )}
+                {money.data?.month_target_paise == null ? null : (
+                  <span className="mk-trend good" data-testid="month-target">
+                    {String(Math.min(100, Math.round((money.data.month_collected_paise * 100) / money.data.month_target_paise)))}% of {compactRupees(money.data.month_target_paise)} target
+                  </span>
+                )}
               </div>
               <div>
                 <span>Outstanding</span>

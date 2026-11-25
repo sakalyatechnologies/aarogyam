@@ -394,6 +394,18 @@ describe("fake client: clinic settings", () => {
     expect(after.name).toBe("Sunrise Dental");
   });
 
+  it("sets, shows and clears the monthly revenue target", async () => {
+    const { as } = setup();
+    const owner = as(PEOPLE.asha, SUNRISE);
+    expect(value(await owner.getTodayMoney()).month_target_paise).toBeNull();
+    expect(value(await owner.updateClinicSettings({ month_revenue_target_paise: 50_000_000 })).month_revenue_target_paise).toBe(50_000_000);
+    const money = value(await owner.getTodayMoney());
+    expect(money.month_target_paise).toBe(50_000_000);
+    expect(money.month_collected_paise).toBe(money.collected_this_month_paise);
+    expect(errorOf(await owner.updateClinicSettings({ month_revenue_target_paise: -1 }))?.field).toBe("month_revenue_target_paise");
+    expect(value(await owner.updateClinicSettings({ month_revenue_target_paise: 0 })).month_revenue_target_paise).toBeNull();
+  });
+
   it("refuses an invalid UPI ID or GSTIN", async () => {
     const { as } = setup();
     const owner = as(PEOPLE.asha, SUNRISE);

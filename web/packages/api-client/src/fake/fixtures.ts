@@ -75,6 +75,8 @@ export interface FakeClinic {
   phone?: string | null;
   /** UPI ID shown on bills. */
   upi_id?: string | null;
+  /** The monthly revenue target in paise; none when unset. */
+  month_revenue_target_paise?: number | null;
   legal_name?: string | null;
   gstin?: string | null;
   prescription_footer?: string | null;

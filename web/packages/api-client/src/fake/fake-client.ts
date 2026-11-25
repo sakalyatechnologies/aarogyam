@@ -6851,6 +6851,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             clinic.phone = changes.phone === "" || changes.phone === null ? null : normalizeClinicPhone(changes.phone);
           }
           if (changes.upi_id !== undefined) clinic.upi_id = changes.upi_id === "" ? null : changes.upi_id;
+          if (changes.month_revenue_target_paise != null) {
+            clinic.month_revenue_target_paise = changes.month_revenue_target_paise === 0 ? null : changes.month_revenue_target_paise;
+          }
           if (changes.prescription_footer !== undefined) clinic.prescription_footer = changes.prescription_footer === "" ? null : changes.prescription_footer;
           if (changes.address !== undefined) clinic.address = changes.address ?? {};
           if (changes.online_booking != null) {
@@ -9531,6 +9534,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             pending_dues_patients: new Set(pending.map((i) => i.patient.id)).size,
             revenue_mix: buildRevenueMix(invoicesThisMonth, state.priceItems.filter((p) => p.clinic_id === caller.clinic.id)),
             upi_share_bps: methodTotalsThisMonth.find((m) => m.method === "upi")?.share_bps ?? 0,
+            month_target_paise: caller.clinic.month_revenue_target_paise ?? null,
+            month_collected_paise: paymentsThisMonth.reduce((sum, p) => sum + p.amount_paise, 0),
           } satisfies C.TodayMoney);
         }),
 
@@ -11360,6 +11365,7 @@ function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
     timezone: clinic.timezone,
     phone: clinic.phone ?? null,
     upi_id: clinic.upi_id ?? null,
+    month_revenue_target_paise: clinic.month_revenue_target_paise ?? null,
     prescription_footer: clinic.prescription_footer ?? null,
     address: {
       line1: clinic.address?.line1 ?? null,
@@ -11568,6 +11574,9 @@ function validateClinicSettingsChanges(changes: C.ClinicSettingsChanges): Outcom
     if (!(E164.test(phone) && (!phone.startsWith("+91") || INDIAN_MOBILE.test(phone)))) {
       return invalid("phone", "invalid phone number");
     }
+  }
+  if (changes.month_revenue_target_paise != null && (changes.month_revenue_target_paise < 0 || changes.month_revenue_target_paise > 100_000_000_000)) {
+    return invalid("month_revenue_target_paise", "must be 0 (none) or a positive amount");
   }
   if (changes.upi_id != null && changes.upi_id !== "" && !UPI_ID.test(changes.upi_id)) {
     return invalid("upi_id", "invalid UPI ID");
@@ -12539,6 +12548,7 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, asked: strin
     recent_patients,
     team,
     completed_visits,
+    sterilisation_cycles_today: 0,
   };
   if (canSeeMoney) {
     const dayPayments = state.payments.filter((p) => p.clinic_id === clinic.id && p.status === "received" && localClock(new Date(p.received_at), clinic.timezone).date === date);

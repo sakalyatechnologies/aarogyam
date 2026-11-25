@@ -5804,6 +5804,24 @@ export interface paths {
         patch: operations["updateStaffMember"];
         trace?: never;
     };
+    "/api/v1/sterilisation-cycles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The sterilisation cycles of a clinic day, latest first. */
+        get: operations["listSterilisationCycles"];
+        put?: never;
+        /** Records a sterilisation cycle that ran now. */
+        post: operations["recordSterilisationCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stock": {
         parameters: {
             query?: never;
@@ -8383,6 +8401,11 @@ export interface components {
             legal_name?: string | null;
             /** @description The letterhead printed on the clinic's documents. */
             letterhead: components["schemas"]["Letterhead"];
+            /**
+             * Format: int64
+             * @description What the clinic aims to collect each month, in paise; none when unset.
+             */
+            month_revenue_target_paise?: number | null;
             /** @description Display name. */
             name: string;
             /** @description Online booking. */
@@ -8411,6 +8434,11 @@ export interface components {
             /** @description Registered legal name. */
             legal_name?: string | null;
             letterhead?: components["schemas"]["LetterheadChanges"] | null;
+            /**
+             * Format: int64
+             * @description Monthly revenue target in paise; 0 clears it.
+             */
+            month_revenue_target_paise?: number | null;
             /** @description Display name, 1 to 200 characters. */
             name?: string | null;
             online_booking?: components["schemas"]["OnlineBookingChanges"] | null;
@@ -12793,6 +12821,11 @@ export interface components {
             /** @description The standard role it starts as a copy of, such as `assistant` (not `owner`). */
             template_key: string;
         };
+        /** @description A cycle to record: it ran now. */
+        NewSterilisationCycle: {
+            /** @description What was in the load, up to 120 characters. */
+            load_note?: string | null;
+        };
         /** @description A grant to make. */
         NewSupportGrant: {
             /** @description When access ends (RFC 3339): 15 minutes to 7 days from now. */
@@ -16765,6 +16798,24 @@ export interface components {
             /** @description Its queue token, once the patient has arrived. */
             queue_token_id?: string | null;
         };
+        /** @description One autoclave run. */
+        SterilisationCycle: {
+            /** @description Identifier. */
+            id: string;
+            /** @description What was in the load, in a few words. */
+            load_note?: string | null;
+            /** @description Who recorded it. */
+            recorded_by_name?: string | null;
+            /** @description When it ran, RFC 3339. */
+            run_at: string;
+        };
+        /** @description The cycles of one clinic day. */
+        SterilisationCycleList: {
+            /** @description The clinic day. */
+            date: string;
+            /** @description The cycles, latest first. */
+            items: components["schemas"]["SterilisationCycle"][];
+        };
         /** @description Usage and projection per item, and the items to reorder. */
         StockAnalytics: {
             /** @description Active items by name, or the one asked for. */
@@ -17350,6 +17401,12 @@ export interface components {
             /** @description Appointments today, not counting cancelled ones. */
             appointments: number;
             /**
+             * @description When this doctor's day should end (RFC 3339): the later of their last unfinished
+             *     appointment's end and the open queue at the clinic's average visit length. Absent when
+             *     nothing is left, and for days other than today.
+             */
+            day_ends_at?: string | null;
+            /**
              * @description The staff membership this doctor's profile belongs to, when linked. A staff list shown
              *     beside the team uses it to show each person once.
              */
@@ -17596,6 +17653,16 @@ export interface components {
             invoices_today: number;
             /**
              * Format: int64
+             * @description Received this month so far, in paise (same as `collected_this_month_paise`).
+             */
+            month_collected_paise: number;
+            /**
+             * Format: int64
+             * @description The clinic's monthly revenue target in paise; none when not set.
+             */
+            month_target_paise?: number | null;
+            /**
+             * Format: int64
              * @description Payments today.
              */
             payments_today: number;
@@ -17642,6 +17709,11 @@ export interface components {
             money?: components["schemas"]["DayMoneyFigures"] | null;
             /** @description The latest patients through the queue today, newest first. */
             recent_patients: components["schemas"]["QueueToken"][];
+            /**
+             * Format: int32
+             * @description Sterilisation cycles recorded on the day shown.
+             */
+            sterilisation_cycles_today: number;
             /** @description Doctors with working hours today. */
             team: components["schemas"]["TeamMemberToday"][];
         };
@@ -37095,6 +37167,107 @@ export interface operations {
             };
             /** @description Your own role, or the last active owner */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listSterilisationCycles: {
+        parameters: {
+            query?: {
+                /** @description The clinic day, YYYY-MM-DD (default: today) */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SterilisationCycleList"];
+                };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    recordSterilisationCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSterilisationCycle"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SterilisationCycle"];
+                };
+            };
+            /** @description The note is too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

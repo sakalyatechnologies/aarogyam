@@ -13,6 +13,7 @@ import com.aarogyam.patient.api.model.PatientCancelled
 import com.aarogyam.patient.api.model.PatientHome
 import com.aarogyam.patient.api.model.PatientMe
 import com.aarogyam.patient.api.model.PatientPrescriptions
+import com.aarogyam.patient.api.model.PatientSessionList
 import com.aarogyam.patient.api.model.PatientVisitSummary
 import com.aarogyam.patient.api.model.RedeemLinkCode
 import com.sakalya.mobile.core.ApiError
@@ -62,6 +63,17 @@ class PatientAppApi(
     /** `GET /api/v1/me/patient/visits/{id}` (`getMyVisit`): one closed visit; any other id is `404`. */
     suspend fun visit(id: String): Outcome<PatientVisitSummary, ApiError> =
         client.call { url("api/v1/me/patient/visits/${id.encodeURLPathPart()}") }
+
+    /** `GET /api/v1/me/patient/sessions` (`listMyPatientSessions`): where the patient is signed in. */
+    suspend fun sessions(): Outcome<PatientSessionList, ApiError> = client.call { url("api/v1/me/patient/sessions") }
+
+    /** `DELETE /api/v1/me/patient/sessions/{id}` (`revokeMyPatientSession`): signs that session out; `204`. */
+    suspend fun revokeSession(id: String): Outcome<Unit, ApiError> =
+        client
+            .call<String> {
+                url("api/v1/me/patient/sessions/${id.encodeURLPathPart()}")
+                method = HttpMethod.Delete
+            }.map { }
 
     /** `POST /api/v1/me/patient/links` (`redeemPatientLinkCode`): links a clinic with its code. */
     suspend fun redeem(code: String): Outcome<LinkedByCode, ApiError> =

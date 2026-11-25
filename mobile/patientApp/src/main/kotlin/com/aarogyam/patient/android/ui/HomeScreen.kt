@@ -135,4 +135,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.home(
             onOpen(Routes.CLINICS)
         }, Modifier.fillMaxWidth(), variant = SkButtonVariant.Secondary)
     }
+    item {
+        SkButton(
+            stringResource(R.string.devices_open),
+            { onOpen(Routes.DEVICES) },
+            Modifier.fillMaxWidth(),
+            variant = SkButtonVariant.Secondary,
+        )
+    }
 }

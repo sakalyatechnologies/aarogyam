@@ -5,6 +5,7 @@ import com.aarogyam.patient.booking.BookingStateHolder
 import com.aarogyam.patient.clinics.ClinicsStateHolder
 import com.aarogyam.patient.config.AppConfig
 import com.aarogyam.patient.config.Hosts
+import com.aarogyam.patient.devices.DevicesStateHolder
 import com.aarogyam.patient.home.HomeStateHolder
 import com.aarogyam.patient.records.BillsStateHolder
 import com.aarogyam.patient.records.PrescriptionsStateHolder
@@ -66,6 +67,9 @@ class PatientGraph private constructor(
 
     fun clinics(scope: CoroutineScope): ClinicsStateHolder =
         ClinicsStateHolder(directory, scope, logger("aarogyam.patient.clinics"))
+
+    fun devices(scope: CoroutineScope): DevicesStateHolder =
+        DevicesStateHolder(directory, scope, logger("aarogyam.patient.devices"))
 
     fun home(scope: CoroutineScope): HomeStateHolder =
         HomeStateHolder(directory, scope, logger("aarogyam.patient.home"))

@@ -38,6 +38,7 @@ object Routes {
     const val BOOK = "book"
     const val PRESCRIPTIONS = "prescriptions"
     const val BILLS = "bills"
+    const val DEVICES = "devices"
 }
 
 /** Themes the app (Aarogyam's own Tulsi, not one clinic's) and shows what the session calls for. */
@@ -141,6 +142,7 @@ private fun Screens(
         composable(Routes.PRESCRIPTIONS) {
             PrescriptionsScreen(rememberHolder { graph.prescriptions(it) }, onBack = nav::popBackStack)
         }
+        composable(Routes.DEVICES) { DevicesScreen(rememberHolder { graph.devices(it) }, onBack = nav::popBackStack) }
         composable(Routes.BILLS) { BillsScreen(rememberHolder { graph.bills(it) }, onBack = nav::popBackStack) }
     }
 }

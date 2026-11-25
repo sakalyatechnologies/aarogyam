@@ -44,6 +44,8 @@ val apiModels =
         "VisitRxItem",
         "VisitFollowUp",
         "EarlierVisit",
+        "PatientSession",
+        "PatientSessionList",
     )
 val generatedApi = layout.buildDirectory.dir("generated/openapi")
 

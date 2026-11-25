@@ -4,6 +4,7 @@ import com.aarogyam.patient.appointments.AppointmentsStateHolder
 import com.aarogyam.patient.booking.BookingStateHolder
 import com.aarogyam.patient.clinics.ClinicsStateHolder
 import com.aarogyam.patient.config.AppConfig
+import com.aarogyam.patient.devices.DevicesStateHolder
 import com.aarogyam.patient.home.HomeStateHolder
 import com.aarogyam.patient.records.BillsStateHolder
 import com.aarogyam.patient.records.PrescriptionsStateHolder
@@ -38,6 +39,8 @@ class ScreenScope {
 fun PatientGraph.signIn(screen: ScreenScope): SignInStateHolder = signIn(screen.scope)
 
 fun PatientGraph.clinics(screen: ScreenScope): ClinicsStateHolder = clinics(screen.scope)
+
+fun PatientGraph.devices(screen: ScreenScope): DevicesStateHolder = devices(screen.scope)
 
 fun PatientGraph.home(screen: ScreenScope): HomeStateHolder = home(screen.scope)
 

@@ -64,6 +64,11 @@ pub struct PresentSituation {
     pub tooth: u8,
     /// Words for the situation.
     pub title: String,
+    /// True when only the planned treatment suggests this situation: nothing recorded on the
+    /// tooth shows it, so say what the doctor recommends, never claim a finding. Absent otherwise.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub from_plan: bool,
     /// What waiting usually leads to, in order. General guidance ("Illustration · general guidance");
     /// absent when there are no words.
     #[schema(required = false)]
@@ -171,6 +176,7 @@ impl From<domain::PresentStudio> for PresentStudio {
                     key: s.key,
                     tooth: s.tooth,
                     title: s.title,
+                    from_plan: s.from_plan,
                     if_wait: (!s.if_wait.is_empty()).then(|| {
                         s.if_wait
                             .into_iter()

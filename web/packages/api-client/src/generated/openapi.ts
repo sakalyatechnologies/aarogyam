@@ -6318,7 +6318,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Marks an accepted plan item done or cancelled; the plan follows (in progress, then completed). */
+        /** Marks an accepted plan item done or cancelled (a proposed item can only be cancelled, to withdraw it); the plan follows (in progress, then completed). */
         patch: operations["setTreatmentPlanItemStatus"];
         trace?: never;
     };
@@ -14468,6 +14468,11 @@ export interface components {
         };
         /** @description A recorded situation on one tooth. */
         PresentSituation: {
+            /**
+             * @description True when only the planned treatment suggests this situation: nothing recorded on the
+             *     tooth shows it, so say what the doctor recommends, never claim a finding. Absent otherwise.
+             */
+            from_plan?: boolean;
             /**
              * @description What waiting usually leads to, in order. General guidance ("Illustration · general guidance");
              *     absent when there are no words.
@@ -38566,7 +38571,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The item isn't accepted (finished items are frozen) */
+            /** @description The item is finished, or is proposed and the status is not cancelled */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -14,7 +14,8 @@ import { IllustrationBadge } from "./blocks.js";
 export interface WaitArt { tooth: ToothArt; shapes: ShapeSet }
 
 export function IfWaitStrip({ situation, tooth, record, art }: { situation: PresentSituation; tooth: number; record: SnapTooth | undefined; art: WaitArt | undefined }): ReactElement | null {
-  const stages = situation.if_wait ?? [];
+  // a situation chosen from the plan alone is not a recorded problem: no claim about what waiting does
+  const stages = situation.from_plan === true ? [] : (situation.if_wait ?? []);
   const frames = useMemo(() => {
     const w = ifWaitFrames(record);
     return w !== undefined && w.frames.length <= stages.length ? w : undefined;

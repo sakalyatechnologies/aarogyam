@@ -747,8 +747,13 @@ pub async fn set_item_status(
         )
         .await?
         .ok_or(AppError::NotFound("treatment plan item"))?;
-        if item.status != PlanItemStatus::Accepted.as_str() {
-            return Err(AppError::Conflict("only an accepted item can be finished"));
+        // A proposed item can be withdrawn (cancelled) before the patient answers; only an accepted one can be done.
+        let withdrawn =
+            item.status == PlanItemStatus::Proposed.as_str() && status == PlanItemStatus::Cancelled;
+        if item.status != PlanItemStatus::Accepted.as_str() && !withdrawn {
+            return Err(AppError::Conflict(
+                "only an accepted item can be finished, or a proposed one cancelled",
+            ));
         }
         treatment::set_item_status(tx.conn(), item.id, status.as_str()).await?;
         let plan = treatment::get_plan(tx.conn(), item.plan_id, false, None)

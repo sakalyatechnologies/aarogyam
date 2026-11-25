@@ -1,5 +1,6 @@
-import { Pencil, Plus, Search } from "lucide-react";
+import { MonitorSmartphone, Pencil, Plus, Search } from "lucide-react";
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router";
 
 import { apiErrorOf, randomUuid, visitId as visitIdSchema, type ChartEntry, type DentalTerm, type ToothCondition, type ToothEruption, type ToothStatus, type ToothSurface, type PatientId, type PlanItem, type Procedure, type VisitId } from "@aarogyam/api-client";
 import { formatDate } from "@aarogyam/app-kit";
@@ -15,6 +16,7 @@ import { allowsSurfaces, blankDraft, buildEntries, defaultMaterial, buildPlan, c
 import { DetailChips } from "./detail-chips.js";
 import { FindingForm } from "./finding-form.js";
 import { HealthRow } from "./health-row.js";
+import { QuickPlan } from "./quick-plan.js";
 import { TreatmentForm } from "./treatment-form.js";
 
 const TONE: Readonly<Record<RowStatus, "success" | "info" | "warning" | "neutral" | "danger">> = {
@@ -37,6 +39,8 @@ interface Props {
   /** The open visit, when there is one: treatment is recorded in it. */
   visitId: VisitId | undefined;
   canWrite: boolean;
+  /** The visit Show patient opens on (the open one, else the latest), when the patient has one: the "Show" button. */
+  presentVisitId?: string | undefined;
   terms: readonly DentalTerm[];
   planItems: readonly PlanItem[];
   procedures: readonly Procedure[];
@@ -71,7 +75,7 @@ export function ToothPanel(props: Props) {
   return <SelectedTooth key={tooth} {...props} tooth={tooth} />;
 }
 
-function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, planItems, procedures, who, onClose, entries = NO_ENTRIES, status, condition, eruption, dictate = false, onDictateStarted = noop }: Props & { tooth: number }) {
+function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVisitId, terms, planItems, procedures, who, onClose, entries = NO_ENTRIES, status, condition, eruption, dictate = false, onDictateStarted = noop }: Props & { tooth: number }) {
   const history = useToothHistory(patientId, tooth);
   const [mode, setMode] = useState<"view" | "form" | "finding">("view");
   const [editing, setEditing] = useState<HistoryRow | undefined>(undefined);
@@ -82,6 +86,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
   // Done elsewhere is remembered while the panel stays on this tooth: recording old work at a first visit is the common case.
   const elsewhere = useRef(false);
   const toast = useToast();
+  const navigate = useNavigate();
   const record = useRecordChartEntries(patientId);
   const createPlan = useCreatePlan(patientId);
   const setItem = useSetPlanItemStatus(patientId);
@@ -158,6 +163,20 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, terms, pl
       {mode === "view" ? (
         <>
           <HealthRow patientId={patientId} tooth={tooth} entries={entries} status={status} canWrite={canWrite} who={who} dictate={dictate} onDictateStarted={onDictateStarted} />
+          {open ? <QuickPlan patientId={patientId} tooth={tooth} visitId={visitId} terms={terms} planItems={planItems} entries={entries} onMore={startAdd} /> : null}
+          {presentVisitId === undefined ? null : (
+            <div className="tc-actions">
+              <PillButton
+                variant="ghost"
+                icon={<MonitorSmartphone aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  void navigate(`/visits/${presentVisitId}/mouth?tooth=${String(tooth)}`);
+                }}
+              >
+                Show
+              </PillButton>
+            </div>
+          )}
           {canWrite ? <DetailChips patientId={patientId} tooth={tooth} entries={entries} procedures={procedures} condition={condition} eruption={eruption} /> : null}
           {history.isPending ? <p className="tc-meta">Loading history…</p> : null}
           {history.isError ? (

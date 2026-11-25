@@ -70,6 +70,9 @@ export function PresentPage() {
   const [search] = useSearchParams();
   const [tab, setTab] = useState<Tab>(search.get("tab") === "xrays" ? "xrays" : "teeth");
   const [onlyToday, setOnlyToday] = useState(false);
+  // `?tooth=36` (a tooth number, nothing about the patient) opens that tooth's sheet on load, from the tooth panel's Show.
+  const toothParam = Number(search.get("tooth"));
+  const openTooth = useMemo(() => (Number.isInteger(toothParam) && toothParam >= 11 && toothParam <= 85 ? { tooth: toothParam, nonce: 1 } : undefined), [toothParam]);
   // Show patient opens on the doctor's saved style ("Make default"); picking another here is for this showing only.
   const uiPrefs = useUiPrefs();
   const saveUiPrefs = useSaveUiPrefs();
@@ -169,6 +172,7 @@ export function PresentPage() {
             snapshot={mouth.data}
             name={first}
             mode="present"
+            open={openTooth}
             filter={onlyToday ? "today" : undefined}
             doctorLines={view === "chart"}
             load3d={load3d}

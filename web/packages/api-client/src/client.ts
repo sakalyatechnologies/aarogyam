@@ -895,7 +895,7 @@ export interface ApiClient {
   createPlan(id: PatientId, input: NewPlan, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
   /** Clinic host: records the patient's acceptance of a proposed plan. Needs `clinical.write`. */
   acceptPlan(id: PlanId, input: Acceptance, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
-  /** Clinic host: marks an accepted plan item done or cancelled; the plan follows. Needs `clinical.write`; 409 once finished. */
+  /** Clinic host: marks an accepted plan item done or cancelled (a proposed one can be cancelled); the plan follows. Needs `clinical.write`; 409 once finished. */
   setPlanItemStatus(itemId: string, status: FinishedItemStatus, options?: RequestOptions): Promise<ApiResult<PlanPage["items"][number]>>;
 
   /** Clinic host: a patient's dental chart; teeth without entries are sound. Needs `clinical.read`. */

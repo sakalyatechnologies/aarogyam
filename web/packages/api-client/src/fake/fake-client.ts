@@ -5355,11 +5355,13 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (found === undefined || item === undefined) {
             return notFound;
           }
-          if (item.status !== "accepted") {
-            return refuse(409, "conflict", "Only an accepted item can be finished.");
+          // A proposed item can be withdrawn (cancelled) before the patient answers; only an accepted one can be done.
+          const withdrawn = item.status === "proposed" && status === "cancelled";
+          if (item.status !== "accepted" && !withdrawn) {
+            return refuse(409, "conflict", "Only an accepted item can be finished, or a proposed one cancelled.");
           }
           item.status = status;
-          found.status = found.items.some((i) => i.status === "accepted") ? "in_progress" : "completed";
+          if (!withdrawn) found.status = found.items.some((i) => i.status === "accepted") ? "in_progress" : "completed";
           const wired = wirePlan(found, state);
           return wired === undefined ? notFound : reply(wired satisfies C.Plan);
         }),

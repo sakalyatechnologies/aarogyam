@@ -13,7 +13,7 @@ use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::dental::Tooth;
 use aarogyam_domain::ids::{ClinicId, EncounterId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
-use aarogyam_domain::share::{LinkState, MAX_PIN_ATTEMPTS, Pin};
+use aarogyam_domain::share::LinkState;
 use aarogyam_domain::visit_message::{self as message, Aftercare, PlanChoice, aftercare};
 use sakalya_db::{Db, ScopedTx};
 use time::{Date, OffsetDateTime};
@@ -354,11 +354,9 @@ async fn extras_in(
 /// What opening a link to a visit summary did.
 #[derive(Debug, Clone)]
 pub enum OpenOutcome {
-    /// The PIN was right.
+    /// The link is live: the summary.
     Opened(Box<Summary>),
-    /// The PIN was wrong; this many tries are left.
-    WrongPin(i32),
-    /// Too many wrong PINs.
+    /// An old link locked by too many wrong PINs (visit links no longer ask for one).
     Locked,
     /// Past its expiry, or revoked.
     Expired,
@@ -367,9 +365,7 @@ pub enum OpenOutcome {
 /// Why a link to a visit did not unlock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Refused {
-    /// The PIN was wrong; this many tries are left.
-    WrongPin(i32),
-    /// Too many wrong PINs.
+    /// An old link locked by too many wrong PINs.
     Locked,
     /// Past its expiry, or revoked.
     Expired,
@@ -378,20 +374,17 @@ pub enum Refused {
 impl From<Refused> for OpenOutcome {
     fn from(refused: Refused) -> Self {
         match refused {
-            Refused::WrongPin(left) => Self::WrongPin(left),
             Refused::Locked => Self::Locked,
             Refused::Expired => Self::Expired,
         }
     }
 }
 
-/// Finds the link to a visit and checks the PIN, for every call the patient's page makes: a
-/// wrong PIN counts and the fifth locks the link (committed with the caller's transaction, so
-/// the caller returns `Ok` with the refusal). Does not count an open.
+/// Finds the link to a visit and checks its state, for every call the patient's page makes.
+/// Visit links open without a PIN (the long random token is the secret). Does not count an open.
 async fn unlock(
     tx: &mut ScopedTx,
     token: &str,
-    pin: &str,
     now: OffsetDateTime,
 ) -> Result<Result<links::ShareLinkRow, Refused>, AppError> {
     let link = links::share_link(tx.conn(), &hash_token(token))
@@ -404,26 +397,13 @@ async fn unlock(
         link.revoked_at.is_some(),
         link.locked_at.is_some(),
     ) {
-        LinkState::Locked => return Ok(Err(Refused::Locked)),
-        LinkState::Expired => return Ok(Err(Refused::Expired)),
-        LinkState::Usable => {}
+        LinkState::Locked => Ok(Err(Refused::Locked)),
+        LinkState::Expired => Ok(Err(Refused::Expired)),
+        LinkState::Usable => Ok(Ok(link)),
     }
-    let right = Pin::parse(pin).is_some_and(|pin| pin_hash(token, pin.as_str()) == link.pin_hash);
-    if !right {
-        let attempts = link.failed_attempts + 1;
-        let locked = attempts >= MAX_PIN_ATTEMPTS;
-        links::share_link_failed(tx.conn(), link.id, attempts, locked.then_some(now)).await?;
-        return Ok(Err(if locked {
-            Refused::Locked
-        } else {
-            Refused::WrongPin(MAX_PIN_ATTEMPTS - attempts)
-        }));
-    }
-    Ok(Ok(link))
 }
 
-/// Opens a link to a visit summary with the PIN. A wrong PIN counts and the fifth locks the
-/// link; a right one returns the summary and writes the access record.
+/// Opens a link to a visit summary: returns the summary and writes the access record. No PIN.
 ///
 /// # Errors
 /// [`AppError::NotFound`] for an unknown token or a link that is not to a visit.
@@ -432,11 +412,10 @@ pub async fn open(
     clinic_id: ClinicId,
     request_id: Option<Uuid>,
     token: &str,
-    pin: &str,
     now: OffsetDateTime,
 ) -> Result<OpenOutcome, AppError> {
     db.scoped(&public_scope(clinic_id, request_id), async |tx| {
-        let link = match unlock(tx, token, pin, now).await? {
+        let link = match unlock(tx, token, now).await? {
             Ok(link) => link,
             Err(refused) => return Ok(refused.into()),
         };
@@ -526,8 +505,8 @@ pub struct Answer {
     pub share_link_id: ShareLinkId,
 }
 
-/// Saves the patient's answer to their plan through a link to a visit, with the PIN checked as
-/// for [`open`] (same counter and lock). One answer per link: the latest wins, and `shown` keeps
+/// Saves the patient's answer to their plan through a link to a visit, with the link checked as
+/// for [`open`]. One answer per link: the latest wins, and `shown` keeps
 /// the plan items the page shows now. A new or different choice writes or reopens the visit's
 /// `plan_response` notification. Not an open: the open count is unchanged, and no access row is
 /// written (the table's change history is the record).
@@ -539,12 +518,11 @@ pub async fn answer(
     clinic_id: ClinicId,
     request_id: Option<Uuid>,
     token: &str,
-    pin: &str,
     choice: PlanChoice,
     now: OffsetDateTime,
 ) -> Result<Result<Answer, Refused>, AppError> {
     db.scoped(&public_scope(clinic_id, request_id), async |tx| {
-        let link = match unlock(tx, token, pin, now).await? {
+        let link = match unlock(tx, token, now).await? {
             Ok(link) => link,
             Err(refused) => return Ok(Err(refused)),
         };

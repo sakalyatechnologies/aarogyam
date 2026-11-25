@@ -249,7 +249,7 @@ fn prescription_pin(mail: &PatientMail<'_>) -> Result<(String, Vec<String>), Fai
     ))
 }
 
-/// An automatic message (welcome, visit summary and its PIN, follow-up booking): the clinic's
+/// An automatic message (welcome, visit summary, follow-up booking): the clinic's
 /// template text for the patient's language, filled with links and a date.
 fn automatic_message(
     mail: &PatientMail<'_>,

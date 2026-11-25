@@ -1286,7 +1286,7 @@ TABLES = [
             "choice text | go_ahead, question; the latest answer wins",
             "shown jsonb | [{source: procedure or plan_item, id}] as the page showed the plan, so go ahead still means something after the plan changes",
             "responded_at timestamptz"],
-      notes="Built (migration 0739). Unique (org_id, share_link_id): one answer per link. Written under the public link scope by POST /shared/{token}/plan-response, which checks the PIN every time with the link's wrong-PIN counter and lock and does not count an open. No access-log row: the change history is the record. A new or different answer writes or reopens the visit's plan_response staff notification. Support never reads it. Erasure step 29, before the links."),
+      notes="Built (migration 0739). Unique (org_id, share_link_id): one answer per link. Written under the public link scope by POST /shared/{token}/plan-response, which checks the link (no PIN for visit links) and does not count an open. No access-log row: the change history is the record. A new or different answer writes or reopens the visit's plan_response staff notification. Support never reads it. Erasure step 29, before the links."),
     T(name="access_log", domain="trust", rls="clinic", star=True, partitioned=True,
       lifecycle="append_only", schema="audit",
       purpose="The access record: who opened which patient record, why, when and from which device. Patients can see it.",

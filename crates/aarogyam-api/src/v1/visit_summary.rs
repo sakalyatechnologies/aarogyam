@@ -1,5 +1,5 @@
 //! A visit summary the patient opens with a link: the clinic makes one for a visit; the patient
-//! opens it on the clinic's host with the PIN. It shows why they came, the treatments done, the
+//! opens it on the clinic's host, with no PIN. It shows why they came, the treatments done, the
 //! plan, the medicines, care at home, the follow-up date, the clinic's phone and where to book;
 //! never notes, images or other staff.
 
@@ -21,7 +21,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use super::prescriptions::{OpenRequest, ShareRequest, optional_body};
+use super::prescriptions::{ShareRequest, optional_body};
 use super::rfc3339;
 use crate::AppState;
 use crate::extract::{ClinicHost, Require};
@@ -394,35 +394,31 @@ impl From<aarogyam_domain::present_discussion::SharedDiscussion> for VisitDiscus
     }
 }
 
-/// Public, no sign-in: opens a link to a visit summary with the PIN. Five wrong PINs lock the
-/// link. Every open is written to the access record.
+/// Public, no sign-in: opens a link to a visit summary. No PIN and no body (an older client's
+/// body is ignored). Every open is written to the access record.
 #[utoipa::path(
     post,
     path = "/api/v1/shared/{token}/visit",
     operation_id = "openSharedVisit",
     tag = "public",
     params(("token" = String, Path, description = "The link's token")),
-    request_body = OpenRequest,
     responses(
         (status = 200, body = VisitSummary),
-        (status = 403, description = "Wrong PIN; the message says how many tries are left"),
         (status = 404, description = "No such link, or not a link to a visit"),
-        (status = 410, description = "Expired"),
-        (status = 423, description = "Locked after too many wrong PINs")
+        (status = 410, description = "Expired or revoked"),
+        (status = 423, description = "An old link locked after too many wrong PINs")
     )
 )]
 pub(crate) async fn open(
     State(state): State<AppState>,
     public: ClinicHost,
     ApiPath(token): ApiPath<String>,
-    ApiJson(body): ApiJson<OpenRequest>,
 ) -> Result<Response, ApiFailure> {
     let outcome = app::open(
         state.db(),
         public.clinic_id,
         public.request_id,
         &token,
-        &body.pin,
         OffsetDateTime::now_utc(),
     )
     .await?;
@@ -436,26 +432,20 @@ pub(crate) async fn open(
             );
             response
         }
-        OpenOutcome::WrongPin(left) => refusal(Refused::WrongPin(left)),
         OpenOutcome::Locked => refusal(Refused::Locked),
         OpenOutcome::Expired => refusal(Refused::Expired),
     })
 }
 
-/// The answer to a link that did not unlock: 403 wrong PIN, 423 locked, 410 expired.
+/// The answer to a link that did not unlock: 423 locked (an old link), 410 expired.
 fn refusal(refused: Refused) -> Response {
     let (status, code, message) = match refused {
-        Refused::WrongPin(left) => (
-            StatusCode::FORBIDDEN,
-            "wrong_pin",
-            format!("The PIN is wrong. {left} tries left."),
-        ),
         Refused::Locked => {
             tracing::info!(event = Event::ShareLinkLocked.as_str(), "share link locked");
             (
                 StatusCode::LOCKED,
                 "locked",
-                "Too many wrong PINs. Ask the clinic for a new link.".to_owned(),
+                "This link is locked. Ask the clinic for a new link.".to_owned(),
             )
         }
         Refused::Expired => (
@@ -471,11 +461,14 @@ fn refusal(refused: Refused) -> Response {
         .into_response()
 }
 
-/// The patient's answer to their plan, with the PIN again.
+/// The patient's answer to their plan.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct PlanResponseRequest {
-    /// The six digits the clinic gave.
-    pub pin: String,
+    /// Deprecated and ignored: visit links no longer have a PIN. Older clients may still send it.
+    #[serde(default)]
+    #[schema(deprecated)]
+    #[expect(dead_code, reason = "accepted and ignored for older clients")]
+    pub pin: Option<String>,
     /// `go_ahead` ("Yes, I want to go ahead") or `question` ("I have a question").
     pub choice: String,
 }
@@ -489,9 +482,8 @@ pub struct PlanResponse {
     pub responded_at: String,
 }
 
-/// Public, no sign-in: the patient answers their plan from the visit page. The PIN is checked
-/// every time, with the same wrong-PIN count and lock as opening the link; it does not count as
-/// an open. One answer per link: the latest wins. A new or different answer tells the visit's
+/// Public, no sign-in: the patient answers their plan from the visit page. No PIN (a `pin` field is
+/// ignored); it does not count as an open. One answer per link: the latest wins. A new or different answer tells the visit's
 /// doctor and the desk.
 #[utoipa::path(
     post,
@@ -503,10 +495,9 @@ pub struct PlanResponse {
     responses(
         (status = 200, body = PlanResponse),
         (status = 400, description = "The choice is not `go_ahead` or `question`"),
-        (status = 403, description = "Wrong PIN; the message says how many tries are left"),
         (status = 404, description = "No such link, or not a link to a visit"),
         (status = 410, description = "Expired or revoked"),
-        (status = 423, description = "Locked after too many wrong PINs")
+        (status = 423, description = "An old link locked after too many wrong PINs")
     )
 )]
 pub(crate) async fn answer(
@@ -524,7 +515,6 @@ pub(crate) async fn answer(
         public.clinic_id,
         public.request_id,
         &token,
-        &body.pin,
         choice,
         OffsetDateTime::now_utc(),
     )

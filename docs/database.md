@@ -3765,7 +3765,7 @@ A patient's answer to their plan from the visit page: go ahead, or a question.
 | `shown` | `jsonb` | [{source: procedure or plan_item, id}] as the page showed the plan, so go ahead still means something after the plan changes |
 | `responded_at` | `timestamptz` |  |
 
-Built (migration 0739). Unique (org_id, share_link_id): one answer per link. Written under the public link scope by POST /shared/{token}/plan-response, which checks the PIN every time with the link's wrong-PIN counter and lock and does not count an open. No access-log row: the change history is the record. A new or different answer writes or reopens the visit's plan_response staff notification. Support never reads it. Erasure step 29, before the links.
+Built (migration 0739). Unique (org_id, share_link_id): one answer per link. Written under the public link scope by POST /shared/{token}/plan-response, which checks the link (no PIN for visit links) and does not count an open. No access-log row: the change history is the record. A new or different answer writes or reopens the visit's plan_response staff notification. Support never reads it. Erasure step 29, before the links.
 
 ### `access_log` (★ foundation, partitioned)
 

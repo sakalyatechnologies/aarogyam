@@ -632,7 +632,6 @@ struct Template {
     book_reply: String,
     link: String,
     link_minor: String,
-    pin: String,
     warning: String,
     warning_minor: String,
     offer: String,
@@ -769,8 +768,6 @@ pub struct MessageInput<'a> {
     pub learn: Option<LearnLink<'a>>,
     /// The link to the visit page.
     pub url: &'a str,
-    /// The link's PIN.
-    pub pin: &'a str,
     /// The sections the doctor left ticked (spec 1.6).
     pub sections: SectionSet,
     /// The patient's own offers and rewards: lines under the Offer tick.
@@ -937,7 +934,7 @@ impl Default for SectionSet {
 pub struct Composed {
     /// The full message: `WhatsApp` formatting, at most the template's `max_chars`.
     pub text: String,
-    /// Greeting, link, PIN and the don't-forward line only: no clinical words, no name. For
+    /// Greeting, link and the don't-forward line only: no clinical words, no name. For
     /// hand-offs that travel in a web URL.
     pub short_text: String,
     /// The message for desktop `whatsapp://` links: no emoji, cut to fit
@@ -949,8 +946,6 @@ pub struct Composed {
 /// The preview's stand-in for a link token: as long as a real one (43 characters), so the
 /// preview drops exactly what the real text drops (N5).
 pub const PREVIEW_TOKEN: &str = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-/// The preview's stand-in for the PIN, as long as a real one.
-pub const PREVIEW_PIN: &str = "XXXXXX";
 
 /// Most characters of a desktop `whatsapp://send?phone=…&text=…` link.
 pub const DESKTOP_URL_MAX: usize = 2000;
@@ -1617,7 +1612,7 @@ pub fn referral_share_text(
 }
 
 /// The message against one budget. Lines that don't fit go least important section first
-/// ("…and 2 more on the page"); fixed lines, the greeting, booking line, link, PIN and warning
+/// ("…and 2 more on the page"); fixed lines, the greeting, booking line, link and warning
 /// always stay. Desktop texts lose every emoji and keep fewer fixed lines.
 fn build(t: &Template, input: &MessageInput<'_>, budget: Budget) -> String {
     let desktop = budget.desktop();
@@ -1655,7 +1650,6 @@ fn build(t: &Template, input: &MessageInput<'_>, budget: Budget) -> String {
     let tail = [
         book,
         fill(link, &[("first_name", first.as_str()), ("url", input.url)]),
-        fill(&t.pin, &[("pin", input.pin)]),
         fill(warning, &names),
     ]
     .join("\n");
@@ -1705,7 +1699,7 @@ fn build(t: &Template, input: &MessageInput<'_>, budget: Budget) -> String {
 #[must_use]
 pub fn compose(input: &MessageInput<'_>) -> Composed {
     let Some(t) = template() else {
-        let bare = format!("{}\n{}", input.url, input.pin);
+        let bare = input.url.to_owned();
         return Composed {
             text: bare.clone(),
             short_text: bare,
@@ -1724,7 +1718,6 @@ pub fn compose(input: &MessageInput<'_>) -> Composed {
         ),
         [
             fill(&t.short.link, &[("url", input.url)]),
-            fill(&t.pin, &[("pin", input.pin)]),
             t.warning.clone(),
         ]
         .join("\n"),
@@ -1958,7 +1951,6 @@ mod tests {
             clinic_phone: Some("+919876500010"),
             learn: None,
             url: "https://sunrise.example/shared/tok3n",
-            pin: "482913",
             sections: SectionSet::ALL,
             offers: &[],
             referral: None,
@@ -2046,7 +2038,6 @@ mod tests {
             "Amoxicillin 500 mg: 1-0-1, 5 days",
             "To book, reply here or call +91 98765 00010.",
             "https://sunrise.example/shared/tok3n",
-            "482913",
             "Please don't forward it.",
         ] {
             assert!(made.text.contains(part), "missing {part}: {}", made.text);
@@ -2072,7 +2063,7 @@ mod tests {
                 made.short_text
             );
         }
-        for part in ["*Sunrise Dental*", "tok3n", "482913", "don't forward"] {
+        for part in ["*Sunrise Dental*", "tok3n", "don't forward"] {
             assert!(made.short_text.contains(part), "short text lacks {part}");
         }
     }
@@ -2369,7 +2360,6 @@ mod tests {
             "To book, reply here",
             LEARN_URL,
             TOKEN_URL,
-            "*482913*",
             "Please don't forward it.",
         ] {
             assert!(text.contains(part), "missing {part}: {text}");
@@ -2392,7 +2382,7 @@ mod tests {
         let desktop = made.desktop_text.expect("the bound holds");
         assert_eq!(care_lines(&desktop), 1, "{desktop}");
         assert!(desktop.contains("+4 more on your page"), "{desktop}");
-        for part in ["learn.aarogyam", TOKEN_URL, "*482913*", "To book"] {
+        for part in ["learn.aarogyam", TOKEN_URL, "To book"] {
             assert!(desktop.contains(part), "desktop lacks {part}: {desktop}");
         }
     }
@@ -2410,12 +2400,7 @@ mod tests {
         let desktop = made.desktop_text.expect("fits");
         let length = encoded_len(&desktop) + DESKTOP_PREFIX;
         assert!(length <= DESKTOP_URL_MAX, "{length}: {desktop}");
-        for part in [
-            LEARN_URL,
-            "recommends: Crown",
-            "+1 more on your page",
-            "*482913*",
-        ] {
+        for part in [LEARN_URL, "recommends: Crown", "+1 more on your page"] {
             assert!(desktop.contains(part), "missing {part}: {desktop}");
         }
         assert!(desktop.chars().all(|c| !is_emoji(c)), "{desktop}");
@@ -2625,7 +2610,6 @@ mod tests {
     fn the_preview_placeholder_is_as_long_as_a_real_link() {
         assert_eq!(PREVIEW_TOKEN.len(), 43);
         assert!(PREVIEW_TOKEN.bytes().all(|b| b == b'x'));
-        assert_eq!(PREVIEW_PIN.len(), 6);
         let real = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG";
         assert_eq!(real.len(), PREVIEW_TOKEN.len());
     }

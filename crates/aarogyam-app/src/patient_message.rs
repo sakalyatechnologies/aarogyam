@@ -1,5 +1,5 @@
 //! The visit summary a doctor sends from their own `WhatsApp` (docs/plans/visit-story-design.md,
-//! C2). The server builds the text and mints a visit link with its PIN; the phone opens
+//! C2). The server builds the text and mints a visit link; the phone opens
 //! `WhatsApp` with it and the doctor presses Send. Nothing is queued or sent from here: this is
 //! "prepared", not "sent", and the decision log records the exception to rule 10.
 //!
@@ -670,7 +670,7 @@ pub struct Prepared {
 }
 
 /// Everything the summary says, gathered after the refusals: the recipient, the visit's facts and
-/// the clinic's names. The link and PIN come last, from Send or the preview.
+/// the clinic's names. The link comes last, from Send or the preview.
 struct Draft {
     visit_id: Uuid,
     patient_id: Uuid,
@@ -715,12 +715,11 @@ impl Draft {
         Some(message::learn_url(learn_origin?, self.learn?))
     }
 
-    /// The message's input with this link, PIN, ticks and learn page address. The typed
+    /// The message's input with this link, ticks and learn page address. The typed
     /// complaint stays on the visit page; it never goes into the text.
     fn input<'a>(
         &'a self,
         url: &'a str,
-        pin: &'a str,
         sections: SectionSet,
         learn_url: Option<&'a str>,
         offers: &'a [message::OfferLine<'a>],
@@ -746,7 +745,6 @@ impl Draft {
                 url,
             }),
             url,
-            pin,
             sections,
             offers,
             referral: self.referral.as_ref().map(IssuedCode::discount),
@@ -954,7 +952,6 @@ pub async fn prepare(
         let offers = draft.offer_lines();
         let composed = message::compose(&draft.input(
             &link,
-            &made.pin,
             sections.unwrap_or_default(),
             learn.as_deref(),
             &offers,
@@ -975,7 +972,7 @@ pub async fn prepare(
     .await
 }
 
-/// The summary as Send would build it with these ticks, with a stand-in link and PIN of the same
+/// The summary as Send would build it with these ticks, with a stand-in link of the same
 /// length (N5). Runs the same refusals as [`prepare`] but mints, revokes and saves nothing (B1).
 ///
 /// # Errors
@@ -1005,14 +1002,7 @@ pub async fn preview(
         let link = url(&host, message::PREVIEW_TOKEN);
         let learn = draft.learn_url(learn_origin);
         let offers = draft.offer_lines();
-        Ok(message::compose(&draft.input(
-            &link,
-            message::PREVIEW_PIN,
-            sections,
-            learn.as_deref(),
-            &offers,
-        ))
-        .text)
+        Ok(message::compose(&draft.input(&link, sections, learn.as_deref(), &offers)).text)
     })
     .await
 }

@@ -5,6 +5,7 @@ import com.aarogyam.staff.api.badges
 import com.aarogyam.staff.api.cancelInvitation
 import com.aarogyam.staff.api.inbox
 import com.aarogyam.staff.api.lowStock
+import com.aarogyam.staff.api.model.Avatar
 import com.aarogyam.staff.api.model.NewConversationBody
 import com.aarogyam.staff.api.notifications
 import com.aarogyam.staff.api.readAllNotifications
@@ -49,6 +50,8 @@ data class MemberRow(
     val active: Boolean,
     /** This is the signed-in person. */
     val me: Boolean,
+    /** Their avatar: an illustration id or a photo link (BK-10); null when they have none. */
+    val avatar: Avatar? = null,
 )
 
 /** An invitation not yet accepted. [roleName] is the clinic's name for the role when a member holds it. */
@@ -193,6 +196,7 @@ class TeamStateHolder(
                             it.roleName,
                             it.status == "active",
                             it.id == clinic.session.membership.id,
+                            it.avatar,
                         )
                     },
                 )

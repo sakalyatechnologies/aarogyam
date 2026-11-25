@@ -7,6 +7,7 @@ import com.aarogyam.staff.api.model.Expense
 import com.aarogyam.staff.api.model.ExpenseList
 import com.aarogyam.staff.api.model.Invoice
 import com.aarogyam.staff.api.model.NewExpense
+import com.aarogyam.staff.api.model.UpiLink
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.IdempotencyKey
 import com.sakalya.mobile.core.Outcome
@@ -120,3 +121,7 @@ suspend fun ClinicApi.collectSummary(id: String): Outcome<CollectSummary, ApiErr
 /** `GET /api/v1/invoices/{id}` (`getInvoice`): one bill with its lines; a draft's amounts are a preview of the lines. */
 suspend fun ClinicApi.invoice(id: String): Outcome<Invoice, ApiError> =
     client.call { url("api/v1/invoices/${id.encodeURLPathPart()}") }
+
+/** `GET /api/v1/invoices/{id}/upi-link` (`getInvoiceUpiLink`): the UPI link and QR text for what is left on an issued bill. Records nothing. */
+suspend fun ClinicApi.invoiceUpiLink(invoiceId: String): Outcome<UpiLink, ApiError> =
+    client.call { url("api/v1/invoices/${invoiceId.encodeURLPathPart()}/upi-link") }

@@ -209,4 +209,8 @@
     <string name="dk_iv_sign_a11y">Signature pad. Sign with a finger</string>
     <string name="dk_iv_sign_clear">Clear</string>
     <string name="dk_iv_title">New patient</string>
+    <string name="dk_dx_upi_failed">Could not make the UPI link. Check the clinic\'s UPI ID in settings.</string>
+    <string name="dk_dx_upi_qr">UPI payment QR code</string>
+    <string name="dk_dx_upi_send">Send UPI link</string>
+    <string name="dk_dx_upi_share_again">Share again</string>
 </resources>

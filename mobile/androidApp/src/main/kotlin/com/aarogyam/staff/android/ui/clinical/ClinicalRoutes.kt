@@ -72,6 +72,7 @@ fun NavGraphBuilder.clinicalDestinations(
             onBack = nav::popBackStack,
             onChats = nav::openChats,
             onOpenChat = nav::openChat,
+            photo = { graph.avatars.photoOf(open.api, it) },
         )
     }
     composable(ClinicalRoutes.EXPENSES) {

@@ -41,6 +41,7 @@ import com.aarogyam.staff.android.ui.display
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.patient.V7Icon
 import com.aarogyam.staff.android.ui.rememberHolder
+import com.aarogyam.staff.api.model.Avatar
 import com.aarogyam.staff.team.InviteNotice
 import com.aarogyam.staff.team.InviteStaffStateHolder
 import com.aarogyam.staff.team.ListState
@@ -72,6 +73,8 @@ fun TeamScreen(
     onBack: () -> Unit,
     onChats: () -> Unit,
     onOpenChat: (id: String, title: String) -> Unit,
+    /** Fetches a member's avatar photo (BK-10). */
+    photo: suspend (Avatar?) -> ByteArray? = { null },
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     val opened by holder.opened.collectAsStateWithLifecycle()
@@ -145,7 +148,7 @@ fun TeamScreen(
                         ) {
                             if (canChat) item { ChatsRow(onChats) }
                             items(current.items, key = { it.membershipId }) { row ->
-                                MemberItem(row, canChat && !row.me) {
+                                MemberItem(row, canChat && !row.me, photo) {
                                     chattingWith = row.name
                                     holder.message(row.membershipId)
                                 }
@@ -268,6 +271,7 @@ private fun ChatsRow(onClick: () -> Unit) {
 private fun MemberItem(
     row: MemberRow,
     chat: Boolean,
+    photo: suspend (Avatar?) -> ByteArray?,
     onClick: () -> Unit,
 ) {
     Box(Modifier.clip(RoundedCornerShape(16.dp)).background(SkTheme.colors.card.color)) {
@@ -275,7 +279,15 @@ private fun MemberItem(
             title = row.name,
             subtitle = row.roleName,
             onClick = if (chat) onClick else null,
-            leading = { SkAvatar(row.name, tone = if (row.active) SkTone.Brand else SkTone.Neutral, size = 38.dp) },
+            leading = {
+                MemberAvatar(
+                    row.name,
+                    row.avatar,
+                    if (row.active) SkTone.Brand else SkTone.Neutral,
+                    38.dp,
+                    photo,
+                )
+            },
             trailing = {
                 if (row.me) {
                     SkChip(stringResource(R.string.cn_c_team_you), tone = SkTone.Brand)

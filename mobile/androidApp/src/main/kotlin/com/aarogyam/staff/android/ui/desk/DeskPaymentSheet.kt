@@ -208,7 +208,7 @@ private fun Fields(
         PayMethod.entries.forEach { PickChip(stringResource(it.label()), method == it, onClick = { method = it }) }
     }
     if (DeskPayProblem.Method in problems) DeskErrorText(stringResource(R.string.dk_d9_pay_method_required))
-    if (all) SplitPreview(holder, DeskPay.paise(amount) ?: 0)
+    if (all) SplitPreview(holder, DeskPay.paise(amount) ?: 0) else UpiLinkSection(holder.upiLink, chosen)
     if (ServerCaps.paymentProof) ProofSection(ready.canAttachProof, proof) { proof = it }
     when (outcome) {
         is DeskPayOutcome.Failed -> {

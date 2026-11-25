@@ -73,7 +73,7 @@ struct MoreScreen: View {
         .sheet(isPresented: $deleting) { DeleteAccountSheet(graph: graph) }
         .sheet(isPresented: $languages) { LanguageSheet(graph: graph).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $appearance) { AppearanceSheet(preference: graph.appearance).presentationDetents([.medium]) }
-        .sheet(isPresented: $avatars) { AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
+        .sheet(isPresented: $avatars) { AvatarPicker(graph: graph, clinic: clinic) { avatarRevision += 1 }.presentationDetents([.medium, .large]) }
     }
 
     private var profileRow: some View {

@@ -33,6 +33,9 @@ struct TodayV7Screen: View {
         .scrollIndicators(.hidden)
         .skSoftScrollEdge()
         .refreshable { await refresh() }
+        .task(id: clinic.slug) {
+            if await AvatarChoice.pull(graph: graph, clinic: clinic) { avatarRevision += 1 }
+        }
         .task(id: scenePhase) {
             // Reloads every 20 s (shared PollingUpdates) while Today is on screen and the app is active.
             // The task is cancelled when the screen goes away or the app leaves the foreground.
@@ -59,7 +62,7 @@ struct TodayV7Screen: View {
             }
         }
         .sheet(isPresented: $avatars) {
-            AvatarPicker(graph: graph) { avatarRevision += 1 }.presentationDetents([.medium, .large])
+            AvatarPicker(graph: graph, clinic: clinic) { avatarRevision += 1 }.presentationDetents([.medium, .large])
         }
     }
 

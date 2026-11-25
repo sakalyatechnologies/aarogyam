@@ -256,7 +256,7 @@ fun MoreScreen(
         }) { appearance = false }
     }
     if (avatars) {
-        AvatarPicker(graph, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
+        AvatarPicker(graph, clinic, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
     }
     if (deleting) DeleteAccountSheet(graph) { deleting = false }
     if (qr) ClinicQrSheet(bookingUrl(clinic.api.origin), clinic.session.clinic.name) { qr = false }

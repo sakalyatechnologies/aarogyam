@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +29,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.TodayScreen
 import com.aarogyam.staff.android.ui.desk.DeskHome
 import com.aarogyam.staff.android.ui.doctor.DoctorWaitingTop
+import com.aarogyam.staff.android.ui.more.AvatarChoice
 import com.aarogyam.staff.android.ui.more.AvatarPicker
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.android.ui.tasks.TasksSheet
@@ -72,6 +74,12 @@ fun TodayTab(
         mutableStateOf(
             graph.preferences.get(PreferenceKey.AvatarChoice) ?: defaultAvatar(clinic),
         )
+    }
+    val context = LocalContext.current
+    LaunchedEffect(clinic) {
+        if (AvatarChoice.pull(context, graph, clinic)) {
+            avatar = graph.preferences.get(PreferenceKey.AvatarChoice) ?: defaultAvatar(clinic)
+        }
     }
     val badges = rememberHolder { graph.badges(clinic, it) }
     val counts by badges.state.collectAsStateWithLifecycle()
@@ -131,7 +139,7 @@ fun TodayTab(
         ClinicQrSheet(bookingUrl(clinic.api.origin), clinic.session.clinic.name) { qr = false }
     }
     if (avatarSheet) {
-        AvatarPicker(graph, onChange = {
+        AvatarPicker(graph, clinic, onChange = {
             avatar =
                 graph.preferences.get(PreferenceKey.AvatarChoice) ?: defaultAvatar(clinic)
         }) { avatarSheet = false }

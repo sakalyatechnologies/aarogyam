@@ -1635,6 +1635,98 @@
         }
       }
     },
+    "d9.pay.upi.failed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not make the UPI link. Check the clinic's UPI ID in settings."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI लिंक नहीं बन सका। सेटिंग में क्लिनिक की UPI ID जाँचें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI लिंक बनवता आली नाही. सेटिंगमध्ये क्लिनिकचा UPI ID तपासा."
+          }
+        }
+      }
+    },
+    "d9.pay.upi.qr": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI payment QR code"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI भुगतान QR कोड"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI पेमेंट QR कोड"
+          }
+        }
+      }
+    },
+    "d9.pay.upi.send": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send UPI link"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI लिंक भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "UPI लिंक पाठवा"
+          }
+        }
+      }
+    },
+    "d9.pay.upi.share_again": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share again"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "फिर से भेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पुन्हा शेअर करा"
+          }
+        }
+      }
+    },
     "d9.pay.record": {
       "extractionState": "manual",
       "localizations": {

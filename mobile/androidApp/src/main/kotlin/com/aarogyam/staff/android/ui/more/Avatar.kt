@@ -46,6 +46,7 @@ import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.art.ArtImage
 import com.aarogyam.staff.android.ui.newCameraTarget
 import com.aarogyam.staff.art.AvatarArt
+import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.device.PreferenceKey
 import com.sakalya.mobile.designcompose.SkModalSheet
 import com.sakalya.mobile.designcompose.SkPillButton
@@ -58,7 +59,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** The avatar choice: an illustration's art ID, or [PHOTO] for a picture kept on this phone only (server storage is BK-10). */
+/** The avatar choice: an illustration's art ID, or [PHOTO] for a picture kept on this phone, also saved on the server ([com.aarogyam.staff.avatar.AvatarSync]). */
 object AvatarChoice {
     const val PHOTO = "photo"
     private const val DEFAULT = "d1"
@@ -76,10 +77,20 @@ object AvatarChoice {
     fun photo(context: Context): Bitmap? =
         file(context).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) }
 
-    /** Keeps a square, small copy of the picture at [uri] as the avatar photo. */
+    /** Keeps the photo the server sent as the device copy and chooses it. */
+    fun adoptPhoto(
+        context: Context,
+        bytes: ByteArray,
+    ) {
+        file(context).writeBytes(bytes)
+        revision++
+    }
+
+    /** Keeps a square, small copy of the picture at [uri] as the avatar photo, and saves it on the server. */
     suspend fun savePhoto(
         context: Context,
         graph: AppGraph,
+        clinic: ClinicContext,
         uri: Uri,
     ): Boolean =
         withContext(Dispatchers.Default) {
@@ -102,9 +113,17 @@ object AvatarChoice {
                 file(context).outputStream().use { small.compress(Bitmap.CompressFormat.JPEG, QUALITY, it) }
                 graph.preferences.set(PreferenceKey.AvatarChoice, PHOTO)
                 revision++
+                graph.avatars.savePhoto(clinic.api, file(context).readBytes())
                 true
             }.getOrDefault(false)
         }
+
+    /** On a phone with no choice yet, takes the server's avatar as the device copy. True when it did. */
+    suspend fun pull(
+        context: Context,
+        graph: AppGraph,
+        clinic: ClinicContext,
+    ): Boolean = graph.avatars.pullIfMissing(clinic.api, clinic.session.user.avatar) { adoptPhoto(context, it) }
 }
 
 /** The person's avatar drawn into its frame: their photo, or the chosen illustration. */
@@ -133,6 +152,7 @@ fun MyAvatar(
 @Composable
 fun AvatarPicker(
     graph: AppGraph,
+    clinic: ClinicContext,
     onChange: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -142,7 +162,7 @@ fun AvatarPicker(
     val target = remember { newCameraTarget(context) }
     val saved: (Uri) -> Unit = { uri ->
         scope.launch {
-            if (AvatarChoice.savePhoto(context, graph, uri)) {
+            if (AvatarChoice.savePhoto(context, graph, clinic, uri)) {
                 chosen = AvatarChoice.PHOTO
                 onChange()
             }
@@ -191,6 +211,7 @@ fun AvatarPicker(
                             chosen = id
                             graph.preferences.set(PreferenceKey.AvatarChoice, id)
                             onChange()
+                            scope.launch { graph.avatars.savePreset(clinic.api, id) }
                         }.semantics {
                             contentDescription = label
                             selected = on

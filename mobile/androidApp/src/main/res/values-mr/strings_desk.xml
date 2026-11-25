@@ -207,4 +207,8 @@
     <string name="dk_iv_sign_a11y">सहीसाठी जागा. बोटाने सही करा</string>
     <string name="dk_iv_sign_clear">पुसा</string>
     <string name="dk_iv_title">नवीन रुग्ण</string>
+    <string name="dk_dx_upi_failed">UPI लिंक बनवता आली नाही. सेटिंगमध्ये क्लिनिकचा UPI ID तपासा.</string>
+    <string name="dk_dx_upi_qr">UPI पेमेंट QR कोड</string>
+    <string name="dk_dx_upi_send">UPI लिंक पाठवा</string>
+    <string name="dk_dx_upi_share_again">पुन्हा शेअर करा</string>
 </resources>

@@ -3,6 +3,7 @@ package com.aarogyam.patient
 import com.aarogyam.patient.appointments.AppointmentsState
 import com.aarogyam.patient.appointments.CancelError
 import com.aarogyam.patient.booking.BookingError
+import com.aarogyam.patient.clinics.LinkCode
 import com.aarogyam.patient.clinics.LinkError
 import com.aarogyam.patient.home.HomeState
 import com.aarogyam.patient.records.ListState
@@ -112,6 +113,34 @@ class PatientStateHoldersTest {
             assertEquals(
                 """{"code":"7KQ2MX9D4T"}""",
                 (sent.body as OutgoingContent.ByteArrayContent).bytes().decodeToString(),
+            )
+        }
+
+    @Test
+    fun a_scanned_code_adds_the_clinic_and_other_links_are_ignored() =
+        runTest {
+            val backend = FakeBackend()
+            val graph = signedIn(backend, backgroundScope, meJson())
+            val holder = graph.clinics(backgroundScope)
+            holder.state.first { !it.loading }
+            assertEquals(false, holder.onScanned("https://example.com/7KQ2M-X9D4T"))
+            assertEquals(false, holder.onScanned("other://link#7KQ2MX9D4T"))
+            assertEquals(false, holder.onScanned("hello"))
+            assertEquals("", holder.state.value.code)
+            assertEquals("7KQ2M-X9D4T", LinkCode.parse("aarogyam://link#7kq2mx9d4t"))
+            assertEquals("7KQ2M-X9D4T", LinkCode.parse("aarogyam://link?code=7KQ2M-X9D4T"))
+            assertEquals("7KQ2M-X9D4T", LinkCode.parse(" 7KQ2M-X9D4T "))
+            backend.on("$DEMO_APP/api/v1/me/patient/links", {
+                json("""{"clinic_id":"$SUNRISE_ID","outcome":"linked"}""", HttpStatusCode.Created)
+            })
+            backend.on(me, { json(meJson(clinicJson())) })
+            assertEquals(true, holder.onScanned("7KQ2M-X9D4T"))
+            assertEquals(
+                "Sunrise Dental",
+                holder.state
+                    .first { it.linked != null }
+                    .linked
+                    ?.name,
             )
         }
 

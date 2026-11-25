@@ -5,6 +5,8 @@ import com.aarogyam.patient.booking.BookingStateHolder
 import com.aarogyam.patient.clinics.ClinicsStateHolder
 import com.aarogyam.patient.config.AppConfig
 import com.aarogyam.patient.devices.DevicesStateHolder
+import com.aarogyam.patient.files.FileCache
+import com.aarogyam.patient.files.FilesStateHolder
 import com.aarogyam.patient.home.HomeStateHolder
 import com.aarogyam.patient.records.BillsStateHolder
 import com.aarogyam.patient.records.PrescriptionsStateHolder
@@ -51,6 +53,11 @@ fun PatientGraph.booking(screen: ScreenScope): BookingStateHolder = booking(scre
 fun PatientGraph.prescriptions(screen: ScreenScope): PrescriptionsStateHolder = prescriptions(screen.scope)
 
 fun PatientGraph.bills(screen: ScreenScope): BillsStateHolder = bills(screen.scope)
+
+fun PatientGraph.files(
+    screen: ScreenScope,
+    cache: FileCache,
+): FilesStateHolder = files(screen.scope, cache)
 
 fun PatientGraph.booking(
     screen: ScreenScope,

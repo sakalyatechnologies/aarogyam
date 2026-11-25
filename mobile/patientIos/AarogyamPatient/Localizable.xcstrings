@@ -453,6 +453,50 @@
         }
       }
     },
+    "clinics.scan": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan QR"
+          }
+        }
+      }
+    },
+    "clinics.scan.notours": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That QR isn't from a clinic. Scan the QR card your clinic gave you."
+          }
+        }
+      }
+    },
+    "clinics.scan.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan your clinic QR"
+          }
+        }
+      }
+    },
+    "clinics.scan.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The camera isn't available. Type the code instead."
+          }
+        }
+      }
+    },
     "clinics.title": {
       "extractionState": "manual",
       "localizations": {
@@ -662,6 +706,116 @@
         }
       }
     },
+    "file.consent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consent form"
+          }
+        }
+      }
+    },
+    "file.document": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Document"
+          }
+        }
+      }
+    },
+    "file.image.description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The shared image"
+          }
+        }
+      }
+    },
+    "file.photo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photo"
+          }
+        }
+      }
+    },
+    "file.report": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report"
+          }
+        }
+      }
+    },
+    "file.xray": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "X-ray"
+          }
+        }
+      }
+    },
+    "files.cant_open": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't open here"
+          }
+        }
+      }
+    },
+    "files.empty": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files your clinic shares with you, such as X-rays and reports, show up here."
+          }
+        }
+      }
+    },
+    "files.opening": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Opening…"
+          }
+        }
+      }
+    },
+    "files.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared files"
+          }
+        }
+      }
+    },
     "home.appointments": {
       "extractionState": "manual",
       "localizations": {
@@ -680,6 +834,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book a visit"
+          }
+        }
+      }
+    },
+    "home.files": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared files"
           }
         }
       }

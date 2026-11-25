@@ -61,6 +61,7 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: Aarogyam uses the camera to scan the QR card your clinic gave you. Nothing is saved.
         # The local flavour's Vite server; the shared code refuses cleartext outside debug builds.
         NSAppTransportSecurity:
           NSExceptionDomains:

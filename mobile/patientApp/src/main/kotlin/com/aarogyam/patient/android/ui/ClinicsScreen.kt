@@ -91,6 +91,7 @@ fun ClinicsScreen(
                         Modifier.fillMaxWidth(),
                         enabled = !state.busy,
                     )
+                    ScanQrButton(holder, enabled = !state.busy)
                 }
             }
         }

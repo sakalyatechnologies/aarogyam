@@ -6,6 +6,8 @@ import com.aarogyam.patient.clinics.ClinicsStateHolder
 import com.aarogyam.patient.config.AppConfig
 import com.aarogyam.patient.config.Hosts
 import com.aarogyam.patient.devices.DevicesStateHolder
+import com.aarogyam.patient.files.FileCache
+import com.aarogyam.patient.files.FilesStateHolder
 import com.aarogyam.patient.home.HomeStateHolder
 import com.aarogyam.patient.records.BillsStateHolder
 import com.aarogyam.patient.records.PrescriptionsStateHolder
@@ -96,6 +98,12 @@ class PatientGraph private constructor(
     fun prescriptions(scope: CoroutineScope): PrescriptionsStateHolder = PrescriptionsStateHolder(directory, scope)
 
     fun bills(scope: CoroutineScope): BillsStateHolder = BillsStateHolder(directory, scope)
+
+    /** The shared files; opened copies go in [cache] (the platform's cache directory) only. */
+    fun files(
+        scope: CoroutineScope,
+        cache: FileCache,
+    ): FilesStateHolder = FilesStateHolder(directory, scope, cache, logger("aarogyam.patient.files"))
 
     /** Loads the linked clinics, so the root knows whether to show My clinics or Home. */
     fun loadClinics() {

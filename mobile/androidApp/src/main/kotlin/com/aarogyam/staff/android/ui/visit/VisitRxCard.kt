@@ -169,7 +169,9 @@ private fun Composer(
         )
         Muted(stringResource(R.string.vv_v9v_rx_how))
     }
-    state.lines.forEach { line -> MedCard(rx, line, state.warnings.any { it.lineKey == line.key }, !locked) }
+    state.lines.forEach { line ->
+        MedCard(rx, line, state.warnings.any { it.lineKey == line.key }, !locked, state.alternatives)
+    }
     RxCheckBanner(state)
     if (state.needsOverride) AllergyCard(rx, state)
     state.error?.let { ErrorLine(stringResource(it.message())) }

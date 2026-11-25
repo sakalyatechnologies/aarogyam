@@ -115,7 +115,7 @@ struct V9RxCard: View {
             Text("v9v.rx.how", tableName: "VisitV9").v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
         }
         ForEach(state.lines, id: \.key) { line in
-            V9MedCard(rx: rx, line: line, warned: state.warnings.contains { $0.lineKey == line.key }, editable: !locked)
+            V9MedCard(rx: rx, line: line, warned: state.warnings.contains { $0.lineKey == line.key }, editable: !locked, alternatives: state.alternatives)
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
         }
         RxCheckBanner(state: state)
@@ -179,10 +179,12 @@ private struct V9MedCard: View {
     let line: RxLine
     let warned: Bool
     let editable: Bool
+    let alternatives: AlternativesState?
     @State private var timing: String?
     @Environment(\.skTheme) private var theme
 
-    init(rx: RxSheetStateHolder, line: RxLine, warned: Bool, editable: Bool) {
+    init(rx: RxSheetStateHolder, line: RxLine, warned: Bool, editable: Bool, alternatives: AlternativesState?) {
+        self.alternatives = alternatives
         self.rx = rx
         self.line = line
         self.warned = warned
@@ -211,6 +213,16 @@ private struct V9MedCard: View {
                             .frame(width: 44, height: 44).background(r.surface3.color, in: Circle())
                     }
                     .accessibilityLabel(String(format: String(localized: "rx.remove.named"), line.name))
+                }
+            }
+            if editable, line.drugId != nil {
+                let shown = alternatives?.lineKey == line.key
+                SkChoiceChip(String(localized: "rx.alt.action"), selected: shown) {
+                    if shown { rx.closeAlternatives() } else { rx.openAlternatives(key: line.key) }
+                }
+                .accessibilityLabel(String(format: String(localized: "rx.alt.named"), line.name))
+                if let alternatives, shown {
+                    RxAlternativesList(alternatives: alternatives) { rx.swapDrug(key: line.key, drug: $0) }
                 }
             }
             HStack(spacing: 6) {

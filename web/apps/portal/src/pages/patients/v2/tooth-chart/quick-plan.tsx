@@ -83,7 +83,7 @@ const REASONS: Partial<Record<TreatmentKey, (tooth: number) => readonly Reason[]
 };
 
 const labelOf = (key: TreatmentKey) => LABEL[key] ?? treatmentOf(key).label;
-const planned = (item: PlanItem, key: TreatmentKey) => (item.status === "proposed" || item.status === "accepted") && item.name.toLowerCase().startsWith(treatmentOf(key).label.toLowerCase());
+export const planned = (item: PlanItem, key: TreatmentKey) => (item.status === "proposed" || item.status === "accepted") && item.name.toLowerCase().startsWith(treatmentOf(key).label.toLowerCase());
 
 interface Props {
   patientId: PatientId;

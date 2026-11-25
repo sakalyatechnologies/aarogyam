@@ -386,3 +386,14 @@ div.ps-found-item { cursor: default; }
   .ps-wait-art { grid-row: 1 / span 2; height: 72px; }
   .ps-wait-f:not(:has(.ps-wait-art)) { grid-template-columns: 1fr; }
 }
+
+/* the doctor's own additions: Edit on a tooth, Go with this, a photo from today */
+.ps-sheet-head { position: relative; }
+.ps-sheet-head[data-editable] .ps-sheet-title { padding-right: 96px; }
+.ps-edit { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.ps-edit svg { width: 18px; height: 18px; }
+.ps-opt-go { justify-self: start; min-height: 44px; font-weight: 700; background: var(--mv-brand-soft); color: var(--mv-brand); }
+.ps-photo { margin: 0; display: grid; gap: 6px; justify-items: start; }
+.ps-photo img { width: 100%; max-width: 420px; max-height: 320px; object-fit: cover; border-radius: 14px; border: 1px solid var(--mv-line); background: var(--mv-card); }
+.ps-photo figcaption { font-size: 13px; color: var(--mv-muted); }
+.pm-undo { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 80; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 999px; background: var(--mv-card); color: var(--mv-text); border: 1px solid var(--mv-line); box-shadow: 0 6px 24px rgba(0,0,0,.2); font-size: 15px; }

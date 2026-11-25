@@ -18,10 +18,11 @@ import type { Tooth3dHandle, Tooth3dOptions } from "../real-teeth-3d/index.js";
 import { IllustrationBadge, ProvenanceFooter, RecordBadge } from "./blocks.js";
 import { CompareSlider } from "./compare-slider.js";
 import { IfWaitStrip } from "./if-wait.js";
-import { ToothOptions, situationsOf, useStudio } from "./options.js";
+import { ToothOptions, situationsOf, useActions, useStudio } from "./options.js";
 import type { FactItem, PresentModel, ToothFacts } from "./model.js";
 
 // Choose your cap loads on open, so the Show patient route stays within its size budget (§13).
+const EditButton = lazy(() => import("./doctor-bits.js").then((m) => ({ default: m.EditButton })));
 const ToothMaterials = lazy(() => import("./materials.js").then((m) => ({ default: m.ToothMaterials })));
 
 /** What a state of the tooth is drawn from: the record as charted, or one stage picture. */
@@ -176,13 +177,15 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
   const tf: ToothFacts | undefined = model.teeth.find((t) => t.tooth === tooth);
   const record = tf?.record;
   const { art, failed } = useSheetArt(c, tooth);
+  const actions = useActions();
+  const overlayNow = useEffectEvent(() => actions.overlayOpen === true);
   const back = useRef<HTMLButtonElement>(null);
   const goBack = useEffectEvent(() => { onBack?.(); });
   useEffect(() => {
     if (embedded) return;
     back.current?.focus({ preventScroll: true });
-    // Esc goes back to the map; it never leaves Present
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); goBack(); } };
+    // Esc goes back to the map; it never leaves Present. While the doctor's Edit sheet is open, Esc closes that first.
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !overlayNow()) { e.preventDefault(); e.stopPropagation(); goBack(); } };
     window.addEventListener("keydown", onKey, true);
     return () => { window.removeEventListener("keydown", onKey, true); };
   }, [embedded]);
@@ -239,8 +242,9 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         Back to the map
       </button>}
-      <header className="ps-sheet-head">
+      <header className="ps-sheet-head" data-editable={actions.onEditTooth === undefined ? undefined : ""}>
         <h3 className="ps-sheet-title">{`${c.where} · ${String(tooth)}`}</h3>
+        {actions.onEditTooth === undefined ? null : <Suspense fallback={null}><EditButton tooth={tooth} onEdit={actions.onEditTooth} /></Suspense>}
         {mine === undefined ? null : (
           <p className="ps-your-tx" data-your-treatment={mine.state}>
             <b>{`Your treatment: ${mine.title}${mine.sitting === undefined ? "" : `, sitting ${String(mine.sitting)}`}${mine.state === "planned" ? ", planned" : ""}`}</b>
@@ -270,6 +274,8 @@ export function ToothSheet({ model, tooth, onBack, embedded = false, load3d }: T
           </>
         )}
       </div>
+
+      {actions.photo?.(tooth)}
 
       {compare === undefined || c.after === undefined ? null : (
         <section className="ps-sheet-compare" aria-label="Before and after">

@@ -2,7 +2,7 @@
 // (deep decay, a missing tooth, a wisdom tooth not fully out), from the server's studio layer. Every number
 // is general guidance ("usually 2-3 visits"), never a visit of this patient: no visit numbers and no dates. Prices (slice 2b)
 // sit behind the doctor's Prices tap and exist only when the server sent them (billing.read and show_prices). Outcome words come from the server only. A card list or a side-by-side compare.
-import { createContext, lazy, Suspense, useContext, useState, type ReactElement, type ReactNode } from "react";
+import { createContext, lazy, Suspense, useContext, useState, useSyncExternalStore, type ReactElement, type ReactNode } from "react";
 
 import type { PresentOption, PresentSituation, PresentStudio } from "@aarogyam/api-client";
 
@@ -12,7 +12,43 @@ import { IllustrationBadge, RecordBadge } from "./blocks.js";
 import { PinButton } from "./pins.js";
 
 // The usual-plan steps load on open, so the Show patient route stays within its size budget (§13).
+const GoButton = lazy(() => import("./doctor-bits.js").then((m) => ({ default: m.GoButton })));
 const CaseFor = lazy(() => import("./case.js").then((m) => ({ default: m.CaseForOption })));
+
+// What the doctor's own screen adds to Show patient (Edit a tooth, Go with this, a photo from today). The portal sets these from a
+// lazy host; the phone bundle and the patient's page never do, so none of it shows there.
+/** One option of one situation on one tooth. */
+export interface ChooseTarget { tooth: number; situation: string; option: string }
+
+export interface PresentActions {
+  /** Edit a tooth without leaving Show patient. Given only to people who may write the chart. */
+  onEditTooth?: ((fdi: number) => void) | undefined;
+  /** Go with this option: plan it on the tooth. */
+  onChoose?: ((target: ChooseTarget) => void) | undefined;
+  /** Whether an option can be chosen (it maps to one treatment). */
+  canChoose?: ((target: ChooseTarget) => boolean) | undefined;
+  /** The tooth's photo from today, drawn under its picture. */
+  photo?: ((tooth: number) => ReactNode) | undefined;
+  /** An overlay is open over the tooth sheet: Esc belongs to it. */
+  overlayOpen?: boolean | undefined;
+}
+
+const NONE: PresentActions = {};
+let current: PresentActions = NONE;
+const listeners = new Set<() => void>();
+
+/** Sets the actions Show patient offers; `undefined` takes them away. */
+export function setPresentActions(actions: PresentActions | undefined): void {
+  current = actions ?? NONE;
+  listeners.forEach((l) => { l(); });
+}
+
+const subscribe = (l: () => void): (() => void) => {
+  listeners.add(l);
+  return () => { listeners.delete(l); };
+};
+
+export const useActions = (): PresentActions => useSyncExternalStore(subscribe, () => current, () => NONE);
 
 const StudioContext = createContext<PresentStudio | undefined>(undefined);
 
@@ -95,6 +131,13 @@ export function SituationOptions({ situation, titled = true, record }: { situati
   const [mode, setMode] = useState<"cards" | "compare">("cards");
   const [open, setOpen] = useState<string | undefined>(undefined);
   const studio = useStudio();
+  const actions = useActions();
+  // "Go with this": the doctor's own screen only, on an option that is not already the suggestion
+  const choose = (o: PresentOption): ReactElement | null => {
+    const target = { tooth: situation.tooth, situation: situation.key, option: o.key };
+    if (actions.onChoose === undefined || isSuggested(o) || actions.canChoose?.(target) === false) return null;
+    return <Suspense fallback={null}><GoButton onGo={() => { actions.onChoose?.(target); }} /></Suspense>;
+  };
   // The Prices tap exists only when the server sent prices; nothing shows a rupee amount before it.
   const canPrice = studio?.prices !== undefined;
   const [priced, setPriced] = useState(false);
@@ -135,6 +178,7 @@ export function SituationOptions({ situation, titled = true, record }: { situati
                 ))}
               </dl>
               <Suspense fallback={null}><CaseFor optionKey={o.key} situationKey={situation.key} /></Suspense>
+              {choose(o)}
             </li>
           ))}
         </ul>

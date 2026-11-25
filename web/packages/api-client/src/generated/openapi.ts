@@ -5636,9 +5636,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Public, no sign-in: the patient answers their plan from the visit page. The PIN is checked
-         *     every time, with the same wrong-PIN count and lock as opening the link; it does not count as
-         *     an open. One answer per link: the latest wins. A new or different answer tells the visit's
+         * Public, no sign-in: the patient answers their plan from the visit page. No PIN (a `pin` field is
+         *     ignored); it does not count as an open. One answer per link: the latest wins. A new or different answer tells the visit's
          *     doctor and the desk.
          */
         post: operations["answerSharedVisitPlan"];
@@ -5699,8 +5698,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Public, no sign-in: opens a link to a visit summary with the PIN. Five wrong PINs lock the
-         *     link. Every open is written to the access record.
+         * Public, no sign-in: opens a link to a visit summary. No PIN and no body (an older client's
+         *     body is ignored). Every open is written to the access record.
          */
         post: operations["openSharedVisit"];
         delete?: never;
@@ -6664,7 +6663,7 @@ export interface paths {
         put?: never;
         /**
          * Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7
-         *     days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent. The
+         *     days; at most three live per visit, the oldest revoked). Nothing is sent. The
          *     optional body's `sections` limit the text to the ticked ones and become the caller's
          *     defaults; with no body (or no `Content-Type`) the text has every section.
          */
@@ -6706,7 +6705,7 @@ export interface paths {
         put?: never;
         /**
          * The summary as Send would build it with these ticks, for the Done screen's live preview. It
-         *     mints, revokes and saves nothing; the link and PIN are stand-ins of the same length.
+         *     mints, revokes and saves nothing; the link is stand-ins of the same length.
          */
         post: operations["previewVisitPatientMessage"];
         delete?: never;
@@ -11667,10 +11666,7 @@ export interface components {
             /** @description The sections ticked by default (every one until saved). */
             sections: string[];
         };
-        /**
-         * @description The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) and PIN
-         *     `XXXXXX` as long as real ones. Nothing was minted or saved.
-         */
+        /** @description The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) as long as a real one. Nothing was minted or saved. */
         MessagePreview: {
             /** @description The full message with the stand-ins; grey them out in the preview. */
             text: string;
@@ -14583,12 +14579,15 @@ export interface components {
             /** @description When it was saved (RFC 3339). */
             responded_at: string;
         };
-        /** @description The patient's answer to their plan, with the PIN again. */
+        /** @description The patient's answer to their plan. */
         PlanResponseRequest: {
             /** @description `go_ahead` ("Yes, I want to go ahead") or `question` ("I have a question"). */
             choice: string;
-            /** @description The six digits the clinic gave. */
-            pin: string;
+            /**
+             * @deprecated
+             * @description Deprecated and ignored: visit links no longer have a PIN. Older clients may still send it.
+             */
+            pin?: string | null;
         };
         /** @description A self-registered record that may be an existing patient. */
         PossibleDuplicate: {
@@ -18107,7 +18106,7 @@ export interface components {
             expires_at: string;
             /** @description The number to open `WhatsApp` with, in E.164. */
             phone_e164: string;
-            /** @description The link's six-digit PIN. */
+            /** @description Not used: visit links open without a PIN. Still filled, so older apps keep working. */
             pin: string;
             /**
              * @description Who it goes to: `patient`, or `guardian` (a minor's guardian or parent, or an adult's
@@ -18115,7 +18114,7 @@ export interface components {
              */
             recipient: string;
             /**
-             * @description Greeting, link, PIN and the don't-forward line only, with no clinical words: for
+             * @description Greeting, link and the don't-forward line only, with no clinical words: for
              *     hand-offs that travel in a web URL (`wa.me`).
              */
             short_text: string;
@@ -36685,13 +36684,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Wrong PIN; the message says how many tries are left */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
             /** @description No such link, or not a link to a visit */
             404: {
                 headers: {
@@ -36706,7 +36698,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong PINs */
+            /** @description An old link locked after too many wrong PINs */
             423: {
                 headers: {
                     [name: string]: unknown;
@@ -36819,11 +36811,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OpenRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -36833,13 +36821,6 @@ export interface operations {
                     "application/json": components["schemas"]["VisitSummary"];
                 };
             };
-            /** @description Wrong PIN; the message says how many tries are left */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
             /** @description No such link, or not a link to a visit */
             404: {
                 headers: {
@@ -36847,14 +36828,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Expired */
+            /** @description Expired or revoked */
             410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong PINs */
+            /** @description An old link locked after too many wrong PINs */
             423: {
                 headers: {
                     [name: string]: unknown;

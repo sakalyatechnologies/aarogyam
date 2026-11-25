@@ -52,26 +52,13 @@ afterEach(() => {
 const preview = (resource: string, state = "active"): Reply => ({ status: 200, body: { resource, state, clinic_name: "Sunrise Dental", expires_at: "2026-11-26T10:00:00Z" } });
 
 describe("Visit page (patient link)", () => {
-  it("opens with the PIN and shows why they came, what was done, the plan, care and medicines", async () => {
-    const user = userEvent.setup();
+  it("opens straight away, with no PIN, and shows why they came, what was done, the plan, care and medicines", async () => {
     const fetchMock = serve({
       [`/api/v1/shared/${TOKEN}`]: preview("visit"),
-      [`/api/v1/shared/${TOKEN}/visit`]: [
-        { status: 403, body: { error: { code: "wrong_pin", message: "Wrong PIN; 4 tries left." } } },
-        { status: 200, body: VISIT },
-      ],
+      [`/api/v1/shared/${TOKEN}/visit`]: { status: 200, body: VISIT },
     });
     render(<VisitPage token={TOKEN} />);
-    expect(await screen.findByRole("heading", { name: "Your visit summary" })).toBeTruthy();
-    expect(screen.getByText(/Please don't forward it/)).toBeTruthy();
-    expect(await axe.run(document.body, AXE).then((r) => r.violations.map((v) => v.id))).toEqual([]);
-
-    await user.type(screen.getByLabelText("PIN"), "111111");
-    await user.click(screen.getByRole("button", { name: "Open" }));
-    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Wrong PIN; 4 tries left.");
-
-    await user.type(screen.getByLabelText("PIN"), "123456");
-    await user.click(screen.getByRole("button", { name: "Open" }));
+    expect(screen.queryByLabelText("PIN")).toBeNull();
     expect(await screen.findByRole("heading", { name: "Hi Rahul, here's your visit" })).toBeTruthy();
     expect(screen.getByText("Pain on the lower right while chewing")).toBeTruthy();
     expect(screen.getAllByText(/Lower right first molar/)).toHaveLength(2);
@@ -81,8 +68,10 @@ describe("Visit page (patient link)", () => {
     expect(screen.getByRole("link", { name: "WhatsApp the clinic" }).getAttribute("href")).toBe("https://wa.me/919000009000");
     expect(await axe.run(document.body, AXE).then((r) => r.violations.map((v) => v.id))).toEqual([]);
 
-    const body = fetchMock.mock.calls[2]?.[1]?.body;
-    expect(body).toBe(JSON.stringify({ pin: "123456" }));
+    const open = fetchMock.mock.calls[1];
+    expect(open?.[0]).toBe(`/api/v1/shared/${TOKEN}/visit`);
+    expect(open?.[1]?.method).toBe("POST");
+    expect(open?.[1]?.body).toBeUndefined();
     expect(fetchMock.mock.calls.every(([, init]) => init?.credentials === "omit")).toBe(true);
   });
 
@@ -94,22 +83,20 @@ describe("Visit page (patient link)", () => {
       ...replies,
     });
     render(<VisitPage token={TOKEN} />);
-    await user.type(await screen.findByLabelText("PIN"), "123456");
-    await user.click(screen.getByRole("button", { name: "Open" }));
     await screen.findByRole("heading", { name: "Hi Rahul, here's your visit" });
     return { user, fetchMock };
   }
 
   const ANSWER = `/api/v1/shared/${TOKEN}/plan-response`;
 
-  it("answers the plan with the PIN it was opened with: go ahead", async () => {
+  it("answers the plan, with no PIN: go ahead", async () => {
     const { user, fetchMock } = await openWith({ [ANSWER]: { status: 200, body: { choice: "go_ahead", responded_at: "2026-11-19T10:00:00Z" } } });
     await user.click(screen.getByRole("button", { name: "Yes, I want to go ahead" }));
     expect(await screen.findByText("Thanks, the clinic will call you to book.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "I have a question" })).toBeNull();
     const call = fetchMock.mock.calls.find(([url]) => url === ANSWER);
     expect(call?.[1]?.method).toBe("POST");
-    expect(call?.[1]?.body).toBe(JSON.stringify({ pin: "123456", choice: "go_ahead" }));
+    expect(call?.[1]?.body).toBe(JSON.stringify({ choice: "go_ahead" }));
     expect(await axe.run(document.body, AXE).then((r) => r.violations.map((v) => v.id))).toEqual([]);
   });
 

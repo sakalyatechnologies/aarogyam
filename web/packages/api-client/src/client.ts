@@ -853,8 +853,8 @@ export interface ApiClient {
   getUiPrefs(options?: RequestOptions): Promise<ApiResult<UiPrefs>>;
   /** Clinic host: saves the fields sent and keeps the rest. An unknown value is a 400. Needs `clinical.read`. */
   saveUiPrefs(input: NewUiPrefs, options?: RequestOptions): Promise<ApiResult<UiPrefs>>;
-  /** Public: opens a visit summary link with its PIN. Five wrong PINs lock the link. */
-  openSharedVisit(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
+  /** Public: opens a visit summary link. No PIN; an old link locked by wrong PINs stays locked (423). */
+  openSharedVisit(token: string, options?: RequestOptions): Promise<ApiResult<VisitSummary>>;
 
   /** Clinic host: the clinic's saved medicine sets. Needs `prescriptions.issue` or `clinical.read`. */
   listMedicineSets(options?: RequestOptions): Promise<ApiResult<SavedMedicineSetList>>;

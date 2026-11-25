@@ -4861,7 +4861,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.VisitPatientMessage);
         }),
 
-      openSharedVisit: (token, pin, opts) =>
+      openSharedVisit: (token, opts) =>
         respond(S.visitSummary, opts?.signal, () => {
           const link = state.shareLinks.find((l) => l.token === token && l.encounter_id != null);
           const found = link === undefined ? undefined : state.visits.find((v) => v.id === link.encounter_id);
@@ -4874,16 +4874,6 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (link.locked) {
             return refuse(423, "locked", "This link is locked after too many wrong PINs.");
           }
-          if (link.pin !== pin) {
-            link.failed_attempts += 1;
-            const left = Math.max(0, 5 - link.failed_attempts);
-            if (left === 0) {
-              link.locked = true;
-              return refuse(423, "locked", "Too many wrong PINs. Ask the clinic for a new link.");
-            }
-            return refuse(403, "forbidden", `Wrong PIN. ${String(left)} ${left === 1 ? "try" : "tries"} left.`);
-          }
-          link.failed_attempts = 0;
           const clinic = state.clinics.find((c) => c.id === link.clinic_id);
           const patient = state.patients.find((p) => p.id === found.patient_id);
           const doctor = memberRefOf(state, found.clinician_membership_id);

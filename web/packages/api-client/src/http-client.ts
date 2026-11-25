@@ -640,8 +640,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
     getUiPrefs: (opts) => call({ method: "GET", path: "/api/v1/me/ui-prefs", schema: uiPrefs, signal: opts?.signal }),
     saveUiPrefs: (input, opts) =>
       call({ method: "PUT", path: "/api/v1/me/ui-prefs", schema: uiPrefs, body: input, signal: opts?.signal }),
-    openSharedVisit: (token, pin, opts) =>
-      call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/visit`, schema: visitSummary, body: { pin }, signal: opts?.signal }),
+    openSharedVisit: (token, opts) =>
+      call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/visit`, schema: visitSummary, signal: opts?.signal }),
     listMedicineSets: (opts) => call({ method: "GET", path: "/api/v1/medicine-sets", schema: savedMedicineSetList, signal: opts?.signal }),
     createMedicineSet: (input, opts) =>
       call({ method: "POST", path: "/api/v1/medicine-sets", schema: savedMedicineSet, body: input, signal: opts?.signal }),

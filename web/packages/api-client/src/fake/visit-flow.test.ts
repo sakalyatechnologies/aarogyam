@@ -107,7 +107,7 @@ describe("one visit per appointment (fake)", () => {
 });
 
 describe("share links (fake)", () => {
-  it("opens a visit summary with its PIN, for visit links only, and checks hours and channel", async () => {
+  it("opens a visit summary without a PIN, for visit links only, and checks hours and channel", async () => {
     const { as } = setup();
     const owner = as(ASHA);
     const visit = await openVisit(as, "Sunita Patil");
@@ -120,8 +120,7 @@ describe("share links (fake)", () => {
     const link = value(await owner.shareVisit(visit.id, { expires_in_hours: 24, channel: "qr" }));
     expect(link.channel).toBe("qr");
     expect(new Date(link.expires_at).getTime() - NOW.getTime()).toBe(24 * 3_600_000);
-    expect(errorOf(await owner.openSharedVisit(link.token, "000000"))?.status).toBe(403);
-    const summary = value(await owner.openSharedVisit(link.token, link.pin));
+    const summary = value(await owner.openSharedVisit(link.token));
     expect(summary).toMatchObject({ visit_number: visit.number, patient_name: "Sunita Patil" });
   });
 

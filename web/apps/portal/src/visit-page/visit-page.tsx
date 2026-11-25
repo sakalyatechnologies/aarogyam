@@ -1,10 +1,11 @@
 /**
  * The patient's visit page at `/shared/{token}`: why they came, what was done, their plan with
- * estimates, care at home and medicines, behind the link's PIN. Patients open it from WhatsApp on
+ * estimates, care at home and medicines. It opens straight from the link, with no PIN (the long
+ * random token is the secret). Patients open it from WhatsApp on
  * any phone, so it is its own small entry (`shared.html`), with no router, query library or UI
  * kit. Links of other kinds (prescriptions, records) go to the full portal page.
  */
-import { useRef, useEffect, useState, type SubmitEvent } from "react";
+import { useRef, useEffect, useState } from "react";
 
 import { brushHighlight, brushingBand } from "@aarogyam/app-kit/mouth-view";
 
@@ -15,8 +16,7 @@ import { dayWords, doses, firstName, rupees, timingWords, toothWords } from "./w
 
 type Stage =
   | { readonly kind: "loading" }
-  | { readonly kind: "pin"; readonly clinicName: string }
-  | { readonly kind: "open"; readonly visit: Visit; readonly pin: string }
+  | { readonly kind: "open"; readonly visit: Visit }
   | { readonly kind: "stopped"; readonly failure: Failure; readonly clinicName?: string };
 
 /** The token in `/shared/{token}`, or empty. */
@@ -48,7 +48,12 @@ export function VisitPage({ token, leave = leavePage }: { token: string; leave?:
       } else if (result.value.state === "locked") {
         setStage({ kind: "stopped", failure: { kind: "locked" }, clinicName: result.value.clinicName });
       } else {
-        setStage({ kind: "pin", clinicName: result.value.clinicName });
+        // The preview holds no data; the visit itself comes only from this POST.
+        const clinicName = result.value.clinicName;
+        void openVisit(token).then((opened) => {
+          if (!live) return;
+          setStage(opened.ok ? { kind: "open", visit: opened.value } : { kind: "stopped", failure: opened.failure, clinicName });
+        });
       }
     });
     return () => {
@@ -69,104 +74,15 @@ export function VisitPage({ token, leave = leavePage }: { token: string; leave?:
           </p>
         </main>
       );
-    case "pin":
-      return (
-        <PinGate
-          clinicName={stage.clinicName}
-          token={token}
-          onOpened={(visit, pin) => {
-            setStage({ kind: "open", visit, pin });
-          }}
-          onStopped={(failure) => {
-            setStage({ kind: "stopped", failure, clinicName: stage.clinicName });
-          }}
-        />
-      );
     case "stopped":
       return <Stopped failure={stage.failure} clinicName={stage.clinicName} />;
     case "open":
-      return <VisitStory visit={stage.visit} token={token} pin={stage.pin} />;
+      return <VisitStory visit={stage.visit} token={token} />;
   }
 }
 
-/** The PIN stays in memory only (the page state), for the plan answer; it is never stored. */
-function PinGate({
-  clinicName,
-  token,
-  onOpened,
-  onStopped,
-}: {
-  clinicName: string;
-  token: string;
-  onOpened: (visit: Visit, pin: string) => void;
-  onStopped: (failure: Failure) => void;
-}) {
-  const [pin, setPin] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
-
-  const submit = (event: SubmitEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (pin.length !== 6 || busy) return;
-    setBusy(true);
-    setError(undefined);
-    void openVisit(token, pin).then((result) => {
-      setBusy(false);
-      if (result.ok) {
-        onOpened(result.value, pin);
-      } else if (result.failure.kind === "wrong_pin") {
-        setError(result.failure.message);
-        setPin("");
-      } else if (result.failure.kind === "offline") {
-        setError("No connection. Check your internet and try again.");
-      } else {
-        onStopped(result.failure);
-      }
-    });
-  };
-
-  return (
-    <main className="vp">
-      <section className="vp-card vp-gate">
-        <p className="vp-eyebrow">{clinicName}</p>
-        <h1 className="vp-title">Your visit summary</h1>
-        <p className="vp-muted">Enter the 6-digit PIN from your message.</p>
-        <form onSubmit={submit} className="vp-pin-form">
-          <label className="vp-sr" htmlFor="vp-pin">
-            PIN
-          </label>
-          <input
-            id="vp-pin"
-            className="vp-pin"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            pattern="[0-9]*"
-            maxLength={6}
-            value={pin}
-            onChange={(event) => {
-              setPin(event.target.value.replace(/\D/g, "").slice(0, 6));
-            }}
-            aria-invalid={error === undefined ? undefined : true}
-            aria-describedby={error === undefined ? undefined : "vp-pin-error"}
-          />
-          <button className="vp-button" type="submit" disabled={pin.length !== 6 || busy}>
-            {busy ? "Opening…" : "Open"}
-          </button>
-        </form>
-        {error === undefined ? null : (
-          <p id="vp-pin-error" className="vp-error" role="alert">
-            {error}
-          </p>
-        )}
-        <p className="vp-fine">This link opens your health record. Please don't forward it.</p>
-      </section>
-    </main>
-  );
-}
-
 const STOPPED: Readonly<Record<Failure["kind"], { title: string; body: string }>> = {
-  wrong_pin: { title: "That PIN didn't match", body: "Please try again." },
-  locked: { title: "This link is locked", body: "Too many wrong PINs. Please ask the clinic to send a new link." },
+  locked: { title: "This link is locked", body: "Please ask the clinic to send a new link." },
   expired: { title: "This link has expired", body: "For your privacy, links work for a few days. Please ask the clinic for a new one." },
   missing: { title: "We couldn't find this link", body: "Please check the link in your message, or ask the clinic to send it again." },
   offline: { title: "No connection", body: "Check your internet and open the link again." },
@@ -198,7 +114,7 @@ export function bookingUrl(visit: Visit): string | undefined {
 
 const SLOTS = ["Morning", "Afternoon", "Night"];
 
-function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: string }) {
+function VisitStory({ visit, token }: { visit: Visit; token: string }) {
   const book = bookingUrl(visit);
   const total = visit.plan.reduce((sum, item) => sum + (item.estimatePaise ?? 0), 0);
   const phone = visit.clinicPhone === null || visit.clinicPhone === undefined ? undefined : visit.clinicPhone;
@@ -289,7 +205,7 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
           {visit.followUpOn === null || visit.followUpOn === undefined ? null : (
             <p className="vp-next">Next visit due by {dayWords(visit.followUpOn)}</p>
           )}
-          <PlanReply token={token} pin={pin} phone={phone} />
+          <PlanReply token={token} phone={phone} />
           {book === undefined ? null : (
             <a className="vp-button vp-button-wide" href={book}>
               Book my next visit
@@ -399,15 +315,14 @@ function VisitStory({ visit, token, pin }: { visit: Visit; token: string; pin: s
 }
 
 const ANSWER_FAILED: Readonly<Record<Failure["kind"], string>> = {
-  wrong_pin: "We couldn't check your PIN. Please open the link again.",
   locked: "This link is locked. Please ask the clinic for a new link.",
   expired: "This link has expired. Please ask the clinic for a new one.",
   missing: "We couldn't send your answer. Please call the clinic.",
   offline: "No connection. Check your internet and try again.",
 };
 
-/** "Go ahead" or "I have a question" about the plan, sent with the PIN the page was opened with. */
-function PlanReply({ token, pin, phone }: { token: string; pin: string; phone: string | undefined }) {
+/** "Go ahead" or "I have a question" about the plan. */
+function PlanReply({ token, phone }: { token: string; phone: string | undefined }) {
   const [busy, setBusy] = useState<PlanChoice>();
   const [answered, setAnswered] = useState<PlanChoice>();
   const [error, setError] = useState<string>();
@@ -416,7 +331,7 @@ function PlanReply({ token, pin, phone }: { token: string; pin: string; phone: s
     if (busy !== undefined) return;
     setBusy(choice);
     setError(undefined);
-    void answerPlan(token, pin, choice).then((result) => {
+    void answerPlan(token, choice).then((result) => {
       setBusy(undefined);
       if (result.ok) {
         setAnswered(result.value.choice);

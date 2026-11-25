@@ -804,9 +804,9 @@ describe("createHttpClient visit wrap-up, share links and medicine sets", () => 
       ),
     );
     const clientOpen = createHttpClient("", () => null, { fetch: opened.fetch });
-    expect((await unwrap(clientOpen.openSharedVisit("tok", "123456"))).treatments[0]?.name).toBe("Scaling");
+    expect((await unwrap(clientOpen.openSharedVisit("tok"))).treatments[0]?.name).toBe("Scaling");
     expect(opened.calls[0]?.url).toBe("/api/v1/shared/tok/visit");
-    expect(opened.calls[0]?.init?.body).toBe(JSON.stringify({ pin: "123456" }));
+    expect(opened.calls[0]?.init?.body).toBeUndefined();
   });
 
   it("reads a link from an older server that sends no channel", async () => {

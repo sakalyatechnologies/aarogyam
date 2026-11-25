@@ -45,7 +45,7 @@ class PresentTest {
             assertTrue(script.startsWith("window.aarogyam.present({"), script)
             assertTrue(
                 script.endsWith(
-                    """, {"dark":false,"can_write":false,"can_see_prices":false,"betas":["smile3d","face"]})""",
+                    """, {"dark":false,"can_write":false,"can_see_prices":false})""",
                 ),
                 script,
             )
@@ -60,7 +60,7 @@ class PresentTest {
             present.setDark(true)
             assertTrue(
                 present.scripts.first().endsWith(
-                    """, {"dark":true,"can_write":false,"can_see_prices":false,"betas":["smile3d","face"]})""",
+                    """, {"dark":true,"can_write":false,"can_see_prices":false})""",
                 ),
             )
         }

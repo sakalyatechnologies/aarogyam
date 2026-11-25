@@ -115,7 +115,7 @@ struct V9RxCard: View {
             Text("v9v.rx.how", tableName: "VisitV9").v7Text(12.5).foregroundStyle(r.onSurfaceVariant.color)
         }
         ForEach(state.lines, id: \.key) { line in
-            V9MedCard(rx: rx, line: line, warned: state.warnings.contains { $0.lineKey == line.key }, editable: !locked)
+            V9MedCard(rx: rx, line: line, warned: state.warnings.contains { $0.lineKey == line.key }, editable: !locked, alternatives: state.alternatives)
                 .transition(.opacity.combined(with: .scale(scale: 0.97)))
         }
         RxCheckBanner(state: state)
@@ -179,10 +179,12 @@ private struct V9MedCard: View {
     let line: RxLine
     let warned: Bool
     let editable: Bool
+    let alternatives: AlternativesState?
     @State private var timing: String?
     @Environment(\.skTheme) private var theme
 
-    init(rx: RxSheetStateHolder, line: RxLine, warned: Bool, editable: Bool) {
+    init(rx: RxSheetStateHolder, line: RxLine, warned: Bool, editable: Bool, alternatives: AlternativesState?) {
+        self.alternatives = alternatives
         self.rx = rx
         self.line = line
         self.warned = warned
@@ -211,6 +213,16 @@ private struct V9MedCard: View {
                             .frame(width: 44, height: 44).background(r.surface3.color, in: Circle())
                     }
                     .accessibilityLabel(String(format: String(localized: "rx.remove.named"), line.name))
+                }
+            }
+            if editable, line.drugId != nil {
+                let shown = alternatives?.lineKey == line.key
+                SkChoiceChip(String(localized: "rx.alt.action"), selected: shown) {
+                    if shown { rx.closeAlternatives() } else { rx.openAlternatives(key: line.key) }
+                }
+                .accessibilityLabel(String(format: String(localized: "rx.alt.named"), line.name))
+                if let alternatives, shown {
+                    RxAlternativesList(alternatives: alternatives) { rx.swapDrug(key: line.key, drug: $0) }
                 }
             }
             HStack(spacing: 6) {
@@ -300,7 +312,7 @@ private struct V9MedCard: View {
 }
 
 /// The allergy swap card: what clashed, a way to take the medicine off and the reason to override.
-/// Swap suggestions need the server (Preview).
+/// Each flagged medicine can be swapped from its Alternatives list.
 private struct V9AllergyCard: View {
     let rx: RxSheetStateHolder
     let state: RxSheetState
@@ -311,6 +323,16 @@ private struct V9AllergyCard: View {
             ForEach(Array(state.warnings.enumerated()), id: \.offset) { _, warning in
                 Text(warning.text).v7Text(12.5)
                 SkPillButton(CLf("c.rx.allergy.remove", warning.drug), wide: true) { rx.remove(key: warning.lineKey) }
+                if state.lines.contains(where: { $0.key == warning.lineKey && $0.drugId != nil }) {
+                    let shown = state.alternatives?.lineKey == warning.lineKey
+                    SkPillButton(String(localized: "rx.alt.action"), variant: .tonal, wide: true) {
+                        if shown { rx.closeAlternatives() } else { rx.openAlternatives(key: warning.lineKey) }
+                    }
+                    .accessibilityLabel(String(format: String(localized: "rx.alt.named"), warning.drug))
+                    if let alternatives = state.alternatives, shown {
+                        RxAlternativesList(alternatives: alternatives) { rx.swapDrug(key: warning.lineKey, drug: $0) }
+                    }
+                }
             }
             ForEach(Array(state.serverAlerts.enumerated()), id: \.offset) { _, alert in
                 Text(alert.message).v7Text(12.5)
@@ -318,7 +340,6 @@ private struct V9AllergyCard: View {
             if state.serverAlert, state.serverAlerts.isEmpty { Text("rx.server_alert").v7Text(12.5) }
             SkField(String(localized: "rx.override.label"), text: Binding(get: { state.overrideReason }, set: { rx.setOverrideReason(text: $0) }))
             Text("rx.override.help").v7Text(11.5)
-            PreviewNotice(text: CL("c.rx.swap.preview"))
         }
     }
 }

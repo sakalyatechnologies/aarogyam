@@ -112,6 +112,16 @@ private struct RxAllergyCard: View {
             ForEach(Array(state.warnings.enumerated()), id: \.offset) { _, warning in
                 Text(warning.text).font(.system(size: 12.5))
                 SkPillButton(CLf("c.rx.allergy.remove", warning.drug), wide: true) { holder.remove(key: warning.lineKey) }
+                if state.lines.contains(where: { $0.key == warning.lineKey && $0.drugId != nil }) {
+                    let shown = state.alternatives?.lineKey == warning.lineKey
+                    SkPillButton(String(localized: "rx.alt.action"), variant: .tonal, wide: true) {
+                        if shown { holder.closeAlternatives() } else { holder.openAlternatives(key: warning.lineKey) }
+                    }
+                    .accessibilityLabel(String(format: String(localized: "rx.alt.named"), warning.drug))
+                    if let alternatives = state.alternatives, shown {
+                        RxAlternativesList(alternatives: alternatives) { holder.swapDrug(key: warning.lineKey, drug: $0) }
+                    }
+                }
             }
             ForEach(Array(state.serverAlerts.enumerated()), id: \.offset) { _, alert in
                 Text(alert.message).font(.system(size: 12.5))
@@ -122,7 +132,6 @@ private struct RxAllergyCard: View {
                 text: Binding(get: { state.overrideReason }, set: { holder.setOverrideReason(text: $0) })
             )
             Text("rx.override.help").font(.system(size: 11.5))
-            PreviewNotice(text: CL("c.rx.swap.preview"))
         }
     }
 }

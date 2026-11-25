@@ -31,8 +31,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.RxAlternativesPanel
 import com.aarogyam.staff.android.ui.label
 import com.aarogyam.staff.prescriptions.AllergyWarning
+import com.aarogyam.staff.prescriptions.AlternativesState
 import com.aarogyam.staff.prescriptions.DoseSlot
 import com.aarogyam.staff.prescriptions.RxLine
 import com.aarogyam.staff.prescriptions.RxSheetState
@@ -89,6 +91,7 @@ internal fun MedCard(
     line: RxLine,
     warned: Boolean,
     editable: Boolean,
+    alternatives: AlternativesState? = null,
 ) {
     val colors = SkTheme.colors
     val shape = RoundedCornerShape(Spacing.XL.dp)
@@ -114,6 +117,13 @@ internal fun MedCard(
                 }
             }
             if (editable) RoundGlyph("×", stringResource(R.string.rx_remove, line.name)) { rx.remove(line.key) }
+        }
+        if (editable && line.drugId != null) {
+            val shown = alternatives?.lineKey == line.key
+            VisitChip(stringResource(R.string.rx_alt_action), shown) {
+                if (shown) rx.closeAlternatives() else rx.openAlternatives(line.key)
+            }
+            if (alternatives != null && shown) RxAlternativesPanel(alternatives) { rx.swapDrug(line.key, it) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.S.dp)) {
             VisitDose.slots.forEach { slot ->
@@ -245,6 +255,17 @@ internal fun AllergyCard(
             SkButton(stringResource(R.string.vv_c_rx_allergy_remove, warning.drug), onClick = {
                 rx.remove(warning.lineKey)
             }, variant = SkButtonVariant.Secondary, modifier = Modifier.fillMaxWidth())
+            if (state.lines.any { it.key == warning.lineKey && it.drugId != null }) {
+                val shown = state.alternatives?.lineKey == warning.lineKey
+                SkButton(stringResource(R.string.rx_alt_action), onClick = {
+                    if (shown) rx.closeAlternatives() else rx.openAlternatives(warning.lineKey)
+                }, variant = SkButtonVariant.Secondary, modifier = Modifier.fillMaxWidth())
+                state.alternatives?.takeIf { shown }?.let {
+                    RxAlternativesPanel(
+                        it,
+                    ) { drug -> rx.swapDrug(warning.lineKey, drug) }
+                }
+            }
         }
         state.serverAlerts.forEach { Text(it.message, style = SkTypography.footnote, color = colors.dangerText.color) }
         if (state.serverAlert &&
@@ -263,7 +284,6 @@ internal fun AllergyCard(
             supportingText = stringResource(R.string.rx_override_help),
             modifier = Modifier.fillMaxWidth(),
         )
-        Muted(stringResource(R.string.vv_c_rx_swap_preview))
     }
 }
 

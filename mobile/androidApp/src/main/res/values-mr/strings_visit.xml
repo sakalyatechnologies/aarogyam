@@ -208,6 +208,5 @@
     <string name="vv_c_rx_send_whatsapp">WhatsApp</string>
     <string name="vv_c_rx_sent_message">लिंक पाठवली आहे. पिन रुग्णाला तोंडी सांगा.</string>
     <string name="vv_c_rx_sent_title">पाठवले</string>
-    <string name="vv_c_rx_swap_preview">प्रीव्ह्यू: पर्याय सुचवण्यासाठी सर्व्हर सपोर्ट हवा</string>
     <string name="vv_outbox_badge" tools:ignore="PluralsCandidate">Saved, will send · %1$d</string>
 </resources>

@@ -6,6 +6,7 @@ import com.aarogyam.staff.api.model.Patient
 import com.aarogyam.staff.api.model.Visit
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.today.parseInstant
+import com.aarogyam.staff.walkin.AddressForm
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.ApiErrorKind
 import com.sakalya.mobile.core.Logger
@@ -83,6 +84,12 @@ data class PatientView(
     /** Newest first; null when the role may not list visits. */
     val visits: List<VisitView>?,
     val balancePaise: Long?,
+    /** `YYYY-MM-DD`, when known. */
+    val dateOfBirth: String? = null,
+    /** The stored postal address; null when none is on file. */
+    val address: AddressForm? = null,
+    /** Sent back in `If-Match` when the record is edited. */
+    val rowVersion: Long = 0,
 )
 
 /** What the Patient 360 screen draws. */
@@ -238,6 +245,9 @@ class Patient360StateHolder(
                 ),
             visits = visits?.mapNotNull { it.toView(zone) }?.take(RECENT_VISITS),
             balancePaise = if (BILLING_READ in clinic.permissions) patient.balancePaise else null,
+            dateOfBirth = patient.dateOfBirth?.takeIf { it.isNotBlank() },
+            address = patient.address?.let(AddressForm::of)?.takeUnless { it.isBlank },
+            rowVersion = patient.rowVersion,
         )
     }
 

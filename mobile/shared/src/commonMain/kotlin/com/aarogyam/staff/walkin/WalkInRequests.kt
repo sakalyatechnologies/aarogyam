@@ -80,7 +80,7 @@ internal sealed interface Result<out T> {
 
 private const val VERBAL = "verbal"
 
-private fun Sex.wire(): String =
+internal fun Sex.wire(): String =
     when (this) {
         Sex.Female -> "female"
         Sex.Male -> "male"

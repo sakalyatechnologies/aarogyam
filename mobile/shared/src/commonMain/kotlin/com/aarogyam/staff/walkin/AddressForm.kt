@@ -52,8 +52,29 @@ data class AddressForm(
             AddressField.Pincode -> copy(pincode = text.filter { it.isDigit() }.take(PIN_DIGITS))
         }
 
+    /** The parts that are filled, as one line for display. */
+    fun oneLine(): String =
+        listOf(line1, locality, city, district, state, pincode)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .joinToString(", ")
+
+    /** Whether nothing is typed in any part. */
+    val isBlank: Boolean get() = this == AddressForm()
+
     companion object {
         const val PIN_DIGITS = 6
+
+        /** The form for a stored address; blank when the patient has none. */
+        fun of(address: PatientAddress?): AddressForm =
+            AddressForm(
+                line1 = address?.line1.orEmpty(),
+                locality = address?.locality.orEmpty(),
+                city = address?.city.orEmpty(),
+                district = address?.district.orEmpty(),
+                state = address?.state.orEmpty(),
+                pincode = address?.pincode.orEmpty(),
+            )
     }
 }
 

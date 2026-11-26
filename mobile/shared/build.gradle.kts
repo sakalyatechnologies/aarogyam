@@ -40,6 +40,7 @@ val apiModels =
         "PatientList",
         "Patient",
         "PatientAddress",
+        "PatientChanges",
         "Arrival",
         "ArrivalList",
         "AcceptBody",

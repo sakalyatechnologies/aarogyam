@@ -70,6 +70,7 @@ fun PatientPage(
     onBack: () -> Unit,
     onOpenVisit: (String) -> Unit,
     onStartTreatment: (String) -> Unit,
+    onOpenPatient: (String) -> Unit = {},
 ) {
     val holder = rememberHolder { graph.patient360(clinic, patientId, it) }
     val state by holder.state.collectAsStateWithLifecycle()
@@ -173,6 +174,9 @@ fun PatientPage(
                                 )
                             }
                             PatientDetailsCard(loaded.view)
+                            if ("patients.read" in can && ServerCaps.family) {
+                                PatientFamilyChips(clinic, patientId, sheet == PatientSheet.Family, onOpenPatient)
+                            }
                             if ("clinical.write" in can) {
                                 SkPillButton(
                                     stringResource(R.string.p9_start_treatment),

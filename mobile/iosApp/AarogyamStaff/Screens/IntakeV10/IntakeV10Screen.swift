@@ -51,6 +51,7 @@ struct IntakeV10Form: View {
                     banner
                     details
                     if form.showFamily, !family.isEmpty { IntakeV10Family(holder: holder, people: family) }
+                    if form.showFamily { IntakeV10VisitFor(holder: holder, form: form) }
                     allergies
                     consent
                     signature
@@ -244,6 +245,7 @@ struct IntakeV10Form: View {
             if done.filesRefused != nil {
                 Text(iv("iv.done.refused")).font(.footnote.weight(.semibold)).foregroundStyle(theme.roles.error.color)
             }
+            IntakeV10FamilyOutcome(results: done.family)
             if done.tokenNumber == nil, let open = ends.onOpen {
                 SkPillButton(iv("iv.open_profile"), variant: .tonal, wide: true) { open(done.patientId) }
             }

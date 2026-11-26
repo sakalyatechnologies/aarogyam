@@ -173,6 +173,10 @@ struct Patient360Screen: View {
         }
         if let error { Text(error.message).v7Text(12.5).foregroundStyle(theme.roles.error.color).padding(SkSpacing.l) }
         PatientDetailsCard(view: view)
+        if clinic.permissions.contains("patients.read"), ServerCaps.shared.family {
+            // Reloaded when the Family sheet closes, so a change there shows here.
+            PatientFamilyChips(graph: graph, clinic: clinic, patientId: patientId).id(sheet == .family)
+        }
         if can.treat {
             SkPillButton(CL("c.visit.start"), variant: .warm, icon: V7Icon.path("tooth"), wide: true) { visit = VisitRoute(patientId: patientId) }
                 .padding(.horizontal, SkSpacing.l).padding(.top, 12)

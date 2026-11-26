@@ -101,6 +101,7 @@ private fun IntakeFields(
         DeskLabel(stringResource(R.string.address_title))
         AddressSection(form.address, holder::setAddress)
         if (form.showFamily && family.isNotEmpty()) IntakeFamily(holder, family)
+        if (form.showFamily) IntakeVisitFor(holder, form)
         AllergySection(holder, form)
         ConsentSection(holder, form)
         Row(
@@ -360,6 +361,7 @@ private fun DoneCard(
         }
         if (done.filesQueued > 0) DeskMutedText(stringResource(R.string.dk_iv_done_files, done.filesQueued))
         if (done.filesRefused != null) DeskErrorText(stringResource(R.string.dk_iv_done_refused))
+        IntakeFamilyOutcome(done.family)
         SkButton(stringResource(R.string.dk_iv_next), onClick = onNext, modifier = Modifier.fillMaxWidth())
     }
 }

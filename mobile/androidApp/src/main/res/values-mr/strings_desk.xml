@@ -211,4 +211,21 @@
     <string name="dk_dx_upi_qr">UPI पेमेंट QR कोड</string>
     <string name="dk_dx_upi_send">UPI लिंक पाठवा</string>
     <string name="dk_dx_upi_share_again">पुन्हा शेअर करा</string>
+    <string name="dk_iv_for_title">ही भेट कोणासाठी आहे?</string>
+    <string name="dk_iv_for_self">स्वतःसाठी</string>
+    <string name="dk_iv_for_family">कुटुंबातील सदस्य</string>
+    <string name="dk_iv_member_title">कुटुंबातील सदस्य %d</string>
+    <string name="dk_iv_member_add">आणखी एक व्यक्ती जोडा</string>
+    <string name="dk_iv_member_remove">काढा</string>
+    <string name="dk_iv_member_phone">फोन (रिकामा असल्यास मुख्य व्यक्तीचा)</string>
+    <string name="dk_iv_member_relation">ते मुख्य व्यक्तीचे आहेत</string>
+    <string name="dk_iv_err_members">किमान एक सदस्य जोडा.</string>
+    <string name="dk_iv_done_family_failed">%s: प्रोफाइल तयार झाली नाही. रुग्णांमधून नोंदवा.</string>
+    <string name="dk_iv_done_family_unlinked">%s: प्रोफाइल तयार झाली, लिंक झाली नाही. त्यांच्या प्रोफाइलमध्ये कुटुंबातून जोडा.</string>
+    <string name="pv_fam_parent_of">%s चे पालक</string>
+    <string name="pv_fam_child_of">%s चे मूल</string>
+    <string name="pv_fam_spouse_of">%s चे जोडीदार</string>
+    <string name="pv_fam_sibling_of">%s चे भावंड</string>
+    <string name="pv_fam_ward_of">%s च्या संरक्षणाखाली</string>
+    <string name="pv_fam_related_to">%s शी संबंधित</string>
 </resources>

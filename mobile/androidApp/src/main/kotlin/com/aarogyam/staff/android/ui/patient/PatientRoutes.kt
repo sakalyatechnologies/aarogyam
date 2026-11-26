@@ -40,6 +40,7 @@ fun NavGraphBuilder.patientDestinations(
             onBack = nav::popBackStack,
             onOpenVisit = { nav.openVisitDetail(id, it) },
             onStartTreatment = startTreatment,
+            onOpenPatient = nav::openPatient,
         )
     }
     composable(PatientRoutes.VISIT) { entry ->

@@ -213,4 +213,21 @@
     <string name="dk_dx_upi_qr">UPI payment QR code</string>
     <string name="dk_dx_upi_send">Send UPI link</string>
     <string name="dk_dx_upi_share_again">Share again</string>
+    <string name="dk_iv_for_title">Who is the visit for?</string>
+    <string name="dk_iv_for_self">Themselves</string>
+    <string name="dk_iv_for_family">Family member</string>
+    <string name="dk_iv_member_title">Family member %d</string>
+    <string name="dk_iv_member_add">Add another person</string>
+    <string name="dk_iv_member_remove">Remove</string>
+    <string name="dk_iv_member_phone">Phone (blank uses the main person\'s)</string>
+    <string name="dk_iv_member_relation">They are the main person\'s</string>
+    <string name="dk_iv_err_members">Add at least one family member.</string>
+    <string name="dk_iv_done_family_failed">%s: profile not made. Register them from Patients.</string>
+    <string name="dk_iv_done_family_unlinked">%s: profile made, not linked. Link from their profile, Family.</string>
+    <string name="pv_fam_parent_of">Parent of %s</string>
+    <string name="pv_fam_child_of">Child of %s</string>
+    <string name="pv_fam_spouse_of">Spouse of %s</string>
+    <string name="pv_fam_sibling_of">Sibling of %s</string>
+    <string name="pv_fam_ward_of">Ward of %s</string>
+    <string name="pv_fam_related_to">Related to %s</string>
 </resources>

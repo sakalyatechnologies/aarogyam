@@ -82,6 +82,44 @@ interface IntakeFormHolder {
         relation: String,
     )
 
+    /** "Who is the visit for?": false for the patient alone, true for family members too (one blank member is added). */
+    fun setForFamily(on: Boolean)
+
+    fun addMember()
+
+    fun removeMember(key: Int)
+
+    fun setMemberName(
+        key: Int,
+        text: String,
+    )
+
+    fun setMemberAge(
+        key: Int,
+        text: String,
+    )
+
+    fun setMemberDateOfBirth(
+        key: Int,
+        text: String,
+    )
+
+    fun setMemberSex(
+        key: Int,
+        value: Sex,
+    )
+
+    fun setMemberRelation(
+        key: Int,
+        relation: MemberRelation,
+    )
+
+    /** Digits only; empty means the main person's number. */
+    fun setMemberPhone(
+        key: Int,
+        typed: String,
+    )
+
     /** Validates, then sends one request and queues the files. A second tap while sending is ignored. */
     fun saveAndQueue() = save(IntakeNext.CheckIn)
 
@@ -205,12 +243,74 @@ internal class IntakeFormStateHolder(
         relation: String,
     ) = edit { copy(familyOf = patientId?.let { FamilyOf(it, relation) }) }
 
+    private var nextKey = 0
+
+    override fun setForFamily(on: Boolean) {
+        edit { copy(forFamily = on, memberErrors = emptyMap()).clear(IntakeField.Members) }
+        if (on && mutable.value.members.isEmpty()) addMember()
+    }
+
+    override fun addMember() =
+        edit {
+            copy(
+                members = members + FamilyMemberForm(nextKey++),
+                memberErrors = emptyMap(),
+            ).clear(IntakeField.Members)
+        }
+
+    override fun removeMember(key: Int) =
+        edit {
+            copy(
+                members = members.filter { it.key != key },
+                memberErrors =
+                    memberErrors - key,
+            )
+        }
+
+    override fun setMemberName(
+        key: Int,
+        text: String,
+    ) = editMember(key) { copy(name = text) }
+
+    override fun setMemberAge(
+        key: Int,
+        text: String,
+    ) = editMember(key) { copy(age = text.filter { it.isDigit() }.take(AGE_DIGITS), dateOfBirth = "") }
+
+    override fun setMemberDateOfBirth(
+        key: Int,
+        text: String,
+    ) = editMember(key) { copy(dateOfBirth = text.filter { it.isDigit() || it == '-' }.take(DATE_LENGTH), age = "") }
+
+    override fun setMemberSex(
+        key: Int,
+        value: Sex,
+    ) = editMember(key) { copy(sex = if (sex == value) null else value) }
+
+    override fun setMemberRelation(
+        key: Int,
+        relation: MemberRelation,
+    ) = editMember(key) { copy(relation = relation) }
+
+    override fun setMemberPhone(
+        key: Int,
+        typed: String,
+    ) = editMember(key) { copy(phone = mobileDigits(typed)) }
+
+    private fun editMember(
+        key: Int,
+        change: FamilyMemberForm.() -> FamilyMemberForm,
+    ) = edit { copy(members = members.change(key, change), memberErrors = memberErrors - key) }
+
     override fun save(next: IntakeNext) {
         refreshFlags()
         val form = mutable.value
         if (form.submitting || form.done != null) return
-        val errors = validate(form, today())
-        if (errors.isNotEmpty()) return edit { copy(errors = errors, submitError = null) }
+        val errors = validate(form, today()) + familyErrors(form)
+        val memberErrors = if (form.forFamily) memberProblems(form.members, today()) else emptyMap()
+        if (errors.isNotEmpty() || memberErrors.isNotEmpty()) {
+            return edit { copy(errors = errors, memberErrors = memberErrors, submitError = null) }
+        }
         // Online only (R3): offline queues nothing and keeps the form.
         if (!online()) return edit { copy(errors = emptyMap(), submitError = IntakeSubmitError.NeedsConnection) }
         val runner = runner()
@@ -228,6 +328,8 @@ internal class IntakeFormStateHolder(
                         done.token?.let { id("queue_token_id", it.id) }
                     }
                     val queued = queueFiles(runner, files, done.patient.id, done.consents.orEmpty().map { it.id })
+                    val members = if (form.forFamily) form.members else emptyList()
+                    val results = createFamily(clinic, log, done.patient.id, form.phone, members)
                     clearBytes()
                     edit {
                         copy(
@@ -240,6 +342,7 @@ internal class IntakeFormStateHolder(
                                     queued.first,
                                     queued.second,
                                     next,
+                                    results,
                                 ),
                         )
                     }
@@ -375,6 +478,10 @@ internal fun validate(
         if (!form.readAloud) put(IntakeField.Consent, IntakeProblem.Required)
         if (!form.signaturePresent) put(IntakeField.Signature, IntakeProblem.Required)
     }
+
+/** A family visit needs at least one member. */
+private fun familyErrors(form: IntakeForm): Map<IntakeField, IntakeProblem> =
+    if (form.forFamily && form.members.isEmpty()) mapOf(IntakeField.Members to IntakeProblem.Required) else emptyMap()
 
 private fun birthProblem(
     form: IntakeForm,

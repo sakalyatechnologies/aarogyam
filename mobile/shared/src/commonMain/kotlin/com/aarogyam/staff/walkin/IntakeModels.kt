@@ -5,7 +5,7 @@ import com.aarogyam.staff.outbox.Refusal
 import com.aarogyam.staff.patients.Sex
 
 /** A field of the intake form, for inline errors. */
-enum class IntakeField { Name, Birth, Phone, Email, Allergies, Consent, Signature, Reason }
+enum class IntakeField { Name, Birth, Phone, Email, Allergies, Consent, Signature, Reason, Members }
 
 /** Why a field is wrong; each platform maps these to copy. */
 enum class IntakeProblem { Required, Invalid, InFuture }
@@ -40,6 +40,8 @@ data class IntakeDone(
     val filesQueued: Int,
     val filesRefused: Refusal? = null,
     val next: IntakeNext = IntakeNext.CheckIn,
+    /** What happened to each family member the visit was also for; empty when it was for the patient. */
+    val family: List<FamilyResult> = emptyList(),
 )
 
 /** How a new patient's intake ends: in the queue now, saved to book a visit, or only saved. */
@@ -66,6 +68,11 @@ data class IntakeForm(
     val reason: String = "",
     /** Shown only when `ServerCaps.family` is on. */
     val familyOf: FamilyOf? = null,
+    /** "Who is the visit for?": false is the patient alone, true adds [members] (each gets a profile and a link). */
+    val forFamily: Boolean = false,
+    val members: List<FamilyMemberForm> = emptyList(),
+    /** Problems per [FamilyMemberForm.key], after a failed save attempt. */
+    val memberErrors: Map<Int, Map<IntakeField, IntakeProblem>> = emptyMap(),
     /** Optional postal address. */
     val address: AddressForm = AddressForm(),
     val errors: Map<IntakeField, IntakeProblem> = emptyMap(),

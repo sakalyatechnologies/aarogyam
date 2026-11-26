@@ -1,11 +1,26 @@
 package com.aarogyam.staff.walkin
 
 import com.aarogyam.staff.ScreenError
+import com.aarogyam.staff.api.model.IntakeOptions
 import com.aarogyam.staff.outbox.Refusal
 import com.aarogyam.staff.patients.Sex
 
 /** A field of the intake form, for inline errors. */
-enum class IntakeField { Name, Birth, Phone, Email, Allergies, Consent, Signature, Reason, Members }
+enum class IntakeField {
+    Name,
+    Birth,
+    Phone,
+    Email,
+    Allergies,
+    Consent,
+    Signature,
+    Reason,
+    Members,
+    AltPhone,
+    EmergencyPhone,
+    DoctorPhone,
+    DueDate,
+}
 
 /** Why a field is wrong; each platform maps these to copy. */
 enum class IntakeProblem { Required, Invalid, InFuture }
@@ -84,4 +99,13 @@ data class IntakeForm(
     val notice: IntakeNotice? = null,
     val showReason: Boolean = false,
     val showFamily: Boolean = false,
-)
+    /** The case-paper sections show only with `intake.write`; the lists come from the server, null until loaded. */
+    val showDetails: Boolean = false,
+    val options: IntakeOptions? = null,
+    val details: IntakeDetails = IntakeDetails(),
+    /** Registered patients on the typed mobile; idle for a prefilled number. */
+    val lookup: LookupState = LookupState.Idle,
+) {
+    /** The "For women" section shows for a female patient only. */
+    val showWomen: Boolean get() = showDetails && sex == Sex.Female
+}

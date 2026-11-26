@@ -82,6 +82,7 @@ private struct ArrivalCard: View {
             if !row.reasons.isEmpty {
                 Text(row.reasons.joined(separator: ", ")).font(.subheadline).foregroundStyle(r.onSurfaceVariant.color)
             }
+            ArrivalIntakeView(intake: row.intake)
             if canAccept {
                 if !row.matches.isEmpty {
                     Text("checkin.pick").font(.footnote).foregroundStyle(r.onSurfaceVariant.color)

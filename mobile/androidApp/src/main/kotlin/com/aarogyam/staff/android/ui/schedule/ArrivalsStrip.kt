@@ -101,6 +101,7 @@ private fun ArrivalCard(
             if (row.reasons.isNotEmpty()) {
                 Text(row.reasons.joinToString(", "), style = v7(13f), color = p.onSurfaceVariant.color)
             }
+            ArrivalIntakeSummary(row.intake)
             if (canAccept) {
                 if (row.matches.isNotEmpty()) {
                     Text(stringResource(R.string.checkin_pick), style = v7(12.5f), color = p.onSurfaceVariant.color)

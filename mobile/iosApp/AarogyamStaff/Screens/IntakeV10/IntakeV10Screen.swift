@@ -50,6 +50,7 @@ struct IntakeV10Form: View {
                     Text(iv("iv.title")).font(.title2.weight(.heavy)).accessibilityAddTraits(.isHeader)
                     banner
                     details
+                    IntakeV10Case(holder: holder, form: form)
                     if form.showFamily, !family.isEmpty { IntakeV10Family(holder: holder, people: family) }
                     if form.showFamily { IntakeV10VisitFor(holder: holder, form: form) }
                     allergies
@@ -73,7 +74,7 @@ struct IntakeV10Form: View {
             if let done, done.next == .book { ends.onBook?(done.patientId, form.name) }
         }
         .onAppear {
-            if let phone, form.phone.isEmpty { holder.setPhone(typed: phone) }
+            if let phone, form.phone.isEmpty { holder.prefillPhone(typed: phone) }
         }
         .onChange(of: library) { _, item in
             Task {
@@ -99,6 +100,7 @@ struct IntakeV10Form: View {
     private var details: some View {
         VStack(alignment: .leading, spacing: 12) {
             field(.phone, label: iv("iv.phone"), text: form.phone, type: .telephoneNumber, keyboard: .phonePad) { holder.setPhone(typed: $0) }
+            IntakeV10Lookup(holder: holder, form: form, ends: ends)
             field(.name, label: iv("iv.name"), text: form.name, type: .name) { holder.setName(text: $0) }
             SkSegmented([iv("iv.dob"), iv("iv.age")], selectedIndex: useAge ? 1 : 0) { useAge = $0 == 1 }
             if useAge {

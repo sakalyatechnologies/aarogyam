@@ -22,6 +22,8 @@ data class ArrivalRow(
     /** The doctor picked; null means any doctor (the default). */
     val chosenDoctorId: String? = null,
     val busy: Boolean = false,
+    /** What the patient told the QR form beyond the basics; read-only. */
+    val intake: ArrivalIntake = ArrivalIntake(),
 )
 
 /** A relative offered beside the phone matches. [relation] is what they are to the matched patient (`guardian`, `child`, ...). */

@@ -1,22 +1,18 @@
 import { Bell, ChevronsLeft, ChevronsRight, Menu as MenuIcon, Plus, Search, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { LegalLinks, UsageNotice } from "../components/legal-links.js";
-import { unwrap } from "@aarogyam/api-client";
 
 import { useClinic } from "../clinic.js";
 import { initials } from "../components/mk/index.js";
-import { REFERENCE } from "../lib/cache-policy.js";
 import { useNewLook } from "../lib/new-look.js";
 import { PRESETS } from "../pages/settings/my-profile.js";
 import { useClinicSetup } from "../pages/setup/queries.js";
-import { ClinicMark } from "./clinic-mark.js";
+import { AarogyamMark } from "./aarogyam-mark.js";
 import { CommandPalette } from "./command-palette.js";
 import { badgeLabel, bellCount, NotificationsDrawer, useBadges } from "./notifications.js";
-import { glyphFor, SpecialtyEmblem } from "./specialty-emblem.js";
 import { PageTransition } from "./page-transition.js";
 import { PeekProvider } from "./peek.js";
 import { ProgressBar } from "./progress-bar.js";
@@ -94,7 +90,7 @@ function AccountFace() {
 }
 
 function FrameV2() {
-  const { can, session, api, access } = useClinic();
+  const { can, session } = useClinic();
   const navigate = useNavigate();
   // The calendar has its own Book, which keeps the week in view; this one would jump back to this week.
   const onCalendar = useLocation().pathname.replace(/\/$/, "") === "/calendar";
@@ -110,14 +106,6 @@ function FrameV2() {
   const unread = bellCount(badges.data);
   const bellBadge = badgeLabel(unread);
   const setup = useSetupProgress();
-  // The specialty comes from clinic settings, which only people who manage settings may read; others see initials.
-  const settings = useQuery({
-    queryKey: ["clinic-settings", access.org_id],
-    queryFn: ({ signal }) => unwrap(api.getClinicSettings({ signal })),
-    enabled: can("settings.manage"),
-    ...REFERENCE,
-  });
-  const specialty = settings.data?.specialty;
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -180,8 +168,8 @@ function FrameV2() {
       {menuOpen ? <div className="mk-menu-scrim mk2-scrim" aria-hidden="true" onClick={closeMenu} /> : null}
       <aside className={`mk2-rail ${menuOpen ? "open" : ""}`} aria-label="Sidebar">
         <div className="mk2-head">
-          <Link to="/today" className="mk2-mark" aria-label={`${session.clinic.name}: Today`} onClick={closeMenu}>
-            <ClinicMark name={session.clinic.name} fallback={glyphFor(specialty) === undefined ? undefined : <SpecialtyEmblem specialty={specialty} />} />
+          <Link to="/today" className="mk2-mark" aria-label="Aarogyam: Today" onClick={closeMenu}>
+            <AarogyamMark />
           </Link>
           <div className="mk2-brand">
             <b>Aarogyam</b>

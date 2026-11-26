@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into aarogyam.patient_intakes\n             (patient_id, blood_group, alt_phone, emergency_contact_name, emergency_contact_phone,\n              referred_by, call_time, occupation, heard_via, heard_via_text, family_doctor_name,\n              family_doctor_phone, family_doctor_address, health_other, pregnant, due_date, nursing)\n           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)\n           on conflict (org_id, patient_id) do update set\n             blood_group = excluded.blood_group, alt_phone = excluded.alt_phone,\n             emergency_contact_name = excluded.emergency_contact_name,\n             emergency_contact_phone = excluded.emergency_contact_phone,\n             referred_by = excluded.referred_by, call_time = excluded.call_time,\n             occupation = excluded.occupation, heard_via = excluded.heard_via,\n             heard_via_text = excluded.heard_via_text,\n             family_doctor_name = excluded.family_doctor_name,\n             family_doctor_phone = excluded.family_doctor_phone,\n             family_doctor_address = excluded.family_doctor_address,\n             health_other = excluded.health_other, pregnant = excluded.pregnant,\n             due_date = excluded.due_date, nursing = excluded.nursing, updated_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Bool",
+        "Date",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d66881cff61547030f298e60ab7b8dbfb7c6d544a67932c191eafc596972cda1"
+}

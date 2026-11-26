@@ -1231,6 +1231,13 @@ export interface ApiClient {
   // Walk-in fast path.
   /** Clinic host: registers (or picks) a walk-in, records reported allergies and desk consents, and issues a token, in one step. Needs `intake.write`, `patients.write` and `appointments.write`. */
   registerWalkIn(input: WalkInRequest, options?: RequestOptions): Promise<ApiResult<WalkIn>>;
+  // Case-paper registration fields.
+  /** Clinic host: the patient's case-paper fields (blood group, second phone, emergency contact...); an empty object when none were saved. Needs `patients.read`. */
+  patientIntake(id: PatientId, options?: RequestOptions): Promise<ApiResult<S.PatientIntake>>;
+  /** Clinic host: replaces the patient's case-paper fields (a field left out is cleared) and returns them. Needs `patients.write`. */
+  setPatientIntake(id: PatientId, input: C.PatientIntake, options?: RequestOptions): Promise<ApiResult<S.PatientIntake>>;
+  /** Clinic host: the lists the registration form offers (health checklist, blood groups, call times, how they heard). Needs `patients.write`. */
+  intakeOptions(options?: RequestOptions): Promise<ApiResult<S.IntakeOptions>>;
   // QR self check-in.
   /** Clinic host, needs `settings.manage`: whether the QR works and the address it opens. */
   getSelfCheckInSettings(options?: RequestOptions): Promise<ApiResult<S.SelfCheckInSettings>>;

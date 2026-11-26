@@ -97,6 +97,7 @@ pub mod onboarding;
 pub mod outbox;
 pub mod patient;
 pub mod patient_app;
+pub mod patient_intake;
 pub mod permission;
 pub mod pincode;
 pub mod prescription;

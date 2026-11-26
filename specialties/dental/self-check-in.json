@@ -1,25 +1,200 @@
 {
   "reasons": [
-    { "code": "tooth_pain", "label": "Tooth pain" },
-    { "code": "cleaning", "label": "Cleaning" },
-    { "code": "check_up", "label": "Check-up" },
-    { "code": "broken_tooth", "label": "Broken tooth" },
-    { "code": "braces", "label": "Braces" },
-    { "code": "follow_up", "label": "Follow-up" },
-    { "code": "other", "label": "Other" }
+    {
+      "code": "tooth_pain",
+      "label": "Tooth pain"
+    },
+    {
+      "code": "cleaning",
+      "label": "Cleaning"
+    },
+    {
+      "code": "check_up",
+      "label": "Check-up"
+    },
+    {
+      "code": "broken_tooth",
+      "label": "Broken tooth"
+    },
+    {
+      "code": "braces",
+      "label": "Braces"
+    },
+    {
+      "code": "follow_up",
+      "label": "Follow-up"
+    },
+    {
+      "code": "other",
+      "label": "Other"
+    }
   ],
   "health_flags": [
-    { "code": "diabetes", "label": "Diabetes", "condition": "Diabetes" },
-    { "code": "high_bp", "label": "High BP", "condition": "High blood pressure" },
-    { "code": "heart", "label": "Heart condition", "condition": "Heart condition" },
-    { "code": "pregnant", "label": "Pregnant", "condition": "Pregnant" },
-    { "code": "blood_thinners", "label": "Blood thinners", "condition": "On blood thinners" }
+    {
+      "code": "aids",
+      "label": "AIDS / HIV",
+      "condition": "AIDS / HIV"
+    },
+    {
+      "code": "asthma",
+      "label": "Asthma",
+      "condition": "Asthma"
+    },
+    {
+      "code": "drug_allergies",
+      "label": "Drug allergies",
+      "condition": "Drug allergies"
+    },
+    {
+      "code": "arthritis",
+      "label": "Arthritis",
+      "condition": "Arthritis"
+    },
+    {
+      "code": "high_bp",
+      "label": "High BP",
+      "condition": "High blood pressure"
+    },
+    {
+      "code": "diabetes",
+      "label": "Diabetes",
+      "condition": "Diabetes"
+    },
+    {
+      "code": "anaemia",
+      "label": "Anaemia",
+      "condition": "Anaemia"
+    },
+    {
+      "code": "hepatitis",
+      "label": "Hepatitis",
+      "condition": "Hepatitis"
+    },
+    {
+      "code": "dengue",
+      "label": "Dengue",
+      "condition": "Dengue"
+    },
+    {
+      "code": "abnormal_bleeding",
+      "label": "Abnormal bleeding",
+      "condition": "Abnormal bleeding"
+    },
+    {
+      "code": "liver_disease",
+      "label": "Liver disease",
+      "condition": "Liver disease"
+    },
+    {
+      "code": "radiation_treatment",
+      "label": "Radiation treatment",
+      "condition": "Radiation treatment"
+    },
+    {
+      "code": "jaundice",
+      "label": "Jaundice",
+      "condition": "Jaundice"
+    },
+    {
+      "code": "kidney_disease",
+      "label": "Kidney disease",
+      "condition": "Kidney disease"
+    },
+    {
+      "code": "fits_faints",
+      "label": "Fits or fainting",
+      "condition": "Fits or fainting"
+    },
+    {
+      "code": "psychiatric",
+      "label": "Psychiatric treatment",
+      "condition": "Psychiatric treatment"
+    },
+    {
+      "code": "cancer",
+      "label": "Cancer",
+      "condition": "Cancer"
+    },
+    {
+      "code": "ulcer",
+      "label": "Ulcer",
+      "condition": "Ulcer"
+    },
+    {
+      "code": "tb",
+      "label": "Tuberculosis (TB)",
+      "condition": "Tuberculosis"
+    },
+    {
+      "code": "acidity",
+      "label": "Acidity",
+      "condition": "Acidity"
+    },
+    {
+      "code": "thyroid",
+      "label": "Thyroid",
+      "condition": "Thyroid disorder"
+    },
+    {
+      "code": "respiratory_disease",
+      "label": "Respiratory disease",
+      "condition": "Respiratory disease"
+    },
+    {
+      "code": "heart",
+      "label": "Heart condition",
+      "condition": "Heart condition"
+    },
+    {
+      "code": "pacemaker",
+      "label": "Pacemaker",
+      "condition": "Pacemaker"
+    },
+    {
+      "code": "blood_thinners",
+      "label": "Blood thinners",
+      "condition": "On blood thinners"
+    },
+    {
+      "code": "major_surgery",
+      "label": "Major surgery",
+      "condition": "Major surgery"
+    },
+    {
+      "code": "pregnant",
+      "label": "Pregnant",
+      "condition": "Pregnant"
+    },
+    {
+      "code": "nursing",
+      "label": "Nursing",
+      "condition": "Nursing"
+    },
+    {
+      "code": "none",
+      "label": "None of these"
+    }
   ],
   "relations": [
-    { "code": "parent", "label": "Parent" },
-    { "code": "spouse", "label": "Spouse" },
-    { "code": "child", "label": "Child" },
-    { "code": "sibling", "label": "Sibling" },
-    { "code": "other", "label": "Other" }
+    {
+      "code": "parent",
+      "label": "Parent"
+    },
+    {
+      "code": "spouse",
+      "label": "Spouse"
+    },
+    {
+      "code": "child",
+      "label": "Child"
+    },
+    {
+      "code": "sibling",
+      "label": "Sibling"
+    },
+    {
+      "code": "other",
+      "label": "Other"
+    }
   ]
 }

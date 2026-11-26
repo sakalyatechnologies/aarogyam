@@ -3319,6 +3319,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/intake-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The choices the staff registration form and the phones offer, so they use the same lists as
+         *     the QR check-in page.
+         */
+        get: operations["getIntakeOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/lookup": {
         parameters: {
             query?: never;
@@ -3889,6 +3909,24 @@ export interface paths {
         post?: never;
         /** Removes a number from a patient. */
         delete: operations["removePatientIdentifier"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/patients/{id}/intake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The patient's case-paper fields; an empty object when none were saved. */
+        get: operations["getPatientIntake"];
+        /** Replaces the patient's case-paper fields (a field left out is cleared) and returns them. */
+        put: operations["setPatientIntake"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7506,6 +7544,7 @@ export interface components {
             health_labels: string[];
             /** @description Identifier. */
             id: string;
+            intake?: components["schemas"]["PatientIntake"] | null;
             /** @description The patient's last name, when given. */
             last_name?: string | null;
             /**
@@ -7535,10 +7574,16 @@ export interface components {
         };
         /** @description What the check-in page needs to start. */
         ArrivePage: {
+            /** @description Blood groups, for the optional case-paper questions. */
+            blood_groups: components["schemas"]["CheckInChoice"][];
+            /** @description Best times to call. */
+            call_times: components["schemas"]["CheckInChoice"][];
             /** @description The clinic's name. */
             clinic_name: string;
             /** @description "Any of these?" health choices. */
             health_flags: components["schemas"]["CheckInChoice"][];
+            /** @description How patients heard of the clinic. */
+            heard_via: components["schemas"]["CheckInChoice"][];
             /**
              * @description The clinic's published privacy notice; empty when it has none, and the page then links
              *     `notice_url`.
@@ -10353,6 +10398,17 @@ export interface components {
             /** @description Its sheet. */
             sheet?: string | null;
         };
+        /** @description The lists the registration forms offer. */
+        IntakeOptions: {
+            /** @description Blood groups. */
+            blood_groups: components["schemas"]["CheckInChoice"][];
+            /** @description Best times to call. */
+            call_times: components["schemas"]["CheckInChoice"][];
+            /** @description The health checklist, in case-paper order; `none` stands alone. */
+            health_flags: components["schemas"]["CheckInChoice"][];
+            /** @description How patients heard of the clinic. */
+            heard_via: components["schemas"]["CheckInChoice"][];
+        };
         /** @description A stock item. */
         InventoryItem: {
             /** @description Still stocked. */
@@ -12285,6 +12341,7 @@ export interface components {
             for_self: boolean;
             /** @description Health codes from the form's list. */
             health?: string[];
+            intake?: components["schemas"]["PatientIntake"] | null;
             /** @description The QR key. */
             k: string;
             /** @description The patient's last name; optional. */
@@ -12601,12 +12658,20 @@ export interface components {
              * @description Age in years when the date of birth is unknown.
              */
             age_years?: number | null;
+            /** @description Allergies in the patient's words, separated by commas. Needs `intake.write`. */
+            allergies_text?: string | null;
             /** @description Date of birth (`YYYY-MM-DD`); give this or `age_years`. */
             date_of_birth?: string | null;
             /** @description Email. */
             email?: string | null;
             /** @description Full name, 1 to 200 characters. */
             full_name: string;
+            /**
+             * @description Health checklist codes (see `health_flags` in the intake options); `none` stands alone.
+             *     Needs `intake.write`.
+             */
+            health?: string[];
+            intake?: components["schemas"]["PatientIntake"] | null;
             /** @description Phone; +91 is assumed without a country code. */
             phone?: string | null;
             /** @description Language tag such as `mr-IN` (default `en-IN`). */
@@ -14138,6 +14203,44 @@ export interface components {
             };
             /** @description `preview` checks every row and saves nothing; `commit` saves the valid rows. */
             mode: string;
+        };
+        /**
+         * @description The case-paper fields: every one optional. Phones are normalised to E.164 (+91 is assumed
+         *     without a country code).
+         */
+        PatientIntake: {
+            /** @description A second phone ("Mobile 2", `WhatsApp`). */
+            alt_phone?: string | null;
+            /** @description `A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+` or `O-`. */
+            blood_group?: string | null;
+            /** @description Best time to call: `morning`, `afternoon`, `evening` or `any`. */
+            call_time?: string | null;
+            /** @description Due date, `YYYY-MM-DD`. */
+            due_date?: string | null;
+            /** @description Emergency contact's name, at most 120 characters. */
+            emergency_contact_name?: string | null;
+            /** @description Emergency contact's phone. */
+            emergency_contact_phone?: string | null;
+            /** @description Family doctor's address, at most 300 characters. */
+            family_doctor_address?: string | null;
+            /** @description Family doctor's name, at most 120 characters. */
+            family_doctor_name?: string | null;
+            /** @description Family doctor's phone. */
+            family_doctor_phone?: string | null;
+            /** @description The "Other ____" line of the health checklist, at most 300 characters. */
+            health_other?: string | null;
+            /** @description How the patient heard of the clinic: a code from `heard_via` in the intake options. */
+            heard_via?: string | null;
+            /** @description The words for "Other", at most 120 characters. */
+            heard_via_text?: string | null;
+            /** @description Nursing. */
+            nursing?: boolean | null;
+            /** @description Occupation, at most 80 characters. */
+            occupation?: string | null;
+            /** @description Pregnant. */
+            pregnant?: boolean | null;
+            /** @description Who referred the patient, at most 120 characters. */
+            referred_by?: string | null;
         };
         /** @description A link's status after the clinic's decision. */
         PatientLinkDecided: {
@@ -28670,6 +28773,39 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description The role lacks patients.write, or intake.write when health or allergies are given */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getIntakeOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntakeOptions"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description The role lacks patients.write */
             403: {
                 headers: {
@@ -30723,6 +30859,103 @@ export interface operations {
                 content?: never;
             };
             /** @description No such identifier in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getPatientIntake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientIntake"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setPatientIntake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientIntake"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientIntake"];
+                };
+            };
+            /** @description Invalid input; the message names the field */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks patients.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
             404: {
                 headers: {
                     [name: string]: unknown;

@@ -343,6 +343,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   const imagePins = new Map<string, S.ImagePins["pins"]>();
   /** Saved tooth colours by patient, shared by every client of this backend. */
   const smileShades = new Map<string, number>();
+  const patientIntakes = new Map<string, C.PatientIntake>();
   /** QR check-in settings by clinic id (`self_check_in`). */
   const qrSettings = new Map<string, { enabled: boolean; key: string | null }>();
   /** QR arrival requests still waiting (handled ones are removed: the payload is cleared on the server). */
@@ -10285,6 +10286,46 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         ),
 
       // QR self check-in.
+      patientIntake: (id, opts) =>
+        respond(S.patientIntake, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          return reply(patientIntakes.get(id) ?? {});
+        }),
+      setPatientIntake: (id, input, opts) =>
+        respond(S.patientIntake, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (input.blood_group != null && !QR_BLOOD_GROUPS.some((c) => c.code === input.blood_group)) {
+            return invalid("blood_group", "unknown value");
+          }
+          const saved = S.patientIntake.parse(Object.fromEntries(Object.entries(input).filter(([, v]) => v != null && v !== "")));
+          patientIntakes.set(id, saved);
+          return reply(saved);
+        }),
+      intakeOptions: (opts) =>
+        respond(S.intakeOptions, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply({
+            health_flags: QR_HEALTH,
+            blood_groups: QR_BLOOD_GROUPS,
+            call_times: QR_CALL_TIMES,
+            heard_via: QR_HEARD_VIA,
+          } satisfies C.IntakeOptions);
+        }),
       getSelfCheckInSettings: (opts) =>
         respond(S.selfCheckInSettings, opts?.signal, async () => {
           const caller = await inClinic("settings.manage");
@@ -10325,6 +10366,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             reasons: QR_REASONS,
             health_flags: QR_HEALTH,
             relations: QR_RELATIONS,
+            blood_groups: QR_BLOOD_GROUPS,
+            call_times: QR_CALL_TIMES,
+            heard_via: QR_HEARD_VIA,
             notice_version: "v1 2026-10",
             notice_url: "/privacy",
           } satisfies C.ArrivePage);
@@ -10357,6 +10401,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           if ((input.health ?? []).some((h) => !QR_HEALTH.some((c) => c.code === h))) {
             return invalid("health", "unknown value");
+          }
+          if ((input.health ?? []).includes("none") && (input.health ?? []).length > 1) {
+            return invalid("health", "\"none\" can't be combined with other conditions");
+          }
+          if (input.intake?.blood_group != null && !QR_BLOOD_GROUPS.some((c) => c.code === input.intake?.blood_group)) {
+            return invalid("blood_group", "unknown value");
           }
           if (!input.for_self && ((input.contact_name ?? "").trim() === "" || !QR_RELATIONS.some((c) => c.code === input.relation))) {
             return invalid("contact_name", "name the person and what they are to the patient");
@@ -10416,6 +10466,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
                 date_of_birth: r.body.date_of_birth ?? null,
                 address: r.body.address ?? null,
                 reminders: r.body.reminders ?? false,
+                intake: r.body.intake ?? null,
                 matches: {
                   items: matches.map((p) => ({ id: p.id, number: p.number, full_name: p.full_name, sex: p.sex, age_years: null })),
                   family_group: [],
@@ -10462,7 +10513,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               .map((a) => a.trim().slice(0, 200))
               .filter((a) => a !== "")
               .slice(0, 20),
-            conditions: (b.health ?? []).flatMap((code) => QR_HEALTH.filter((c) => c.code === code).map((c) => c.label)),
+            conditions: (b.health ?? []).filter((code) => code !== "none").flatMap((code) => QR_HEALTH.filter((c) => c.code === code).map((c) => c.label)),
             consents,
             ...(reason === "" ? {} : { reason }),
             check_in: input.check_in ?? true,
@@ -11076,11 +11127,50 @@ const QR_REASONS: C.CheckInChoice[] = [
   { code: "other", label: "Other" },
 ];
 const QR_HEALTH: C.CheckInChoice[] = [
-  { code: "diabetes", label: "Diabetes" },
+  { code: "aids", label: "AIDS / HIV" },
+  { code: "asthma", label: "Asthma" },
+  { code: "drug_allergies", label: "Drug allergies" },
+  { code: "arthritis", label: "Arthritis" },
   { code: "high_bp", label: "High BP" },
+  { code: "diabetes", label: "Diabetes" },
+  { code: "anaemia", label: "Anaemia" },
+  { code: "hepatitis", label: "Hepatitis" },
+  { code: "dengue", label: "Dengue" },
+  { code: "abnormal_bleeding", label: "Abnormal bleeding" },
+  { code: "liver_disease", label: "Liver disease" },
+  { code: "radiation_treatment", label: "Radiation treatment" },
+  { code: "jaundice", label: "Jaundice" },
+  { code: "kidney_disease", label: "Kidney disease" },
+  { code: "fits_faints", label: "Fits or fainting" },
+  { code: "psychiatric", label: "Psychiatric treatment" },
+  { code: "cancer", label: "Cancer" },
+  { code: "ulcer", label: "Ulcer" },
+  { code: "tb", label: "Tuberculosis (TB)" },
+  { code: "acidity", label: "Acidity" },
+  { code: "thyroid", label: "Thyroid" },
+  { code: "respiratory_disease", label: "Respiratory disease" },
   { code: "heart", label: "Heart condition" },
-  { code: "pregnant", label: "Pregnant" },
+  { code: "pacemaker", label: "Pacemaker" },
   { code: "blood_thinners", label: "Blood thinners" },
+  { code: "major_surgery", label: "Major surgery" },
+  { code: "pregnant", label: "Pregnant" },
+  { code: "nursing", label: "Nursing" },
+  { code: "none", label: "None of these" },
+];
+const QR_BLOOD_GROUPS: C.CheckInChoice[] = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((code) => ({ code, label: code }));
+const QR_CALL_TIMES: C.CheckInChoice[] = [
+  { code: "morning", label: "Morning" },
+  { code: "afternoon", label: "Afternoon" },
+  { code: "evening", label: "Evening" },
+  { code: "any", label: "Any time" },
+];
+const QR_HEARD_VIA: C.CheckInChoice[] = [
+  { code: "friend_family", label: "Friend or family" },
+  { code: "doctor", label: "Doctor" },
+  { code: "google", label: "Google" },
+  { code: "social_media", label: "Social media" },
+  { code: "walk_by", label: "Walked by" },
+  { code: "other", label: "Other" },
 ];
 const QR_RELATIONS: C.CheckInChoice[] = [
   { code: "parent", label: "Parent" },

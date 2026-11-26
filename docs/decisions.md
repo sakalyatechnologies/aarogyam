@@ -1086,3 +1086,11 @@ Attaching and removing need `expenses.write` and `finance.view` (the permissions
 **What changes.** `POST /shared/{token}/open` and `POST /shared/{token}/records` need no PIN and no body; a `pin` in the body is ignored. Sharing a prescription queues only the `prescription.shared` message (no `prescription.shared_pin`; the kind and template key stay so old queued rows still render), and the email no longer says a PIN follows. The response `pin` fields stay, still filled, for older apps. The shared page opens the prescription at once after the preview says the link is usable. An old link locked by wrong PINs still answers `423`. The wrong-PIN `403` is gone from the API.
 
 **What stays.** See "Visit summary links open without a PIN" above: the 43-character random token, expiry, `no-store`, and data only via POST (the preview holds none).
+
+## Registration captures the case-paper fields (26 Nov 2026, founder)
+
+**Why.** Clinics register patients on a paper case paper. Registration, at the desk and through the QR check-in, must capture the same fields instead of leaving them on paper.
+
+**What changes.** A new table `patient_intakes` (migration 0763, one row per patient, replaced as a whole) holds blood group, a second phone, emergency contact, referred by, best time to call, occupation, how they heard of the clinic, family doctor, the "Other" health line, and pregnant, due date and nursing. `GET` and `PUT /patients/{id}/intake` read and replace it. `POST /patients` accepts `intake`, `health` (the checklist codes) and `allergies_text`; the QR arrival accepts `intake` and records the same things on accept through one shared path (`patient_intakes::record_in`). Accepting for a patient already on file only fills blanks. The health checklist in `specialties/dental/self-check-in.json` grows to the paper's list (the five old codes are unchanged) plus `nursing` and `none`; `none` stands alone, and ticking pregnant or nursing also sets those fields. `GET /patients/intake-options` serves the lists to the staff form and the phones; the QR page carries the blood group, call time and heard-via lists.
+
+**What stays.** Every new field is optional. Personal values are masked in the change history and deleted on erasure. Arrival payloads still clear on accept or dismiss.

@@ -54,6 +54,7 @@ pub(crate) mod notifications;
 pub(crate) mod offers;
 pub(crate) mod onboarding;
 pub(crate) mod patient_app;
+pub(crate) mod patient_intakes;
 pub(crate) mod patient_links;
 pub(crate) mod patient_message;
 pub(crate) mod patient_notes;
@@ -195,6 +196,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
         .route("/patients/summary", get(patients::summary))
+        .route("/patients/intake-options", get(patient_intakes::options))
+        .route(
+            "/patients/{id}/intake",
+            get(patient_intakes::get).put(patient_intakes::put),
+        )
         .route("/patients/lookup", post(patients::lookup))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
         .route(

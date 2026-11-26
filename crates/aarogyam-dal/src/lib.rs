@@ -65,6 +65,7 @@ pub mod notices;
 pub mod notifications;
 pub mod outbox;
 pub mod patient_app;
+pub mod patient_intakes;
 pub mod patient_notes;
 pub mod patient_photos;
 pub mod patient_sessions;

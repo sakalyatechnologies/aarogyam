@@ -4094,12 +4094,45 @@ export type SelfCheckInSettings = z.output<typeof selfCheckInSettings>;
 
 const checkInChoice = z.object({ code: z.string(), label: z.string() }) satisfies z.ZodType<C.CheckInChoice>;
 
+/** The case-paper fields clinics collect at registration; every one optional. */
+export const patientIntake = z.object({
+  blood_group: z.string().nullable().exactOptional(),
+  alt_phone: z.string().nullable().exactOptional(),
+  emergency_contact_name: z.string().nullable().exactOptional(),
+  emergency_contact_phone: z.string().nullable().exactOptional(),
+  referred_by: z.string().nullable().exactOptional(),
+  call_time: z.string().nullable().exactOptional(),
+  occupation: z.string().nullable().exactOptional(),
+  heard_via: z.string().nullable().exactOptional(),
+  heard_via_text: z.string().nullable().exactOptional(),
+  family_doctor_name: z.string().nullable().exactOptional(),
+  family_doctor_phone: z.string().nullable().exactOptional(),
+  family_doctor_address: z.string().nullable().exactOptional(),
+  health_other: z.string().nullable().exactOptional(),
+  pregnant: z.boolean().nullable().exactOptional(),
+  due_date: z.string().nullable().exactOptional(),
+  nursing: z.boolean().nullable().exactOptional(),
+}) satisfies z.ZodType<C.PatientIntake>;
+export type PatientIntake = z.output<typeof patientIntake>;
+
+/** The lists the registration forms offer (codes and labels). */
+export const intakeOptions = z.object({
+  health_flags: z.array(checkInChoice),
+  blood_groups: z.array(checkInChoice),
+  call_times: z.array(checkInChoice),
+  heard_via: z.array(checkInChoice),
+}) satisfies z.ZodType<C.IntakeOptions>;
+export type IntakeOptions = z.output<typeof intakeOptions>;
+
 /** What the public check-in page starts from. */
 export const arrivePage = z.object({
   clinic_name: z.string(),
   reasons: z.array(checkInChoice),
   health_flags: z.array(checkInChoice),
   relations: z.array(checkInChoice),
+  blood_groups: z.array(checkInChoice),
+  call_times: z.array(checkInChoice),
+  heard_via: z.array(checkInChoice),
   notice_version: z.string(),
   notice_text: z.string().nullable().exactOptional(),
   notice_url: z.string(),
@@ -4134,6 +4167,7 @@ export const arrival = z.object({
   date_of_birth: z.string().nullable().exactOptional(),
   address: patientAddress.nullable().exactOptional(),
   reminders: z.boolean(),
+  intake: patientIntake.nullable().exactOptional(),
   matches: phoneMatches,
 }) satisfies z.ZodType<C.Arrival>;
 export type Arrival = z.output<typeof arrival>;

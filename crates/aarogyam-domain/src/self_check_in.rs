@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 use serde::{Deserialize, Serialize};
 
 use crate::clinic::Address;
+use crate::patient_intake::RawIntake;
 
 /// Most arrival requests a clinic may have waiting; more are refused, none are dropped.
 pub const MAX_PENDING: i64 = 200;
@@ -224,6 +225,9 @@ pub struct Arrival {
     /// Whether they ticked reminders.
     #[serde(default)]
     pub reminders: bool,
+    /// The case-paper fields, checked at submit.
+    #[serde(default)]
+    pub intake: Option<RawIntake>,
     /// The published notice shown, when the clinic has one.
     #[serde(default)]
     pub notice_id: Option<uuid::Uuid>,

@@ -3356,6 +3356,7 @@
     "patient_duplicates.patient_id",
     "patient_gaps.patient_id",
     "patient_identifiers.patient_id",
+    "patient_intakes.patient_id",
     "patient_link_codes.patient_id",
     "patient_links.patient_id",
     "patient_notes.patient_id",
@@ -6438,6 +6439,141 @@
      "nullable": false,
      "ref": null,
      "note": "0 (lightest) to 100 (deepest)"
+    }
+   ],
+   "referenced_by": [],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "patient_intakes",
+   "domain": "clinical",
+   "purpose": "The case-paper fields clinics collect at registration, one row per patient, replaced as a whole.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "mutable",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0763). Written by PUT /patients/{id}/intake, by POST /patients, and when a QR arrival is accepted (which only fills blanks of an existing patient). Personal values are masked in the change history. Deleted on erasure.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": "one row per patient"
+    },
+    {
+     "name": "blood_group",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "A+, A-, B+, B-, AB+, AB-, O+, O-"
+    },
+    {
+     "name": "alt_phone",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "E.164, the second mobile or WhatsApp number"
+    },
+    {
+     "name": "emergency_contact_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "emergency_contact_phone",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "E.164"
+    },
+    {
+     "name": "referred_by",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "at most 120 characters"
+    },
+    {
+     "name": "call_time",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "morning, afternoon, evening, any"
+    },
+    {
+     "name": "occupation",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "at most 80 characters"
+    },
+    {
+     "name": "heard_via",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "friend_family, doctor, google, social_media, walk_by, other"
+    },
+    {
+     "name": "heard_via_text",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the words for Other"
+    },
+    {
+     "name": "family_doctor_name",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "family_doctor_phone",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "E.164"
+    },
+    {
+     "name": "family_doctor_address",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "at most 300 characters"
+    },
+    {
+     "name": "health_other",
+     "type": "text",
+     "nullable": true,
+     "ref": null,
+     "note": "the Other line of the health checklist, at most 300 characters"
+    },
+    {
+     "name": "pregnant",
+     "type": "boolean",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "due_date",
+     "type": "date",
+     "nullable": true,
+     "ref": null,
+     "note": ""
+    },
+    {
+     "name": "nursing",
+     "type": "boolean",
+     "nullable": true,
+     "ref": null,
+     "note": ""
     }
    ],
    "referenced_by": [],

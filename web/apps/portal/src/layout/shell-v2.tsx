@@ -216,6 +216,8 @@ function FrameV2() {
             <MenuIcon aria-hidden="true" />
           </button>
           <p className="mk2-clinic-name">
+            <span className="mk2-appname">Aarogyam</span>
+            <span className="mk2-sep" aria-hidden="true" />
             <b>{session.clinic.name}</b>
           </p>
           <button

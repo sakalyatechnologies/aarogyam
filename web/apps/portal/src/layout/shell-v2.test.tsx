@@ -288,6 +288,14 @@ describe("Shell v2 brand mark and account picture", () => {
     expect(document.querySelector('[data-glyph="tooth"]')).toBeNull();
   });
 
+  it("puts the app name before the clinic in the top bar (hidden by CSS while the rail is open)", async () => {
+    renderPortal("/today", { as: PEOPLE.asha });
+    await screen.findByRole("link", { name: "Aarogyam: Today" });
+    const bar = document.querySelector(".mk2-top .mk2-clinic-name");
+    expect(bar?.querySelector(".mk2-appname")?.textContent).toBe("Aarogyam");
+    expect(bar?.querySelector("b")?.textContent).toBe("Sunrise Dental");
+  });
+
 
   it("shows the person's photo on the account button when one is set, else their initials", async () => {
     const withPhoto = fakeApi((fixtures) => {

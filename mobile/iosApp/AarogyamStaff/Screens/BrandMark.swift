@@ -14,11 +14,14 @@ struct BrandMark: View {
 
     private var mark: some View {
         HStack(spacing: 6) {
-            Image("BrandMark").resizable().frame(width: 28, height: 28)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            // The brand mark: a vector asset that is already rounded.
+            Image("BrandMark").resizable().scaledToFit().frame(width: 28, height: 28)
                 .accessibilityHidden(true)
             Text("Aarogyam").font(.headline.weight(.bold))
         }
+        // The toolbar would otherwise squeeze the name down to the mark.
+        .fixedSize()
+        .padding(.horizontal, 4)
         .accessibilityElement(children: .ignore)
     }
 }

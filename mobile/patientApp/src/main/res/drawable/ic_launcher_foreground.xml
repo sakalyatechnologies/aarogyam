@@ -1,10 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Brand mark (brand/aarogyam-mark.svg): the A and its crossbar, inside the 66dp adaptive-icon safe zone. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M48,36h12v12h12v12h-12v12h-12v-12h-12v-12h12z" />
+    <group android:translateX="8.1" android:translateY="8.1" android:scaleX="0.918" android:scaleY="0.918">
+        <group android:translateX="14" android:translateY="14" android:scaleX="0.72" android:scaleY="0.72">
+            <path
+                android:pathData="M22,82 L50,18 L78,82"
+                android:strokeColor="#FFFFFF"
+                android:strokeWidth="10"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round" />
+            <path
+                android:pathData="M34,60 H66"
+                android:strokeColor="#5EEAD4"
+                android:strokeWidth="8"
+                android:strokeLineCap="round" />
+        </group>
+    </group>
 </vector>

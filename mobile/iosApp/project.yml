@@ -76,7 +76,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aarogyam.ios
         TARGETED_DEVICE_FAMILY: "1"
-        # Interim store icon (docs/release.md); replace AppIcon-1024.png with the approved artwork.
+        # App icon: brand/aarogyam-mark.svg at 1024 px, opaque and square (iOS rounds it).
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         OTHER_LDFLAGS: [-framework, AarogyamShared]
         GENERATE_INFOPLIST_FILE: NO
@@ -99,7 +99,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         AarogyamEnvironment: $(AAROGYAM_ENVIRONMENT)
-        UILaunchScreen: {}
+        UILaunchScreen: {UIColorName: LaunchInk, UIImageName: LaunchMark}
         # `aarogyam://invite#<token>` opens an invitation (the app handles it in AppModel).
         CFBundleURLTypes:
           - CFBundleURLName: com.aarogyam.ios

@@ -6,11 +6,14 @@ import type { ApiClient, NewChartEntries, NewPlan } from "@aarogyam/api-client";
 
 import { NEW_LOOK_KEY } from "../../../../lib/new-look.js";
 import { PEOPLE, fakeApi, renderPortal } from "../../../../test/render.js";
+import { moreDetailsKey } from "./use-chart-prefs.js";
 import { chipsFor } from "./quick-plan.js";
 
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem(NEW_LOOK_KEY, "1");
+  // These tests drive the extras, so More details starts open.
+  localStorage.setItem(moreDetailsKey(PEOPLE.asha), "1");
 });
 afterEach(() => {
   cleanup();

@@ -11,13 +11,15 @@ import { PEOPLE, fakeApi, renderPortal } from "../../../../test/render.js";
 import { layoutKey, type P360Layout } from "../use-layout.js";
 import { FakeRecognition, installVoiceDoubles, removeVoiceDoubles } from "../../../visits/voice/test-doubles.js";
 import { dictationLanguageKey } from "../../../../lib/dictation-language.js";
-import { chartPrefsKey } from "./use-chart-prefs.js";
+import { chartPrefsKey, moreDetailsKey } from "./use-chart-prefs.js";
 
 const LAYOUTS: readonly P360Layout[] = ["console", "stage", "tabs"];
 
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem(NEW_LOOK_KEY, "1");
+  // These tests drive the extras, so More details starts open.
+  localStorage.setItem(moreDetailsKey(PEOPLE.asha), "1");
 });
 afterEach(() => {
   cleanup();
@@ -143,6 +145,7 @@ describe("the Classic view", () => {
     const start = screen.queryByRole("button", { name: "Start visit" });
     if (start !== null) await user.click(start);
     await user.click(await within(panel).findByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
     await user.click(within(panel).getByRole("button", { name: "Crown" }));
     await user.click(within(panel).getByRole("button", { name: "Save treatment" }));
     await waitFor(() => {
@@ -155,14 +158,16 @@ describe("the Classic view", () => {
 });
 
 describe("the Add form saves in few taps", () => {
-  it("starts Completed with the only fitting material chosen, and hides surfaces for whole-tooth treatments", async () => {
+  it("starts Planned, offers Planned / In progress / Done, and hides surfaces for whole-tooth treatments", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
     const calls = spy();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap: calls.wrap });
     const panel = await openTooth(user, 13);
     await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
-    expect(within(panel).getByRole("button", { name: "Completed" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(panel).getByRole("button", { name: "Planned" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(panel).queryByRole("button", { name: "Watch" })).toBeNull();
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
     await user.click(within(panel).getByRole("button", { name: "Implant" }));
     expect(within(panel).queryByRole("button", { name: "Mesial" })).toBeNull();
     await user.click(within(panel).getByRole("button", { name: "Scaling" }));
@@ -191,13 +196,14 @@ describe("the tooth panel", () => {
     const panel = await openTooth(user, 26);
 
     await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
     await user.click(within(panel).getByRole("button", { name: "Root canal" }));
     await user.click(within(panel).getByRole("button", { name: "MB1" }));
     await user.click(within(panel).getByRole("button", { name: "MB2" }));
     await user.type(within(panel).getByLabelText(/^Working length/), "20 mm");
     await user.selectOptions(within(panel).getByLabelText("Sitting"), "2");
     await user.selectOptions(within(panel).getByLabelText("Material"), "Gutta percha");
-    await user.type(within(panel).getByLabelText("Note"), "obturation done");
+    await user.type(within(panel).getByLabelText("Treatment note"), "obturation done");
     await user.click(within(panel).getByRole("button", { name: "Save treatment" }));
 
     await waitFor(() => {
@@ -265,6 +271,7 @@ describe("the tooth panel", () => {
     renderPortal(path, { as: PEOPLE.asha, backend, wrap: calls.wrap });
     const panel = await openTooth(user, 14);
     await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
     await user.click(within(panel).getByRole("button", { name: "Mesial" }));
     await user.click(within(panel).getByRole("button", { name: "Occlusal" }));
     await user.click(within(panel).getByRole("button", { name: "Save treatment" }));
@@ -634,7 +641,7 @@ describe("tooth health and a quick note", () => {
     const panel = await pickTooth(user, 16);
     await user.click(within(panel).getByRole("button", { name: /Watch/ }));
     await user.click(within(within(panel).getByRole("group", { name: "Advise treatment within" })).getByRole("button", { name: "3 mo" }));
-    const note = within(panel).getByRole("textbox", { name: /note/i });
+    const note = within(panel).getByRole("textbox", { name: "Quick note" });
     await user.type(note, "Deep pit, recheck{Enter}");
 
     await user.hover(tooth(16));
@@ -690,11 +697,12 @@ describe("work done elsewhere, and progress", () => {
     renderPortal(path, { as: PEOPLE.asha, backend, wrap });
     const panel = await openTooth(user, 46);
     await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
     await user.click(within(panel).getByRole("button", { name: "Crown" }));
     const away = within(panel).getByRole("switch", { name: "Done elsewhere" });
     await user.click(within(panel).getByRole("button", { name: "In progress" }));
     expect(within(panel).queryByRole("switch", { name: "Done elsewhere" })).toBeNull();
-    await user.click(within(panel).getByRole("button", { name: "Completed" }));
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
     await user.click(within(panel).getByRole("switch", { name: "Done elsewhere" }));
     expect(away).toBeTruthy();
     await user.click(within(panel).getByRole("button", { name: "Save treatment" }));
@@ -709,6 +717,7 @@ describe("work done elsewhere, and progress", () => {
     // The next treatment on this tooth starts with the switch on.
     await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
     await user.click(within(panel).getByRole("button", { name: "Crown" }));
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
     expect(within(panel).getByRole("switch", { name: "Done elsewhere" }).getAttribute("aria-checked")).toBe("true");
     await user.click(screen.getByRole("button", { name: "Key" }));
     expect(within(screen.getByRole("list", { name: "Legend" })).getByText("dashed = done elsewhere")).toBeTruthy();

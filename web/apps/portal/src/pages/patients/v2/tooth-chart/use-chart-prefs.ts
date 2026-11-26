@@ -48,3 +48,28 @@ export function useChartPrefs(userId: string): [ChartPrefs, (patch: Partial<Char
   );
   return [prefs, update];
 }
+
+export const moreDetailsKey = (userId: string): string => `aarogyam.portal.tooth-more.${userId}`;
+
+/** Whether the tooth panel's "More details" is open: collapsed until this person opens it, then remembered in this browser. */
+export function useMoreDetails(userId: string): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      return globalThis.localStorage.getItem(moreDetailsKey(userId)) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const update = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      try {
+        globalThis.localStorage.setItem(moreDetailsKey(userId), next ? "1" : "0");
+      } catch {
+        // Blocked storage: the choice holds for this visit only.
+      }
+    },
+    [userId],
+  );
+  return [open, update];
+}

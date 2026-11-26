@@ -50,6 +50,8 @@ interface Props {
   onHealthKey?: ((tooth: number, health: Health) => void) | undefined;
   /** Teeth to ring, such as those with a pin in Explain mode. */
   marked?: ReadonlySet<number> | undefined;
+  /** Teeth that have notes: each shows a small dot. */
+  noted?: ReadonlySet<number> | undefined;
   /** The pointer entered a tooth (or left it, with undefined). */
   onHover?: ((tooth: number | undefined) => void) | undefined;
   /** Present mode: marks drawn over a tooth (today, planned, found), the words said for it, and whether it is dimmed. */
@@ -63,7 +65,7 @@ export interface ToothMarks {
 }
 
 /** The chart: rows or a 3D arch, adult or child teeth. Tapping a tooth selects it; recording happens in the panel beside it. */
-export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, multi, onLongPress, onHealthKey, marked, onHover, marks }: Props) {
+export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, multi, onLongPress, onHealthKey, marked, noted, onHover, marks }: Props) {
   const states = useMemo(() => toothStates(current, treatmentsByTooth(planItems)), [current, planItems]);
   const progress = useMemo(() => inProgressTeeth(current), [current]);
   const healths = useMemo(() => healthByTooth(current, statuses), [current, statuses]);
@@ -83,7 +85,9 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
     const level = healths.get(n) ?? "unassessed";
     const elsewhere = !health && away.has(n);
     const mark = marks?.(n);
-    const said = health ? `${describeTooth(state)}, ${healthLabel(level)}${marked?.has(n) === true ? ", pinned" : ""}` :`${describeTooth(state)}${busy ? ", treatment in progress" : ""}${elsewhere ? ", done elsewhere" : ""}`;
+    const withNote = noted?.has(n) === true ? ", has notes" : "";
+    const base = health ? `${describeTooth(state)}, ${healthLabel(level)}${marked?.has(n) === true ? ", pinned" : ""}` :`${describeTooth(state)}${busy ? ", treatment in progress" : ""}${elsewhere ? ", done elsewhere" : ""}`;
+    const said = `${base}${withNote}`;
     return (
       <button
         key={n}
@@ -97,6 +101,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         data-health={health ? level : undefined}
         data-kind={kindOf(n)}
         data-marked={marked?.has(n) === true || undefined}
+        data-noted={noted?.has(n) === true || undefined}
         data-tooth={n}
         data-dim={mark?.dim === true || undefined}
         aria-pressed={selected === n || multi?.has(n) === true}

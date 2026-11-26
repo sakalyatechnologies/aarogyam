@@ -68,13 +68,15 @@ interface Props {
   /** Start dictating into the note at once (a long press on the tooth). */
   dictate: boolean;
   onDictateStarted: () => void;
+  /** Show the quick health note and "Advise treatment within" (behind More details); off by default. */
+  extras?: boolean;
 }
 
 /**
  * The top of the tooth panel: Healthy / Watch / Needs treatment. The health the chart suggests shows dashed; one tap saves an
  * override. A one-line note (typed or dictated) saves on Enter or when dictation stops, never on blur. No visit is needed.
  */
-export function HealthRow({ patientId, tooth, entries, status, canWrite, who, dictate, onDictateStarted }: Props) {
+export function HealthRow({ patientId, tooth, entries, status, canWrite, who, dictate, onDictateStarted, extras = false }: Props) {
   const saver = useToothHealthSaver(patientId);
   const derived = derivedHealth(entries);
   const suggested: Health | undefined = derived === "none" || derived === "unassessed" ? undefined : derived;
@@ -160,6 +162,8 @@ export function HealthRow({ patientId, tooth, entries, status, canWrite, who, di
       {status?.treat_within_months == null ? null : (
         <p className="tc-meta">{`${by === undefined ? "The doctor" : by} advises treatment within ${String(status.treat_within_months)} ${status.treat_within_months === 1 ? "month" : "months"}.`}</p>
       )}
+      {extras ? (
+        <>
       <form
         className="tc-note"
         aria-label={`Note for tooth ${String(tooth)}`}
@@ -245,6 +249,8 @@ export function HealthRow({ patientId, tooth, entries, status, canWrite, who, di
             </button>
           ))}
         </div>
+      ) : null}
+        </>
       ) : null}
       <div role="status" aria-live="polite">
         {undo === undefined ? null : (

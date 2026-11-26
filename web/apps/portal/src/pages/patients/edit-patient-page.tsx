@@ -12,6 +12,9 @@ import { MkCard, Empty, PageHeader } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
 import { PinCodeFields, useClinicPinLookup, type PinValue } from "../../components/pin-code-fields.js";
 import { LANGUAGES, SEX_OPTIONS, patientPath, useTodayDate } from "../../lib/patients.js";
+import { fromIntake, intakeProblems, toIntake, type IntakeValues } from "../../components/intake/intake-model.js";
+import { IntakeSections } from "../../components/intake/intake-sections.js";
+import { useIntakeOptions, usePatientIntake, useSetPatientIntake } from "../../intake-queries.js";
 import { usePatient, useUpdatePatient } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -138,6 +141,13 @@ function EditPatientForm({ id, patient, canEditContact }: { id: PatientId; patie
   const toast = useToast();
   const update = useUpdatePatient(id);
   const today = useTodayDate();
+  const options = useIntakeOptions();
+  const saved = usePatientIntake(id);
+  const setIntakeFields = useSetPatientIntake(id);
+  // Undefined until a case-paper field is touched, so saving other changes leaves them as they were.
+  const [intake, setIntake] = useState<IntakeValues>();
+  const shownIntake = intake ?? fromIntake(saved.data);
+  const problems = intake === undefined ? {} : intakeProblems(intake);
   const form = useForm<Values, unknown, Valid>({
     resolver: zodResolver(schema),
     mode: "onTouched",
@@ -149,10 +159,14 @@ function EditPatientForm({ id, patient, canEditContact }: { id: PatientId; patie
   const shownAddress = address ?? addressDefaults(patient);
   const { errors, isSubmitting } = form.formState;
   const birthMode = useWatch({ control: form.control, name: "birthMode" });
+  const sex = useWatch({ control: form.control, name: "sex" });
+  const mobile = useWatch({ control: form.control, name: "phone" });
 
   const onSubmit = form.handleSubmit(async (values) => {
+    if (Object.keys(problems).length > 0) return;
     try {
       await update.mutateAsync(toPatientChanges(values, canEditContact, address, patient));
+      if (intake !== undefined) await setIntakeFields.mutateAsync(toIntake(intake, values.sex === "female"));
       toast.show({ title: "Saved", tone: "success" });
       void navigate(patientPath(patient));
     } catch (thrown) {
@@ -244,6 +258,9 @@ function EditPatientForm({ id, patient, canEditContact }: { id: PatientId; patie
               setAddress({ ...shownAddress, pin });
             }}
           />
+          {options.data === undefined || saved.data === undefined ? null : (
+            <IntakeSections value={shownIntake} onChange={setIntake} choices={options.data} female={sex === "female"} mobile={mobile} showHealth={false} problems={problems} />
+          )}
           <Field label="Preferred language" error={errors.preferredLanguage?.message} required>
             <Select options={LANGUAGES} {...form.register("preferredLanguage")} />
           </Field>

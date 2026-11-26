@@ -454,6 +454,18 @@ export interface FakeToothStatus {
   fingerprint?: string | null;
 }
 
+export interface FakeToothNote {
+  id: string;
+  clinic_id: string;
+  patient_id: string;
+  tooth: number;
+  body: string;
+  recorded_by: string;
+  recorded_by_name: string;
+  recorded_at: string;
+  client_id?: string | null;
+}
+
 export interface FakeAttachment {
   id: string;
   clinic_id: string;
@@ -751,6 +763,8 @@ export interface Fixtures {
   chartEntries: FakeChartEntry[];
   /** Tooth health statuses, made on first use. */
   toothStatuses?: FakeToothStatus[];
+  /** Free-text tooth notes, made on first use. */
+  toothNotes?: FakeToothNote[];
   /** Tooth conditions (infection, gums, mobility), made on first use. */
   toothConditions?: import("./tooth-details.js").FakeToothCondition[];
   /** Permanent teeth's eruptions, made on first use. */

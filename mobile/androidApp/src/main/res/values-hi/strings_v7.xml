@@ -33,6 +33,17 @@
     <string name="v7_me_change_avatar">अवतार बदलें</string>
     <string name="v7_me_on_leave">आज छुट्टी पर</string>
     <string name="v7_me_your_day">आपका दिन</string>
+    <string name="v7_me_target">इस महीने का लक्ष्य</string>
+    <string name="v7_me_target_value">%2$s में से %1$s</string>
+    <plurals name="v7_me_cycles">
+        <item quantity="one">आज %d चक्र</item>
+        <item quantity="other">आज %d चक्र</item>
+    </plurals>
+    <string name="v7_me_cycle_log">चक्र दर्ज करें</string>
+    <string name="v7_cycle_title">स्टरलाइज़ेशन चक्र</string>
+    <string name="v7_cycle_note">लोड में क्या था (वैकल्पिक)</string>
+    <string name="v7_cycle_save">चक्र अभी दर्ज करें</string>
+    <string name="v7_cycle_none">आज कोई चक्र दर्ज नहीं।</string>
     <plurals name="v7_me_done">
         <item quantity="one">%2$d में से %1$d पूरे</item>
         <item quantity="other">%2$d में से %1$d पूरे</item>

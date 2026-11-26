@@ -1,5 +1,6 @@
 import type { NewArrivalBody } from "@aarogyam/api-client";
 
+import { EMPTY_INTAKE, intakeProblems, toIntake, type IntakeProblems, type IntakeValues } from "../../components/intake/intake-model.js";
 import { EMPTY_PIN, isPin, type PinValue } from "../../components/pin-code-fields.js";
 
 /** What the patient types on the QR check-in page. Strings while editing; checked and converted on Continue. */
@@ -22,8 +23,8 @@ export interface ArriveValues {
   ageOrBirth: string;
   pin: PinValue;
   line1: string;
-  health: readonly string[];
-  allergies: string;
+  /** The case-paper fields, with the checklist and allergies. */
+  intake: IntakeValues;
 }
 
 export const EMPTY_ARRIVE: ArriveValues = {
@@ -42,13 +43,12 @@ export const EMPTY_ARRIVE: ArriveValues = {
   ageOrBirth: "",
   pin: EMPTY_PIN,
   line1: "",
-  health: [],
-  allergies: "",
+  intake: EMPTY_INTAKE,
 };
 
 export type ArriveField = "contactName" | "relation" | "firstName" | "phone" | "reasons" | "consentCare" | "email" | "ageOrBirth" | "pincode";
 
-export type ArriveProblems = Partial<Record<ArriveField, string>>;
+export type ArriveProblems = Partial<Record<ArriveField, string>> & IntakeProblems;
 
 type AgeOrBirth = { kind: "none" } | { kind: "age"; years: number } | { kind: "birth"; date: string } | { kind: "bad" };
 
@@ -75,7 +75,7 @@ export function parseAgeOrBirth(text: string, today: string): AgeOrBirth {
 
 /** What is wrong with the form, field by field. Empty when it can be sent. */
 export function arriveProblems(values: ArriveValues, today: string): ArriveProblems {
-  const problems: ArriveProblems = {};
+  const problems: ArriveProblems = intakeProblems(values.intake);
   if (values.firstName.trim() === "") problems.firstName = "Enter the first name.";
   if (!/^[6-9]\d{9}$/.test(values.phone)) problems.phone = "Enter a 10-digit mobile number.";
   if (values.reasons.length === 0 && values.reasonText.trim() === "") problems.reasons = "Choose what brings you in, or write a few words.";
@@ -121,8 +121,9 @@ export function arriveBody(key: string, values: ArriveValues, today: string, hon
     age_years: when.kind === "age" ? when.years : null,
     date_of_birth: when.kind === "birth" ? when.date : null,
     address: hasAddress ? address : null,
-    health: [...values.health],
-    allergies_text: text(values.allergies),
+    health: [...values.intake.health],
+    allergies_text: text(values.intake.allergies),
+    intake: toIntake(values.intake, values.sex === "female"),
     ...(honeypot === "" ? {} : { website: honeypot }),
   };
 }

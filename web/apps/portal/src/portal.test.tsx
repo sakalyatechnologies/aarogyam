@@ -25,7 +25,7 @@ describe("New patient", () => {
     expect(document.activeElement).toBe(screen.getByLabelText(/full name/i));
 
     await user.type(screen.getByLabelText(/full name/i), "Asha Rane");
-    await user.type(screen.getByLabelText(/mobile/i), "12345");
+    await user.type(screen.getByLabelText(/^mobile$/i), "12345");
     await user.click(screen.getByRole("button", { name: "Register patient" }));
     expect(await screen.findByText("Enter a 10-digit mobile number.")).toBeTruthy();
     expect(create).not.toHaveBeenCalled();
@@ -39,11 +39,11 @@ describe("New patient", () => {
     await user.click(screen.getByRole("radio", { name: "Female" }));
     await user.click(screen.getByRole("radio", { name: /age only/i }));
     await user.type(screen.getByLabelText(/age in years/i), "34");
-    await user.type(screen.getByLabelText(/mobile/i), "9811122233");
+    await user.type(screen.getByLabelText(/^mobile$/i), "9811122233");
     await user.click(screen.getByRole("button", { name: "Register patient" }));
 
     expect(await screen.findByText("Number is on the do-not-contact list")).toBeTruthy();
-    expect(screen.getByLabelText(/mobile/i).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText(/^mobile$/i).getAttribute("aria-invalid")).toBe("true");
   });
 
   it("registers the patient and opens Patient 360 by ID", async () => {
@@ -298,7 +298,7 @@ describe("Patient 360", () => {
     await user.click(await screen.findByRole("button", { name: "More" }));
     await user.click(await screen.findByRole("menuitem", { name: /Edit/ }));
     await screen.findByLabelText(/full name/i);
-    expect(screen.queryByLabelText(/mobile/i)).toBeNull();
+    expect(screen.queryByLabelText(/^mobile$/i)).toBeNull();
     expect(screen.queryByLabelText(/email/i)).toBeNull();
     expect(screen.getByText(/need the contact permission/)).toBeTruthy();
   });

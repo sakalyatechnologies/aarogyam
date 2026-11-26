@@ -8,13 +8,18 @@ struct MeCardModel {
     let name: String
     let chips: [String]
     let progress: Progress?
+    /// The month's revenue against the clinic's target; nil when no target is set.
+    var monthTarget: Progress?
+    /// Sterilisation cycles recorded today.
+    var cycles = 0
+    /// Opens "Log a cycle"; nil without `tasks.use`.
+    var onLogCycle: (() -> Void)?
 
     struct Progress {
         let label: String
         let value: String
-        /// 0 to 1; nil draws an empty track (the finance month target is a preview).
+        /// 0 to 1; nil shows the label and value without a track.
         let fraction: Double?
-        var isPreview = false
     }
 }
 
@@ -96,9 +101,25 @@ private struct MeCard: View {
                         .padding(.horizontal, 9).padding(.vertical, 5)
                         .background(Color.white.opacity(0.6), in: Capsule())
                 }
+                if model.cycles > 0 || model.onLogCycle != nil {
+                    Text(String(format: String(localized: "t7.me.cycles", table: "TodayV7"), model.cycles))
+                        .font(.system(size: 11, weight: .bold)).foregroundStyle(ink)
+                        .padding(.horizontal, 9).padding(.vertical, 5)
+                        .background(Color.white.opacity(0.6), in: Capsule())
+                }
+                if let log = model.onLogCycle {
+                    Button(action: log) {
+                        Text("t7.me.cycle_log", tableName: "TodayV7").font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(theme.roles.onPrimary.color)
+                            .padding(.horizontal, 9).padding(.vertical, 5)
+                            .background(theme.roles.primary.color, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             Spacer(minLength: 0)
             if let progress = model.progress { dayProgress(progress, ink: ink) }
+            if let target = model.monthTarget { dayProgress(target, ink: ink) }
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -132,15 +153,16 @@ private struct MeCard: View {
                 Text(progress.value).multilineTextAlignment(.trailing)
             }
             .font(.system(size: 11, weight: .bold)).foregroundStyle(ink.opacity(0.85))
-            GeometryReader { box in
-                Capsule().fill(Color.white.opacity(0.55))
-                    .overlay(alignment: .leading) {
-                        Capsule().fill(theme.roles.primary.color)
-                            .frame(width: box.size.width * (progress.fraction ?? 0) * ((grown || reduceMotion) ? 1 : 0))
-                    }
+            if let fraction = progress.fraction {
+                GeometryReader { box in
+                    Capsule().fill(Color.white.opacity(0.55))
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(theme.roles.primary.color)
+                                .frame(width: box.size.width * fraction * ((grown || reduceMotion) ? 1 : 0))
+                        }
+                }
+                .frame(height: 8)
             }
-            .frame(height: 8)
-            if progress.isPreview { PreviewNotice().scaleEffect(0.9, anchor: .leading) }
         }
         .onAppear { withAnimation(SkMotionTokens.emphasized.animation(duration: 1.2).delay(0.3)) { grown = true } }
     }

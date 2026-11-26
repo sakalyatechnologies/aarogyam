@@ -21,6 +21,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::patient_intakes::{PatientIntake, blood_groups, call_times, heard_via};
 use super::patients::{PatientAddress, PhoneMatches, parse_date};
 use super::walk_ins::WalkIn;
 use super::{parse_id, rfc3339};
@@ -162,6 +163,12 @@ pub struct ArrivePage {
     pub health_flags: Vec<CheckInChoice>,
     /// What the person filling the form is to the patient, for "my child / family member".
     pub relations: Vec<CheckInChoice>,
+    /// Blood groups, for the optional case-paper questions.
+    pub blood_groups: Vec<CheckInChoice>,
+    /// Best times to call.
+    pub call_times: Vec<CheckInChoice>,
+    /// How patients heard of the clinic.
+    pub heard_via: Vec<CheckInChoice>,
     /// The notice version the patient agrees to.
     pub notice_version: String,
     /// The clinic's published privacy notice; empty when it has none, and the page then links
@@ -212,6 +219,9 @@ pub(crate) async fn arrive(
         reasons: lists.reasons.iter().map(Into::into).collect(),
         health_flags: lists.health_flags.iter().map(Into::into).collect(),
         relations: lists.relations.iter().map(Into::into).collect(),
+        blood_groups: blood_groups(),
+        call_times: call_times(),
+        heard_via: heard_via(),
         notice_version: page.notice_version,
         notice_text: page.notice_text,
         notice_url: "/privacy".to_owned(),
@@ -261,6 +271,8 @@ pub struct NewArrivalBody {
     /// Appointment reminders by message.
     #[serde(default)]
     pub reminders: bool,
+    /// The case-paper fields; checked now and kept with the request.
+    pub intake: Option<PatientIntake>,
     /// A hidden field real people leave empty; when it is filled nothing is stored.
     pub website: Option<String>,
 }
@@ -323,6 +335,7 @@ pub(crate) async fn send_arrival(
         health: body.health,
         allergies_text: body.allergies_text,
         reminders: body.reminders,
+        intake: body.intake.map(Into::into),
     };
     let id = app::submit(
         state.db(),
@@ -389,6 +402,8 @@ pub struct Arrival {
     pub address: Option<PatientAddress>,
     /// The patient ticked appointment reminders.
     pub reminders: bool,
+    /// The case-paper fields the patient gave; phones are masked without `patients.contact`.
+    pub intake: Option<PatientIntake>,
     /// Patients already registered with the phone, and their relatives. The desk picks one or
     /// "new patient"; the default is a new patient.
     pub matches: PhoneMatches,
@@ -435,6 +450,13 @@ fn arrival_body(row: PendingArrival, contact: bool) -> Arrival {
         date_of_birth: a.date_of_birth,
         address: a.address.map(Into::into),
         reminders: a.reminders,
+        intake: a.intake.map(|raw| {
+            let mut body = PatientIntake::from(raw);
+            if !contact {
+                body.mask_phones();
+            }
+            body
+        }),
         matches: row.matches.into(),
     }
 }

@@ -1,0 +1,125 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "with n as (\n             insert into aarogyam.tooth_notes\n               (id, patient_id, tooth, visit_id, body, client_id, created_by)\n             values ($1, $2, $3, $4, $5, $6, $7)\n             returning id, patient_id, tooth, visit_id, body, client_id, created_by, created_at\n           )\n           select n.id as \"id!\", n.patient_id as \"patient_id!\", n.tooth as \"tooth!\",\n                  n.visit_id as \"visit_id?\", n.body as \"body!\", n.client_id as \"client_id?\",\n                  n.created_by as \"recorded_by?\",\n                  coalesce(m.display_name, u.display_name) as \"recorded_by_name?\",\n                  n.created_at as \"created_at!\"\n           from n\n           left join aarogyam.memberships m on m.id = n.created_by\n           left join aarogyam.users u on u.id = m.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "patient_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "patient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "tooth!",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "visit_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "visit_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "body!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "client_id?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "client_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "recorded_by?",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "recorded_by_name?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Uuid",
+        "Text",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      null,
+      false
+    ]
+  },
+  "hash": "96a2083d42d808feef5a6b3d30260dd379cfce0578d6d6eff682609b1c091e7e"
+}

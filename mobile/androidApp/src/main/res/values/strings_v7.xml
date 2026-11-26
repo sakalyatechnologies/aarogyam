@@ -34,6 +34,17 @@
     <string name="v7_me_change_avatar">Change avatar</string>
     <string name="v7_me_on_leave">On leave today</string>
     <string name="v7_me_your_day">Your day</string>
+    <string name="v7_me_target">Month target</string>
+    <string name="v7_me_target_value">%1$s of %2$s</string>
+    <plurals name="v7_me_cycles">
+        <item quantity="one">%d cycle today</item>
+        <item quantity="other">%d cycles today</item>
+    </plurals>
+    <string name="v7_me_cycle_log">Log a cycle</string>
+    <string name="v7_cycle_title">Sterilisation cycles</string>
+    <string name="v7_cycle_note">What was in the load (optional)</string>
+    <string name="v7_cycle_save">Log cycle now</string>
+    <string name="v7_cycle_none">No cycles logged today.</string>
     <plurals name="v7_me_done">
         <item quantity="one">%1$d of %2$d done</item>
         <item quantity="other">%1$d of %2$d done</item>

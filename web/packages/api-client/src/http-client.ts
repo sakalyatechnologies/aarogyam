@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { ApiClient, DateRange } from "./client.js";
 import { failure, parseApiError, success, type ApiResult } from "./result.js";
-import { arrivalList, arrivePage, pincodeInfo, received, selfCheckInSettings } from "./schemas.js";
+import { arrivalList, arrivePage, intakeOptions, patientIntake, pincodeInfo, received, selfCheckInSettings } from "./schemas.js";
 import {
   allergy,
   allergyList,
@@ -45,6 +45,8 @@ import {
   createdClinic,
   createdInvitation,
   dentalChart,
+  toothNote,
+  toothNoteList,
   toothStatus,
   toothCondition,
   toothEruption,
@@ -721,6 +723,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+    addToothNote: (id, tooth, body, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/notes`,
+        schema: toothNote,
+        body: { body, ...(opts?.clientId === undefined ? {} : { client_id: opts.clientId }) },
+        signal: opts?.signal,
+      }),
+    toothNotes: (id, tooth, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/notes`, schema: toothNoteList, signal: opts?.signal }),
     clearToothStatus: (id, tooth, opts) =>
       call({ method: "DELETE", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/status`, schema: voidResponse, signal: opts?.signal }),
     setToothCondition: (id, tooth, input, opts) =>
@@ -1308,6 +1320,11 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+    patientIntake: (id, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/intake`, schema: patientIntake, signal: opts?.signal }),
+    setPatientIntake: (id, input, opts) =>
+      call({ method: "PUT", path: `/api/v1/patients/${encodeURIComponent(id)}/intake`, schema: patientIntake, body: input, signal: opts?.signal }),
+    intakeOptions: (opts) => call({ method: "GET", path: "/api/v1/patients/intake-options", schema: intakeOptions, signal: opts?.signal }),
     getSelfCheckInSettings: (opts) =>
       call({ method: "GET", path: "/api/v1/settings/self-check-in", schema: selfCheckInSettings, signal: opts?.signal }),
     setSelfCheckIn: (enabled, opts) =>

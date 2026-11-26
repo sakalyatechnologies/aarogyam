@@ -2301,6 +2301,25 @@ export const toothEruption = z.object({
 }) satisfies z.ZodType<C.ToothEruption>;
 export type ToothEruption = z.output<typeof toothEruption>;
 
+/** A free-text note on a tooth. */
+export const toothNote = z.object({
+  id: z.string(),
+  tooth: count,
+  body: z.string(),
+  visit_id: z.string().exactOptional(),
+  recorded_by: z.string().exactOptional(),
+  recorded_by_name: z.string().exactOptional(),
+  recorded_at: timestamp,
+}) satisfies z.ZodType<C.ToothNote>;
+export type ToothNote = z.output<typeof toothNote>;
+
+export const toothNoteList = z.object({ items: z.array(toothNote) }) satisfies z.ZodType<C.ToothNoteList>;
+export type ToothNoteList = z.output<typeof toothNoteList>;
+
+/** A tooth that has notes, with the start of its newest one. */
+export const toothNoteMark = z.object({ tooth: count, latest_note: z.string() }) satisfies z.ZodType<C.ToothNoteMark>;
+export type ToothNoteMark = z.output<typeof toothNoteMark>;
+
 export const dentalChart = z.object({
   current: z.array(chartEntry),
   history: z.array(chartEntry),
@@ -2311,6 +2330,8 @@ export const dentalChart = z.object({
   conditions: z.array(toothCondition).exactOptional(),
   /** Each permanent tooth's current eruption; absent when none (and from older servers). */
   eruptions: z.array(toothEruption).exactOptional(),
+  /** The newest note of each tooth that has notes; absent when none (and from older servers). */
+  tooth_notes: z.array(toothNoteMark).exactOptional(),
 }) satisfies z.ZodType<C.DentalChart>;
 export type DentalChart = z.output<typeof dentalChart>;
 
@@ -4094,12 +4115,45 @@ export type SelfCheckInSettings = z.output<typeof selfCheckInSettings>;
 
 const checkInChoice = z.object({ code: z.string(), label: z.string() }) satisfies z.ZodType<C.CheckInChoice>;
 
+/** The case-paper fields clinics collect at registration; every one optional. */
+export const patientIntake = z.object({
+  blood_group: z.string().nullable().exactOptional(),
+  alt_phone: z.string().nullable().exactOptional(),
+  emergency_contact_name: z.string().nullable().exactOptional(),
+  emergency_contact_phone: z.string().nullable().exactOptional(),
+  referred_by: z.string().nullable().exactOptional(),
+  call_time: z.string().nullable().exactOptional(),
+  occupation: z.string().nullable().exactOptional(),
+  heard_via: z.string().nullable().exactOptional(),
+  heard_via_text: z.string().nullable().exactOptional(),
+  family_doctor_name: z.string().nullable().exactOptional(),
+  family_doctor_phone: z.string().nullable().exactOptional(),
+  family_doctor_address: z.string().nullable().exactOptional(),
+  health_other: z.string().nullable().exactOptional(),
+  pregnant: z.boolean().nullable().exactOptional(),
+  due_date: z.string().nullable().exactOptional(),
+  nursing: z.boolean().nullable().exactOptional(),
+}) satisfies z.ZodType<C.PatientIntake>;
+export type PatientIntake = z.output<typeof patientIntake>;
+
+/** The lists the registration forms offer (codes and labels). */
+export const intakeOptions = z.object({
+  health_flags: z.array(checkInChoice),
+  blood_groups: z.array(checkInChoice),
+  call_times: z.array(checkInChoice),
+  heard_via: z.array(checkInChoice),
+}) satisfies z.ZodType<C.IntakeOptions>;
+export type IntakeOptions = z.output<typeof intakeOptions>;
+
 /** What the public check-in page starts from. */
 export const arrivePage = z.object({
   clinic_name: z.string(),
   reasons: z.array(checkInChoice),
   health_flags: z.array(checkInChoice),
   relations: z.array(checkInChoice),
+  blood_groups: z.array(checkInChoice),
+  call_times: z.array(checkInChoice),
+  heard_via: z.array(checkInChoice),
   notice_version: z.string(),
   notice_text: z.string().nullable().exactOptional(),
   notice_url: z.string(),
@@ -4134,6 +4188,7 @@ export const arrival = z.object({
   date_of_birth: z.string().nullable().exactOptional(),
   address: patientAddress.nullable().exactOptional(),
   reminders: z.boolean(),
+  intake: patientIntake.nullable().exactOptional(),
   matches: phoneMatches,
 }) satisfies z.ZodType<C.Arrival>;
 export type Arrival = z.output<typeof arrival>;

@@ -7,6 +7,7 @@ import { formatRelative } from "@aarogyam/app-kit";
 import { Button, Drawer, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
+import { IntakeSummary } from "../../components/intake/intake-summary.js";
 import { QUEUE_POLL_MS } from "../../queries.js";
 
 /** Requests patients sent by scanning the clinic's QR code, oldest first. Refreshed with the queue. */
@@ -113,6 +114,7 @@ function ArrivalCard({ arrival }: { arrival: Arrival }) {
       {arrival.health_labels.length === 0 && (arrival.allergies_text ?? "") === "" ? null : (
         <p className="text-sm font-medium text-warning-text">{[...arrival.health_labels, ...((arrival.allergies_text ?? "") === "" ? [] : [`Allergies: ${arrival.allergies_text ?? ""}`])].join(" · ")}</p>
       )}
+      <IntakeSummary intake={arrival.intake} />
       {arrival.matches.items.length === 0 ? null : (
         <fieldset className="flex flex-col gap-1.5 border-0 p-0">
           <legend className="mb-1 text-sm font-semibold text-text">Same phone as</legend>

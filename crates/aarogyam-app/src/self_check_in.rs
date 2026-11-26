@@ -11,6 +11,7 @@ use aarogyam_domain::clinical::clinical_text;
 use aarogyam_domain::consent::{DEFAULT_NOTICE_VERSION, Method, Purpose};
 use aarogyam_domain::ids::{PatientId, PractitionerId};
 use aarogyam_domain::patient::{Email, PersonName, Sex};
+use aarogyam_domain::patient_intake::RawIntake;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::self_check_in::{
     Arrival, CLINIC_PER_HOUR, MAX_PENDING, PHONE_PER_HOUR, PatientAddress, catalogue,
@@ -27,7 +28,10 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
-use crate::intake::{DeskConsent, Intake, MAX_ALLERGIES};
+use crate::intake::{DeskConsent, Intake};
+use crate::patient_intakes::{
+    CasePaper, allergy_list, check_health, conditions, parse as parse_intake, record_in,
+};
 use crate::patients::{
     EditPatient, PatientView, PhoneLookupResult, RegisterPatient, edit_in, lookup_phone_in,
     parse_birth_date, parse_phone,
@@ -236,6 +240,8 @@ pub struct NewArrival {
     pub allergies_text: Option<String>,
     /// Appointment reminders ticked.
     pub reminders: bool,
+    /// The case-paper fields, as typed.
+    pub intake: Option<RawIntake>,
 }
 
 fn optional(
@@ -350,15 +356,14 @@ fn check(
         None => None,
     };
     parse_birth_date(input.date_of_birth, input.age_years, today)?;
-    let mut health: Vec<String> = Vec::new();
-    for code in &input.health {
-        if lists.health_flag(code).is_none() {
-            return Err(AppError::invalid("health", "unknown value"));
-        }
-        if !health.contains(code) {
-            health.push(code.clone());
-        }
-    }
+    let health = check_health(&input.health)?;
+    let intake = input
+        .intake
+        .as_ref()
+        .map(parse_intake)
+        .transpose()?
+        .filter(|fields| !fields.is_empty())
+        .map(|fields| fields.to_raw());
     let allergies_text = optional(input.allergies_text.as_deref(), "allergies_text", 500)?;
     let address = input.address.clone().filter(|a| !a.is_empty());
     let arrival = Arrival {
@@ -378,6 +383,7 @@ fn check(
         health,
         allergies_text,
         reminders: input.reminders,
+        intake,
         notice_id: notice.0,
         notice_version: notice.1,
     };
@@ -510,17 +516,6 @@ pub struct Accept {
     pub practitioner_id: Option<PractitionerId>,
 }
 
-fn allergy_list(text: Option<&str>) -> Vec<String> {
-    text.map(|text| {
-        text.split([',', ';', '\n'])
-            .map(|part| part.trim().chars().take(200).collect::<String>())
-            .filter(|part| !part.is_empty())
-            .take(MAX_ALLERGIES)
-            .collect()
-    })
-    .unwrap_or_default()
-}
-
 /// Accepts a request: registers the patient (or takes the one picked, filling only their blank
 /// details), records the allergies, health flags and consents the patient gave, issues a token
 /// and marks the request handled with its payload cleared, all in one transaction. A second
@@ -592,11 +587,7 @@ pub async fn accept(
             intake: Intake {
                 allergies: allergy_list(arrival.allergies_text.as_deref()),
                 no_known_allergies: false,
-                conditions: arrival
-                    .health
-                    .iter()
-                    .filter_map(|code| lists.health_flag(code).and_then(|c| c.condition.clone()))
-                    .collect(),
+                conditions: conditions(&arrival.health),
                 consents,
                 notice_id: arrival.notice_id,
                 notice_version: Some(arrival.notice_version.clone()),
@@ -608,6 +599,14 @@ pub async fn accept(
         };
         let mut view = register_in(tx, actor, &walk_in, now).await?;
         let patient_id = view.patient.id.uuid();
+        let case = CasePaper {
+            intake: arrival.intake.as_ref().map(parse_intake).transpose()?,
+            health: arrival.health.clone(),
+            allergies_text: None,
+        };
+        if !case.is_empty() {
+            record_in(tx, actor, patient_id, &case, !view.registered).await?;
+        }
         if !view.registered {
             let (allergy_alert, consent_pending) =
                 (view.patient.allergy_alert, view.patient.consent_pending);

@@ -7,6 +7,7 @@ import com.aarogyam.staff.api.model.TeamMemberToday
 import com.aarogyam.staff.api.model.TodayResponse
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 /** One working shift today, in clinic time. */
 data class ShiftView(
@@ -33,6 +34,14 @@ data class MeView(
     val onLeave: Boolean,
     /** The member's own figures for today from `/me/stats`; null when not fetched or the fetch failed. */
     val stats: MyStatsView? = null,
+    /** The clinic's monthly revenue target in paise; null when not set or without `finance.view`. */
+    val monthTargetPaise: Long? = null,
+    /** Received this month so far, in paise; null without `finance.view`. */
+    val monthCollectedPaise: Long? = null,
+    /** Sterilisation cycles recorded today. */
+    val sterilisationToday: Int = 0,
+    /** When this doctor's day should end, in clinic time; null when nothing is left. */
+    val dayEndsAt: LocalTime? = null,
 )
 
 /** The member's own day from `/me/stats`. [collectedPaise] is null without `billing.read`. */
@@ -81,18 +90,6 @@ internal fun TodayResponse.attentionViews(): List<AttentionView> =
         )
     }
 
-/** Numbers v7 shows that the server cannot give yet; drawn as "needs server support". */
-enum class TodayPreview {
-    /** Month revenue target (BK-15). */
-    MonthTarget,
-
-    /** Sterilisation cycles run today (BK-16). */
-    SterilisationCycles,
-
-    /** When the day is expected to end (BK-16). */
-    DayEndEstimate,
-}
-
 internal fun TodayResponse.me(
     membershipId: String,
     name: String,
@@ -132,6 +129,13 @@ internal fun TodayResponse.me(
                 if (a != null && b != null) ShiftView(a, b) else null
             },
         onLeave = member?.onLeave == true,
+        sterilisationToday = sterilisationCyclesToday,
+        dayEndsAt =
+            member
+                ?.dayEndsAt
+                ?.let(::parseInstant)
+                ?.toLocalDateTime(zone)
+                ?.time,
     )
 }
 

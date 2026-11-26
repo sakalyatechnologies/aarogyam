@@ -76,12 +76,19 @@ fun MePager(
     today: LocalDate,
     waiting: Int,
     onEditAvatar: () -> Unit,
+    onLogCycle: (() -> Unit)? = null,
     onOpen: (ScheduleItem) -> Unit,
 ) {
     val pager = rememberPagerState { 2 }
     Column {
         HorizontalPager(pager, pageSpacing = PAGE_GAP.dp, modifier = Modifier.padding(top = 8.dp)) { page ->
-            if (page == 0) MeCard(me, roleName, avatar, waiting, onEditAvatar) else MySchedule(me, today, onOpen)
+            if (page ==
+                0
+            ) {
+                MeCard(me, roleName, avatar, waiting, onEditAvatar, onLogCycle)
+            } else {
+                MySchedule(me, today, onOpen)
+            }
         }
         Row(
             Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -108,6 +115,7 @@ private fun MeCard(
     avatar: String,
     waiting: Int,
     onEditAvatar: () -> Unit,
+    onLogCycle: (() -> Unit)?,
 ) {
     val p = SkTheme.palette
     val ink = p.onPrimaryContainer.color
@@ -158,8 +166,10 @@ private fun MeCard(
                         modifier = Modifier.background(chipBg, CircleShape).padding(horizontal = 9.dp, vertical = 5.dp),
                     )
                 }
+                CycleChips(me.sterilisationToday, ink, onLogCycle)
             }
             DayProgress(me, ink)
+            MonthTarget(me, ink)
         }
         Box(Modifier.align(Alignment.TopEnd).padding(10.dp)) {
             IconWell(
@@ -205,7 +215,7 @@ private fun DayProgress(
     val total = me.mine.size
     if (total == 0) return
     val done = total - me.remaining
-    val ends = me.shifts.lastOrNull()?.ends
+    val ends = me.dayEndsAt ?: me.shifts.lastOrNull()?.ends
     val reduced = SkTheme.reducedMotion
     val grow = remember { Animatable(if (reduced == ReducedMotion.On) 1f else 0f) }
     LaunchedEffect(done, total) {

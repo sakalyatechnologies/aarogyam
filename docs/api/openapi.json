@@ -10174,6 +10174,37 @@
             "description": "Not signed in"
           },
           "403": {
+            "description": "The role lacks patients.write, or intake.write when health or allergies are given"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/intake-options": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The choices the staff registration form and the phones offer, so they use the same lists as\nthe QR check-in page.",
+        "operationId": "getIntakeOptions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeOptions"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
             "description": "The role lacks patients.write"
           }
         },
@@ -11810,6 +11841,133 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/notes": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A tooth's notes, newest first (at most 50).",
+        "operationId": "listToothNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToothNoteList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not an FDI tooth number"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Adds a free-text note to a tooth. It joins the open visit when there is one; no visit,\ntreatment or health status is needed. Notes are never edited: to fix one, add another.",
+        "operationId": "addToothNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewToothNote"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToothNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad tooth or body"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "`id_conflict`: the client_id made something else"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/status": {
       "put": {
         "tags": [
@@ -12359,6 +12517,107 @@
           },
           "404": {
             "description": "No such identifier in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/patients/{id}/intake": {
+      "get": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "The patient's case-paper fields; an empty object when none were saved.",
+        "operationId": "getPatientIntake",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientIntake"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "patients"
+        ],
+        "summary": "Replaces the patient's case-paper fields (a field left out is cleared) and returns them.",
+        "operationId": "setPatientIntake",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientIntake"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientIntake"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input; the message names the field"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks patients.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
           }
         },
         "security": [
@@ -23590,6 +23849,17 @@
             "type": "string",
             "description": "Identifier."
           },
+          "intake": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientIntake",
+                "description": "The case-paper fields the patient gave; phones are masked without `patients.contact`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "last_name": {
             "type": [
               "string",
@@ -23670,10 +23940,27 @@
           "reasons",
           "health_flags",
           "relations",
+          "blood_groups",
+          "call_times",
+          "heard_via",
           "notice_version",
           "notice_url"
         ],
         "properties": {
+          "blood_groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "Blood groups, for the optional case-paper questions."
+          },
+          "call_times": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "Best times to call."
+          },
           "clinic_name": {
             "type": "string",
             "description": "The clinic's name."
@@ -23684,6 +23971,13 @@
               "$ref": "#/components/schemas/CheckInChoice"
             },
             "description": "\"Any of these?\" health choices."
+          },
+          "heard_via": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "How patients heard of the clinic."
           },
           "notice_text": {
             "type": [
@@ -27989,6 +28283,13 @@
               "$ref": "#/components/schemas/DentalTerm"
             },
             "description": "The procedures and materials to offer: the seeded vocabulary, then the clinic's own.\nFilter it as the clinician types; it changes only when someone adds a term."
+          },
+          "tooth_notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToothNoteMark"
+            },
+            "description": "The start of the newest note of each tooth that has notes, by tooth, so the chart can\nmark them. Left out when none."
           }
         }
       },
@@ -30270,6 +30571,46 @@
               "null"
             ],
             "description": "Its sheet."
+          }
+        }
+      },
+      "IntakeOptions": {
+        "type": "object",
+        "description": "The lists the registration forms offer.",
+        "required": [
+          "health_flags",
+          "blood_groups",
+          "call_times",
+          "heard_via"
+        ],
+        "properties": {
+          "blood_groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "Blood groups."
+          },
+          "call_times": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "Best times to call."
+          },
+          "health_flags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "The health checklist, in case-paper order; `none` stands alone."
+          },
+          "heard_via": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckInChoice"
+            },
+            "description": "How patients heard of the clinic."
           }
         }
       },
@@ -34885,6 +35226,17 @@
             },
             "description": "Health codes from the form's list."
           },
+          "intake": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientIntake",
+                "description": "The case-paper fields; checked now and kept with the request."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "k": {
             "type": "string",
             "description": "The QR key."
@@ -35694,6 +36046,13 @@
             "description": "Age in years when the date of birth is unknown.",
             "minimum": 0
           },
+          "allergies_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Allergies in the patient's words, separated by commas. Needs `intake.write`."
+          },
           "date_of_birth": {
             "type": [
               "string",
@@ -35711,6 +36070,24 @@
           "full_name": {
             "type": "string",
             "description": "Full name, 1 to 200 characters."
+          },
+          "health": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Health checklist codes (see `health_flags` in the intake options); `none` stands alone.\nNeeds `intake.write`."
+          },
+          "intake": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/PatientIntake",
+                "description": "The case-paper fields (blood group, second phone, emergency contact...)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "phone": {
             "type": [
@@ -36455,6 +36832,26 @@
           "eruption": {
             "type": "string",
             "description": "`erupted`, `partial`, `impacted` or `unerupted`."
+          }
+        }
+      },
+      "NewToothNote": {
+        "type": "object",
+        "description": "A note to add.",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The note, 1 to 2000 characters. An empty note is a `400` naming `body`."
+          },
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An id the client made for this request, any UUID. A retry with the same `client_id` and\nbody returns the note it added; the same `client_id` for anything else is `id_conflict`\n(`409`)."
           }
         }
       },
@@ -39356,6 +39753,124 @@
           "mode": {
             "type": "string",
             "description": "`preview` checks every row and saves nothing; `commit` saves the valid rows."
+          }
+        }
+      },
+      "PatientIntake": {
+        "type": "object",
+        "description": "The case-paper fields: every one optional. Phones are normalised to E.164 (+91 is assumed\nwithout a country code).",
+        "properties": {
+          "alt_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A second phone (\"Mobile 2\", `WhatsApp`)."
+          },
+          "blood_group": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`A+`, `A-`, `B+`, `B-`, `AB+`, `AB-`, `O+` or `O-`."
+          },
+          "call_time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Best time to call: `morning`, `afternoon`, `evening` or `any`."
+          },
+          "due_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Due date, `YYYY-MM-DD`."
+          },
+          "emergency_contact_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Emergency contact's name, at most 120 characters."
+          },
+          "emergency_contact_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Emergency contact's phone."
+          },
+          "family_doctor_address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Family doctor's address, at most 300 characters."
+          },
+          "family_doctor_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Family doctor's name, at most 120 characters."
+          },
+          "family_doctor_phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Family doctor's phone."
+          },
+          "health_other": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The \"Other ____\" line of the health checklist, at most 300 characters."
+          },
+          "heard_via": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How the patient heard of the clinic: a code from `heard_via` in the intake options."
+          },
+          "heard_via_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The words for \"Other\", at most 120 characters."
+          },
+          "nursing": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Nursing."
+          },
+          "occupation": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Occupation, at most 80 characters."
+          },
+          "pregnant": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Pregnant."
+          },
+          "referred_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who referred the patient, at most 120 characters."
           }
         }
       },
@@ -48198,6 +48713,93 @@
           "watch",
           "needs_treatment"
         ]
+      },
+      "ToothNote": {
+        "type": "object",
+        "description": "A free-text note on a tooth.",
+        "required": [
+          "id",
+          "tooth",
+          "body",
+          "recorded_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "recorded_at": {
+            "type": "string",
+            "description": "When it was written (RFC 3339)."
+          },
+          "recorded_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who wrote it."
+          },
+          "recorded_by_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name, when known."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it joined, when one was open."
+          }
+        }
+      },
+      "ToothNoteList": {
+        "type": "object",
+        "description": "A tooth's notes, newest first (at most 50).",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToothNote"
+            },
+            "description": "The notes."
+          }
+        }
+      },
+      "ToothNoteMark": {
+        "type": "object",
+        "description": "A tooth that has notes, with the start of its newest one.",
+        "required": [
+          "tooth",
+          "latest_note"
+        ],
+        "properties": {
+          "latest_note": {
+            "type": "string",
+            "description": "The newest note's first 120 characters."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          }
+        }
       },
       "ToothStatus": {
         "type": "object",

@@ -118,7 +118,7 @@ struct TodayV7Screen: View {
                 .id(avatarRevision)
         case .loaded(let loaded):
             DayContent(
-                graph: graph, clinic: clinic, state: loaded, onOpenPatient: onOpenPatient,
+                graph: graph, clinic: clinic, cycles: holder.cycles, state: loaded, onOpenPatient: onOpenPatient,
                 onOpenSchedule: onOpenSchedule, onAddExpense: onAddExpense
             ) { avatars = true }
             .id(avatarRevision)
@@ -140,12 +140,14 @@ struct TodayV7Screen: View {
 private struct DayContent: View {
     let graph: AppGraph
     let clinic: ClinicContext
+    let cycles: CycleLogHolder
     let state: TodayStateLoaded
     let onOpenPatient: (String) -> Void
     /// Opens the Schedule tab on a segment: 0 Queue, 1 Day.
     let onOpenSchedule: (Int) -> Void
     let onAddExpense: (() -> Void)?
     let onEditAvatar: () -> Void
+    @State private var logCycle = false
     @Environment(\.skTheme) private var theme
     private let queue = WaitingForMe.shared
 
@@ -194,6 +196,7 @@ private struct DayContent: View {
             }
         }
         .padding(.horizontal, SkSpacing.l)
+        .sheet(isPresented: $logCycle) { CycleSheet(holder: cycles).presentationDetents([.medium, .large]) }
     }
 
     private func pending(_ me: MeView) -> [ScheduleItem] {
@@ -215,11 +218,22 @@ private struct DayContent: View {
         }
         var progress: MeCardModel.Progress?
         if let day = TodayV7.dayProgress(total: me.mine.count, remaining: Int(me.remaining)) {
-            let ends = me.shifts.last.map { ClinicFormat.time(minuteOfDay: $0.ends.minuteOfDay) }
+            let ends = (me.dayEndsAt ?? me.shifts.last?.ends).map { ClinicFormat.time(minuteOfDay: $0.minuteOfDay) }
             let value = ends.map { String(format: String(localized: "t7.me.done_until", table: "TodayV7"), day.done, day.total, $0) }
                 ?? String(format: String(localized: "t7.me.done", table: "TodayV7"), day.done, day.total)
             progress = .init(label: String(localized: "t7.me.your_day", table: "TodayV7"), value: value, fraction: day.fraction)
         }
-        return MeCardModel(role: clinic.roleName, name: me.name, chips: chips, progress: progress)
+        var target: MeCardModel.Progress?
+        if let goal = me.monthTargetPaise?.int64Value, goal > 0, let got = me.monthCollectedPaise?.int64Value {
+            target = .init(
+                label: String(localized: "t7.me.target", table: "TodayV7"),
+                value: String(format: String(localized: "t7.me.target_value", table: "TodayV7"), ClinicFormat.rupees(paise: got), ClinicFormat.rupees(paise: goal)),
+                fraction: min(1, Double(got) / Double(goal))
+            )
+        }
+        return MeCardModel(
+            role: clinic.roleName, name: me.name, chips: chips, progress: progress, monthTarget: target,
+            cycles: Int(me.sterilisationToday), onLogCycle: cycles.allowed ? { logCycle = true } : nil
+        )
     }
 }

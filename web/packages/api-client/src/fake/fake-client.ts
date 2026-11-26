@@ -26,6 +26,7 @@ import {
   type FakeAppointment,
   type FakeAttachment,
   type FakeChartEntry,
+  type FakeToothNote,
   type FakeToothStatus,
   type FakeClinic,
   type FakeCondition,
@@ -343,6 +344,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
   const imagePins = new Map<string, S.ImagePins["pins"]>();
   /** Saved tooth colours by patient, shared by every client of this backend. */
   const smileShades = new Map<string, number>();
+  const patientIntakes = new Map<string, C.PatientIntake>();
   /** QR check-in settings by clinic id (`self_check_in`). */
   const qrSettings = new Map<string, { enabled: boolean; key: string | null }>();
   /** QR arrival requests still waiting (handled ones are removed: the payload is cleared on the server). */
@@ -1474,6 +1476,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             last_visit_at: null,
           };
           state.patients.push(record);
+          if (input.intake != null) {
+            const phoneOf = (v: string | null | undefined) => (v == null || v === "" ? v : /^\+/.test(v) ? v : `+91${v.replace(/\D/g, "")}`);
+            const given = Object.fromEntries(Object.entries(input.intake).filter(([, v]) => v != null && v !== ""));
+            const saved = S.patientIntake.parse(given);
+            for (const key of ["alt_phone", "emergency_contact_phone", "family_doctor_phone"] as const) {
+              const phone = phoneOf(saved[key]);
+              if (phone != null) saved[key] = phone;
+            }
+            patientIntakes.set(record.id, saved);
+          }
           return reply(wirePatient(record, caller) satisfies C.Patient);
         }),
 
@@ -5467,7 +5479,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               : state.chartEntries
                   .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth)
                   .sort((a, b) => b.effective_at.localeCompare(a.effective_at));
-          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireToothNoteMarks(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
         }),
 
       recordChartEntries: (id, input, opts) =>
@@ -5488,7 +5500,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               current: state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current").map((c) => wireChartEntry(c, state)),
               history: [],
               terms: clinicTerms(state.dentalTerms, caller.clinic.id),
-              ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id),
+              ...wireStatuses(state, caller.clinic.id, id), ...wireToothNoteMarks(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id),
             } satisfies C.DentalChart);
           if (input.client_id != null) {
             const key = `${caller.clinic.id}:${input.client_id}`;
@@ -5578,7 +5590,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             state.chartEntries.push(record);
           }
           const current = state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current");
-          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireToothNoteMarks(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
         }),
 
       setToothStatus: (id, tooth, input, opts) =>
@@ -5639,6 +5651,61 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           };
           statuses.push(record);
           return reply(wireToothStatus(record));
+        }),
+
+      addToothNote: (id, tooth, body, opts) =>
+        respond(S.toothNote, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (!validTooth(tooth)) {
+            return invalid("tooth", "tooth must be an FDI number: 11-48, or 51-85 for primary teeth");
+          }
+          const text = body.trim();
+          if (text === "" || text.length > 2000) {
+            return invalid("body", "the note must be 1 to 2000 characters");
+          }
+          const notes = (state.toothNotes ??= []);
+          const clientId = opts?.clientId;
+          if (clientId !== undefined) {
+            const seen = notes.find((n) => n.clinic_id === caller.clinic.id && n.client_id === clientId);
+            if (seen !== undefined) {
+              return seen.patient_id === id && seen.tooth === tooth && seen.body === text ? reply(wireToothNote(seen)) : refuse(409, "id_conflict", "That client_id made something else.");
+            }
+          }
+          const record: FakeToothNote = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            tooth,
+            body: text,
+            recorded_by: caller.membership.id,
+            recorded_by_name: caller.user.display_name,
+            recorded_at: clock().toISOString(),
+            client_id: clientId ?? null,
+          };
+          notes.push(record);
+          return reply(wireToothNote(record));
+        }),
+
+      toothNotes: (id, tooth, opts) =>
+        respond(S.toothNoteList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (!validTooth(tooth)) {
+            return invalid("tooth", "tooth must be an FDI number: 11-48, or 51-85 for primary teeth");
+          }
+          const items = (state.toothNotes ?? []).filter((n) => n.clinic_id === caller.clinic.id && n.patient_id === id && n.tooth === tooth).reverse();
+          return reply({ items: items.slice(0, 50).map(wireToothNote) } satisfies C.ToothNoteList);
         }),
 
       clearToothStatus: (id, tooth, opts) =>
@@ -10285,6 +10352,46 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         ),
 
       // QR self check-in.
+      patientIntake: (id, opts) =>
+        respond(S.patientIntake, opts?.signal, async () => {
+          const caller = await inClinic("patients.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          return reply(patientIntakes.get(id) ?? {});
+        }),
+      setPatientIntake: (id, input, opts) =>
+        respond(S.patientIntake, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (input.blood_group != null && !QR_BLOOD_GROUPS.some((c) => c.code === input.blood_group)) {
+            return invalid("blood_group", "unknown value");
+          }
+          const saved = S.patientIntake.parse(Object.fromEntries(Object.entries(input).filter(([, v]) => v != null && v !== "")));
+          patientIntakes.set(id, saved);
+          return reply(saved);
+        }),
+      intakeOptions: (opts) =>
+        respond(S.intakeOptions, opts?.signal, async () => {
+          const caller = await inClinic("patients.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          return reply({
+            health_flags: QR_HEALTH,
+            blood_groups: QR_BLOOD_GROUPS,
+            call_times: QR_CALL_TIMES,
+            heard_via: QR_HEARD_VIA,
+          } satisfies C.IntakeOptions);
+        }),
       getSelfCheckInSettings: (opts) =>
         respond(S.selfCheckInSettings, opts?.signal, async () => {
           const caller = await inClinic("settings.manage");
@@ -10325,6 +10432,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             reasons: QR_REASONS,
             health_flags: QR_HEALTH,
             relations: QR_RELATIONS,
+            blood_groups: QR_BLOOD_GROUPS,
+            call_times: QR_CALL_TIMES,
+            heard_via: QR_HEARD_VIA,
             notice_version: "v1 2026-10",
             notice_url: "/privacy",
           } satisfies C.ArrivePage);
@@ -10357,6 +10467,12 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           }
           if ((input.health ?? []).some((h) => !QR_HEALTH.some((c) => c.code === h))) {
             return invalid("health", "unknown value");
+          }
+          if ((input.health ?? []).includes("none") && (input.health ?? []).length > 1) {
+            return invalid("health", "\"none\" can't be combined with other conditions");
+          }
+          if (input.intake?.blood_group != null && !QR_BLOOD_GROUPS.some((c) => c.code === input.intake?.blood_group)) {
+            return invalid("blood_group", "unknown value");
           }
           if (!input.for_self && ((input.contact_name ?? "").trim() === "" || !QR_RELATIONS.some((c) => c.code === input.relation))) {
             return invalid("contact_name", "name the person and what they are to the patient");
@@ -10416,6 +10532,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
                 date_of_birth: r.body.date_of_birth ?? null,
                 address: r.body.address ?? null,
                 reminders: r.body.reminders ?? false,
+                intake: r.body.intake ?? null,
                 matches: {
                   items: matches.map((p) => ({ id: p.id, number: p.number, full_name: p.full_name, sex: p.sex, age_years: null })),
                   family_group: [],
@@ -10462,7 +10579,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               .map((a) => a.trim().slice(0, 200))
               .filter((a) => a !== "")
               .slice(0, 20),
-            conditions: (b.health ?? []).flatMap((code) => QR_HEALTH.filter((c) => c.code === code).map((c) => c.label)),
+            conditions: (b.health ?? []).filter((code) => code !== "none").flatMap((code) => QR_HEALTH.filter((c) => c.code === code).map((c) => c.label)),
             consents,
             ...(reason === "" ? {} : { reason }),
             check_in: input.check_in ?? true,
@@ -11076,11 +11193,50 @@ const QR_REASONS: C.CheckInChoice[] = [
   { code: "other", label: "Other" },
 ];
 const QR_HEALTH: C.CheckInChoice[] = [
-  { code: "diabetes", label: "Diabetes" },
+  { code: "aids", label: "AIDS / HIV" },
+  { code: "asthma", label: "Asthma" },
+  { code: "drug_allergies", label: "Drug allergies" },
+  { code: "arthritis", label: "Arthritis" },
   { code: "high_bp", label: "High BP" },
+  { code: "diabetes", label: "Diabetes" },
+  { code: "anaemia", label: "Anaemia" },
+  { code: "hepatitis", label: "Hepatitis" },
+  { code: "dengue", label: "Dengue" },
+  { code: "abnormal_bleeding", label: "Abnormal bleeding" },
+  { code: "liver_disease", label: "Liver disease" },
+  { code: "radiation_treatment", label: "Radiation treatment" },
+  { code: "jaundice", label: "Jaundice" },
+  { code: "kidney_disease", label: "Kidney disease" },
+  { code: "fits_faints", label: "Fits or fainting" },
+  { code: "psychiatric", label: "Psychiatric treatment" },
+  { code: "cancer", label: "Cancer" },
+  { code: "ulcer", label: "Ulcer" },
+  { code: "tb", label: "Tuberculosis (TB)" },
+  { code: "acidity", label: "Acidity" },
+  { code: "thyroid", label: "Thyroid" },
+  { code: "respiratory_disease", label: "Respiratory disease" },
   { code: "heart", label: "Heart condition" },
-  { code: "pregnant", label: "Pregnant" },
+  { code: "pacemaker", label: "Pacemaker" },
   { code: "blood_thinners", label: "Blood thinners" },
+  { code: "major_surgery", label: "Major surgery" },
+  { code: "pregnant", label: "Pregnant" },
+  { code: "nursing", label: "Nursing" },
+  { code: "none", label: "None of these" },
+];
+const QR_BLOOD_GROUPS: C.CheckInChoice[] = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((code) => ({ code, label: code }));
+const QR_CALL_TIMES: C.CheckInChoice[] = [
+  { code: "morning", label: "Morning" },
+  { code: "afternoon", label: "Afternoon" },
+  { code: "evening", label: "Evening" },
+  { code: "any", label: "Any time" },
+];
+const QR_HEARD_VIA: C.CheckInChoice[] = [
+  { code: "friend_family", label: "Friend or family" },
+  { code: "doctor", label: "Doctor" },
+  { code: "google", label: "Google" },
+  { code: "social_media", label: "Social media" },
+  { code: "walk_by", label: "Walked by" },
+  { code: "other", label: "Other" },
 ];
 const QR_RELATIONS: C.CheckInChoice[] = [
   { code: "parent", label: "Parent" },
@@ -12139,6 +12295,20 @@ function validTooth(tooth: number): boolean {
   const quadrant = Math.floor(tooth / 10);
   const position = tooth % 10;
   return Number.isInteger(tooth) && ((quadrant >= 1 && quadrant <= 4 && position >= 1 && position <= 8) || (quadrant >= 5 && quadrant <= 8 && position >= 1 && position <= 5));
+}
+
+function wireToothNote(n: FakeToothNote): C.ToothNote {
+  return { id: n.id, tooth: n.tooth, body: n.body, recorded_by: n.recorded_by, recorded_by_name: n.recorded_by_name, recorded_at: n.recorded_at };
+}
+
+/** The newest note of each tooth that has one, left out when none, as the server does. */
+function wireToothNoteMarks(state: Fixtures, clinicId: string, patientId: string): { tooth_notes?: C.ToothNoteMark[] } {
+  const newest = new Map<number, string>();
+  for (const n of state.toothNotes ?? []) {
+    if (n.clinic_id === clinicId && n.patient_id === patientId) newest.set(n.tooth, n.body.slice(0, 120));
+  }
+  const marks = [...newest].sort((a, b) => a[0] - b[0]).map(([tooth, latest_note]) => ({ tooth, latest_note }));
+  return marks.length === 0 ? {} : { tooth_notes: marks };
 }
 
 function wireToothStatus(s: FakeToothStatus): C.ToothStatus {

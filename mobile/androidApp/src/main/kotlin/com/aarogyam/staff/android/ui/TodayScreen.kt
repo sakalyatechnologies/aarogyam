@@ -15,13 +15,17 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.today.AttentionList
+import com.aarogyam.staff.android.ui.today.CycleSheet
 import com.aarogyam.staff.android.ui.today.IconWell
 import com.aarogyam.staff.android.ui.today.MePager
 import com.aarogyam.staff.android.ui.today.MoneyCards
@@ -68,6 +72,7 @@ fun TodayScreen(
                 BarScroll.collapsed(list.firstVisibleItemScrollOffset.toDouble())
         }
     }
+    var logCycle by rememberSaveable { mutableStateOf(false) }
     val loaded = state as? TodayState.Loaded
     val money = state as? TodayState.MoneyOnly
     Column(Modifier.fillMaxSize()) {
@@ -130,11 +135,13 @@ fun TodayScreen(
                         onOpenSchedule,
                         onAddExpense,
                         onEditAvatar,
+                        { logCycle = true }.takeIf { holder.cycles.allowed },
                     )
                 }
             }
         }
     }
+    if (logCycle) CycleSheet(holder.cycles) { logCycle = false }
 }
 
 @Composable
@@ -147,6 +154,7 @@ private fun DayList(
     onOpenSchedule: () -> Unit,
     onAddExpense: (() -> Unit)?,
     onEditAvatar: () -> Unit,
+    onLogCycle: (() -> Unit)?,
 ) {
     val view: TodayView = state.view
     LazyColumn(
@@ -174,6 +182,7 @@ private fun DayList(
                         view.date,
                         view.counts.waiting,
                         onEditAvatar,
+                        onLogCycle,
                     ) { onOpenPatient(it.patientId) }
                 }
             }

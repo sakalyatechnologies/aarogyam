@@ -7,7 +7,7 @@ import { ApiErrorNotice } from "@aarogyam/app-kit";
 
 import { SkeletonRows } from "../../../../components/skeleton-rows.js";
 import { useClinic } from "../../../../clinic.js";
-import { useDentalChart, useProcedures, useStaff, useVisitMouth, useVisits } from "../../../../queries.js";
+import { useDentalChart, usePatient, useProcedures, useStaff, useVisitMouth, useVisits } from "../../../../queries.js";
 import { usePlans } from "../../../treatment-plans/queries.js";
 import { Odontogram } from "../../../visits/odontogram/odontogram.js";
 import { ExplainMode } from "../explain/explain-mode.js";
@@ -18,7 +18,7 @@ import { MultiQuickPlan } from "./multi-quick-plan.js";
 import { ProgressLine } from "./progress-line.js";
 import { ChartKey, DENTITIONS, LOOKS, ToothChart, VIEWS } from "./tooth-chart.js";
 import { ToothPanel } from "./tooth-panel.js";
-import { useChartPrefs } from "./use-chart-prefs.js";
+import { useChartPrefs, type ChartDentition } from "./use-chart-prefs.js";
 
 /** The New look tooth chart: rows or 3D arch, with the tooth's history and the Add treatment form beside it. */
 export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
@@ -32,6 +32,12 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
   const [selected, setSelected] = useState<number | undefined>(undefined);
   const [surface, setSurface] = useState<ToothSurface | null>(null);
   const [prefs, setPrefs] = useChartPrefs(session.user.id);
+  // Adult (32 teeth) unless this patient is a child (under 12, or only milk teeth charted); a choice lasts for this patient's page only.
+  const patientRecord = usePatient(patientId);
+  const [chosenDentition, setChosenDentition] = useState<ChartDentition | undefined>(undefined);
+  const age = patientRecord.data?.age_years;
+  const milkOnly = chart.data !== undefined && chart.data.current.length > 0 && chart.data.current.every((e) => e.tooth >= 51);
+  const dentition: ChartDentition = chosenDentition ?? (milkOnly || (age != null && age < 12) ? "child" : "adult");
   const visits = useVisits(can("clinical.read") ? patientId : undefined);
   const saver = useToothHealthSaver(patientId);
   // The tooth a long press picked: its panel starts dictating the note once.
@@ -85,6 +91,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
   const planned = planItems.filter((item) => item.tooth != null && (item.status === "proposed" || item.status === "accepted")).length;
   const done = new Set(chart.data.current.filter((e) => e.finding !== "sound").map((e) => e.tooth)).size;
   const statuses = chart.data.statuses ?? [];
+  const noted = new Set((chart.data.tooth_notes ?? []).map((n) => n.tooth));
   const canWrite = can("clinical.write");
   // Nothing is open until a tooth is picked, so the chart keeps the full width.
   const panel =
@@ -131,7 +138,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
         <div className="p360-tools">
           <Pills label="Chart look" size="sm" options={LOOKS} value={prefs.look} onChange={(look) => { setPrefs({ look }); }} />
           {prefs.look === "classic" ? null : (
-            <Pills label="Dentition" size="sm" options={DENTITIONS} value={prefs.dentition} onChange={(dentition) => { setPrefs({ dentition }); }} />
+            <Pills label="Dentition" size="sm" options={DENTITIONS} value={dentition} onChange={setChosenDentition} />
           )}
           {prefs.look === "classic" ? null : (
             <Pills label="Chart view" size="sm" options={VIEWS} value={prefs.view} onChange={(view) => { setPrefs({ view }); }} />
@@ -198,10 +205,11 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
           <div className="tc-split" data-open={selected === undefined && multi === undefined ? undefined : ""}>
             <ToothChart
               look={prefs.look}
-              dentition={prefs.dentition}
+              dentition={dentition}
               view={prefs.view}
               current={chart.data.current}
               statuses={statuses}
+              noted={noted}
               planItems={planItems}
               selected={multi === undefined ? selected : undefined}
               multi={multi === undefined ? undefined : new Set(multi)}

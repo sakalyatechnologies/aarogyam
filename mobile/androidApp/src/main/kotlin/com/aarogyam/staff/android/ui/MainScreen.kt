@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,26 +18,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -112,6 +111,12 @@ fun MainScreen(
         tab = Tab.valueOf(key)
         barVisible = true
     }
+    // The logo: the Today tab (else the first), its screens back at their start.
+    var homeResets by rememberSaveable { mutableStateOf(0) }
+    val goHome: () -> Unit = {
+        select((if (Tab.Today in navModel.tabs) Tab.Today else navModel.tabs.first()).name)
+        homeResets++
+    }
     // A tapped Today or Tasks alert selects the Today tab.
     val showToday by PushInbox.showToday.collectAsStateWithLifecycle()
     LaunchedEffect(showToday) {
@@ -126,22 +131,24 @@ fun MainScreen(
             if (wide) SkNavRail(items, tab.name, select, action = action)
             Box(Modifier.weight(1f).nestedScroll(hideOnScroll)) {
                 Column(Modifier.fillMaxSize()) {
-                    BrandBar()
+                    BrandBar(goHome)
                     Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.statusBars)) {
                         AnimatedContent(
                             targetState = tab,
                             transitionSpec = { SkTransitions.tabEnter(reduced) togetherWith SkTransitions.tabExit() },
                             label = "tab",
                         ) { shown ->
-                            TabContent(
-                                shown,
-                                navModel,
-                                graph,
-                                clinic,
-                                nav,
-                                onWalkIn,
-                                onSwitchClinic,
-                            ) { select(it.name) }
+                            key(homeResets) {
+                                TabContent(
+                                    shown,
+                                    navModel,
+                                    graph,
+                                    clinic,
+                                    nav,
+                                    onWalkIn,
+                                    onSwitchClinic,
+                                ) { select(it.name) }
+                            }
                         }
                     }
                 }
@@ -251,37 +258,28 @@ private val Tab.icon: String
             Tab.More -> "grid"
         }
 
-/** The app logo and name at the top left of every main screen, under the status bar. */
+/** The app logo and name at the top left of every main screen, under the status bar; a tap goes home. */
 @Composable
-private fun BrandBar() {
+private fun BrandBar(onHome: () -> Unit) {
     val brand = stringResource(R.string.app_name)
     Row(
         Modifier
             .fillMaxWidth()
             .background(SkTheme.colors.background.color)
             .statusBarsPadding()
+            .clickable(role = Role.Button, onClick = onHome)
             .padding(horizontal = 16.dp, vertical = 6.dp)
             .semantics(mergeDescendants = true) { contentDescription = brand },
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(
-                    LOGO.dp,
-                ).clip(RoundedCornerShape(LOGO_RADIUS.dp))
-                .background(colorResource(R.color.launcher_background)),
-        ) {
-            Image(
-                painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                modifier = Modifier.size(LOGO.dp).scale(LOGO_ZOOM),
-            )
-        }
+        Image(
+            painterResource(R.drawable.brand_mark),
+            contentDescription = null,
+            modifier = Modifier.size(LOGO.dp),
+        )
         Text(brand, style = SkTypography.headline, color = SkTheme.colors.text.color)
     }
 }
 
 private const val LOGO = 28
-private const val LOGO_RADIUS = 8
-private const val LOGO_ZOOM = 2.6f

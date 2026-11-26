@@ -1,4 +1,4 @@
-import { CalendarCheck, ClipboardCheck, HeartPulse, IndianRupee, ListOrdered, Pill, ShieldCheck, UsersRound } from "lucide-react";
+import { CalendarCheck, ClipboardCheck, IndianRupee, ListOrdered, Pill, ShieldCheck, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router";
 
@@ -81,9 +81,7 @@ export function LandingPage() {
     <main className="min-h-full">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
         <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-on-primary">
-            <HeartPulse aria-hidden="true" className="size-5" />
-          </span>
+          <img src="/favicon.svg" alt="" width={40} height={40} className="size-10" />
           <p className="text-lg font-extrabold tracking-tight text-text">Aarogyam</p>
         </div>
         <Link

@@ -18,6 +18,7 @@ use uuid::Uuid;
 
 use crate::clock::{clinic_today, day_bounds};
 use crate::error::AppError;
+use crate::patient_intakes::{CasePaper, record_in};
 use crate::scope::staff_scope as scope;
 
 /// Most results a search returns.
@@ -407,7 +408,8 @@ fn listed(row: patients::ListedPatient, actor: &ClinicActor, today: Date) -> Pat
     view
 }
 
-/// Registers a patient: validates, issues the clinic's next number, saves.
+/// Registers a patient: validates, issues the clinic's next number, saves, and records the
+/// case paper (health checklist, allergies, intake fields) in the same transaction.
 ///
 /// # Errors
 /// [`AppError::Invalid`] for bad input; [`AppError::Db`] on database failures.
@@ -416,9 +418,11 @@ pub async fn register(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
     input: RegisterPatient,
+    case: CasePaper,
     now: OffsetDateTime,
 ) -> Result<PatientView, AppError> {
     actor.require(Permission::PatientsWrite)?;
+    case.checked()?;
     db.scoped(&scope(actor, request_id), async |tx| {
         let profile = clinic::profile(tx.conn())
             .await?
@@ -428,6 +432,9 @@ pub async fn register(
         let mut view = insert_new(tx, &profile.number_prefix, &patient, actor, today).await?;
         if let Some(address) = &input.address {
             save_address(tx, &mut view, address).await?;
+        }
+        if !case.is_empty() {
+            record_in(tx, actor, view.id.uuid(), &case, false).await?;
         }
         Ok(view)
     })

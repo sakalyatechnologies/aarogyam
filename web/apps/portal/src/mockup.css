@@ -757,9 +757,6 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk2-mark .mk-logo-mark { width: 44px; height: 44px; border-radius: 15px; }
 .mk2-emblem { width: 44px; height: 44px; border-radius: 15px; display: grid; place-items: center; background: color-mix(in srgb, var(--rail-on) 16%, transparent); color: var(--rail-ink-strong); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rail-on) 22%, transparent); }
 .mk2-emblem svg { width: 24px; height: 24px; }
-.mk2-emblem-live { animation: mk2-float 4.8s ease-in-out infinite; }
-@keyframes mk2-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-@media (prefers-reduced-motion: reduce) { .mk2-emblem-live { animation: none; } }
 .mk2-top .mk-avatar { overflow: hidden; padding: 0; }
 .mk2-avatar-img { width: 100%; height: 100%; display: grid; place-items: center; object-fit: cover; border-radius: 50%; color: #fff; }
 .mk2-avatar-preset svg { width: 20px; height: 20px; }
@@ -834,3 +831,6 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 .mk-main { display: flex; flex-direction: column; min-height: 100dvh; }
 .mk-main > main { flex: 1 0 auto; }
 .mk-main > .mk-foot { margin-top: auto; }
+/* The Aarogyam mark in the rail head: the A in the rail's strong ink, the crossbar in its accent. */
+.mk2-aro { color: var(--rail-ink-strong); }
+.mk2-aro svg { width: 26px; height: 26px; }

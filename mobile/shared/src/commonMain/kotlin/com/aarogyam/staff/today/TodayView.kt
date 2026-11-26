@@ -51,6 +51,8 @@ data class MoneyView(
     val pendingDuesPatients: Int,
     val upiShareBps: Long,
     val collectedThisMonthPaise: Long = 0,
+    /** The clinic's monthly revenue target in paise; null when not set. */
+    val monthTargetPaise: Long? = null,
     /** This month's revenue by category, largest first. */
     val mix: List<MixShare> = emptyList(),
     /** Recorded expenses today, or null when they could not be loaded. */
@@ -72,6 +74,7 @@ internal fun TodayMoney.toView() =
         pendingDuesPatients = pendingDuesPatients,
         upiShareBps = upiShareBps,
         collectedThisMonthPaise = collectedThisMonthPaise,
+        monthTargetPaise = monthTargetPaise,
         mix =
             revenueMix
                 .map {
@@ -102,11 +105,6 @@ data class TodayView(
 ) {
     /** Done of all today's visits, 0 to 1, for the progress ring. */
     val progress: Float get() = if (counts.visits == 0) 0f else counts.done.toFloat() / counts.visits
-
-    companion object {
-        /** What Today shows as "needs server support". */
-        val PREVIEWS: Set<TodayPreview> = TodayPreview.entries.toSet()
-    }
 }
 
 internal fun TodayResponse.toView(

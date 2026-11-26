@@ -6,6 +6,7 @@ import { attachment, type ApiClient, type Attachment } from "@aarogyam/api-clien
 import type { Fixtures } from "@aarogyam/api-client/fake";
 
 import { PEOPLE, fakeApi, renderPortal } from "../../../test/render.js";
+import { moreDetailsKey } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
 import { photosOf } from "./tooth-photo.js";
 
 afterEach(() => {
@@ -22,6 +23,8 @@ const WAIT = { timeout: 20_000 };
 const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
 function setup(as: string, photo = false) {
+  // The tooth panel keeps Quick plan behind More details, which starts open for this test.
+  localStorage.setItem(moreDetailsKey(as), "1");
   let path = "";
   const calls: { created: number; cancelled: string[]; mouth: number } = { created: 0, cancelled: [], mouth: 0 };
   const backend = fakeApi((fixtures: Fixtures) => {

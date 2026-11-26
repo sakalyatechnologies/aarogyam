@@ -141,6 +141,8 @@ import type {
   NoteVersions,
   NewChartEntries,
   NewToothStatus,
+  ToothNote,
+  ToothNoteList,
   ToothStatus,
   NewToothCondition,
   ToothCondition,
@@ -906,6 +908,10 @@ export interface ApiClient {
   recordChartEntries(id: PatientId, input: NewChartEntries, options?: RequestOptions): Promise<ApiResult<DentalChart>>;
   /** Clinic host: sets a tooth's health status (it supersedes the current one; no visit needed). Needs `clinical.write`; 409 when the client_id made something else. */
   setToothStatus(id: PatientId, tooth: number, input: NewToothStatus, options?: RequestOptions): Promise<ApiResult<ToothStatus>>;
+  /** Clinic host: adds a free-text note to a tooth (joins the open visit; no treatment or status needed). Needs `clinical.write`; 400 for an empty body; 409 when the client_id made something else. */
+  addToothNote(id: PatientId, tooth: number, body: string, options?: RequestOptions & { clientId?: string }): Promise<ApiResult<ToothNote>>;
+  /** Clinic host: a tooth's notes, newest first (at most 50). Needs `clinical.read`. */
+  toothNotes(id: PatientId, tooth: number, options?: RequestOptions): Promise<ApiResult<ToothNoteList>>;
   /** Clinic host: clears a tooth's health status so its findings suggest it again (superseded, never deleted). Needs `clinical.write`. */
   clearToothStatus(id: PatientId, tooth: number, options?: RequestOptions): Promise<ApiResult<undefined>>;
   /** Clinic host: merges a change into a tooth's condition (omitted fields kept, `null` clears) under a lock. Needs `clinical.write`. */
@@ -1231,6 +1237,13 @@ export interface ApiClient {
   // Walk-in fast path.
   /** Clinic host: registers (or picks) a walk-in, records reported allergies and desk consents, and issues a token, in one step. Needs `intake.write`, `patients.write` and `appointments.write`. */
   registerWalkIn(input: WalkInRequest, options?: RequestOptions): Promise<ApiResult<WalkIn>>;
+  // Case-paper registration fields.
+  /** Clinic host: the patient's case-paper fields (blood group, second phone, emergency contact...); an empty object when none were saved. Needs `patients.read`. */
+  patientIntake(id: PatientId, options?: RequestOptions): Promise<ApiResult<S.PatientIntake>>;
+  /** Clinic host: replaces the patient's case-paper fields (a field left out is cleared) and returns them. Needs `patients.write`. */
+  setPatientIntake(id: PatientId, input: C.PatientIntake, options?: RequestOptions): Promise<ApiResult<S.PatientIntake>>;
+  /** Clinic host: the lists the registration form offers (health checklist, blood groups, call times, how they heard). Needs `patients.write`. */
+  intakeOptions(options?: RequestOptions): Promise<ApiResult<S.IntakeOptions>>;
   // QR self check-in.
   /** Clinic host, needs `settings.manage`: whether the QR works and the address it opens. */
   getSelfCheckInSettings(options?: RequestOptions): Promise<ApiResult<S.SelfCheckInSettings>>;

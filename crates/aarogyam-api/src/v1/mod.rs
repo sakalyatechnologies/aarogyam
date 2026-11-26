@@ -54,6 +54,7 @@ pub(crate) mod notifications;
 pub(crate) mod offers;
 pub(crate) mod onboarding;
 pub(crate) mod patient_app;
+pub(crate) mod patient_intakes;
 pub(crate) mod patient_links;
 pub(crate) mod patient_message;
 pub(crate) mod patient_notes;
@@ -93,6 +94,7 @@ pub(crate) mod telemetry;
 pub(crate) mod time_off;
 pub(crate) mod today;
 pub(crate) mod tooth_details;
+pub(crate) mod tooth_notes;
 pub(crate) mod treatment;
 pub(crate) mod ui_prefs;
 pub(crate) mod visit_summary;
@@ -195,6 +197,11 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route("/patients", get(patients::recent).post(patients::register))
         .route("/patients/search", post(patients::search))
         .route("/patients/summary", get(patients::summary))
+        .route("/patients/intake-options", get(patient_intakes::options))
+        .route(
+            "/patients/{id}/intake",
+            get(patient_intakes::get).put(patient_intakes::put),
+        )
         .route("/patients/lookup", post(patients::lookup))
         .route("/patients/{id}", get(patients::open).patch(patients::edit))
         .route(
@@ -508,6 +515,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/patients/{id}/dental-chart/teeth/{tooth}/status",
             put(chart::set_status).delete(chart::clear_status),
+        )
+        .route(
+            "/patients/{id}/dental-chart/teeth/{tooth}/notes",
+            get(tooth_notes::list).post(tooth_notes::add),
         )
         .route(
             "/patients/{id}/dental-chart/teeth/{tooth}/condition",

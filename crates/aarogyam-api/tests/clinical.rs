@@ -2384,6 +2384,16 @@ async fn every_route(app: &TestApp) -> Vec<(Method, String, Option<Value>)> {
             None,
         ),
         (
+            Method::POST,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/notes"),
+            Some(json!({ "body": "Sensitive to cold" })),
+        ),
+        (
+            Method::GET,
+            format!("/api/v1/patients/{patient}/dental-chart/teeth/36/notes"),
+            None,
+        ),
+        (
             Method::PUT,
             format!("/api/v1/patients/{patient}/dental-chart/teeth/36/condition"),
             Some(json!({ "bleeding": true, "mobility": 1 })),

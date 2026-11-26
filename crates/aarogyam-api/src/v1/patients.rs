@@ -1,5 +1,6 @@
 //! Patients: register, search, open, edit.
 
+use aarogyam_app::patient_intakes::CasePaper;
 use aarogyam_app::patients::{
     self as app, EditPatient, PatientFilter, PatientView, RegisterPatient,
 };
@@ -16,6 +17,7 @@ use time::{Date, OffsetDateTime};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::patient_intakes::PatientIntake;
 use super::rfc3339;
 use super::smart_import::bad_request;
 use super::{WithEtag, with_etag};
@@ -427,6 +429,14 @@ pub struct NewPatient {
     pub preferred_language: Option<String>,
     /// Postal address; optional, with the PIN code checked.
     pub address: Option<PatientAddress>,
+    /// The case-paper fields (blood group, second phone, emergency contact...).
+    pub intake: Option<PatientIntake>,
+    /// Health checklist codes (see `health_flags` in the intake options); `none` stands alone.
+    /// Needs `intake.write`.
+    #[serde(default)]
+    pub health: Vec<String>,
+    /// Allergies in the patient's words, separated by commas. Needs `intake.write`.
+    pub allergies_text: Option<String>,
 }
 
 pub(super) fn parse_date(text: &str) -> Result<Date, ApiError> {
@@ -447,7 +457,7 @@ pub(super) fn parse_date(text: &str) -> Result<Date, ApiError> {
         (status = 201, body = Patient, headers(("ETag" = String, description = "The `row_version` in quotes; send it back in `If-Match` when editing"))),
         (status = 400, description = "Invalid input; the message names the field"),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks patients.write")
+        (status = 403, description = "The role lacks patients.write, or intake.write when health or allergies are given")
     )
 )]
 pub(crate) async fn register(
@@ -470,11 +480,20 @@ pub(crate) async fn register(
             .map(PatientAddress::parse)
             .transpose()?,
     };
+    let case = CasePaper {
+        intake: body
+            .intake
+            .map(|fields| aarogyam_app::patient_intakes::parse(&fields.into()))
+            .transpose()?,
+        health: body.health,
+        allergies_text: body.allergies_text,
+    };
     let view = app::register(
         state.db(),
         &request.actor,
         request.request_id,
         input,
+        case,
         OffsetDateTime::now_utc(),
     )
     .await?;

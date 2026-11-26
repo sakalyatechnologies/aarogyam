@@ -10,6 +10,7 @@ import { AppointmentActionButton, useOpenAppointment } from "../../components/ap
 import { StartBlocked, useStartAppointmentVisit } from "../../components/start-appointment-visit.js";
 import { Empty, Initials, ListRow, MkCard, Skeleton, StatusChip, Timeline } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { PatientIntakeCard } from "../../components/intake/patient-intake-card.js";
 import { addressLine } from "./v2/patient-facts.js";
 import { ageSex, displayName, formatPhone, languageLabel, maskEmail, maskPhone, patientPath } from "../../lib/patients.js";
 import { usePatient, useSetAppointmentStatus, useStartVisit, useTimeline, useVisits } from "../../queries.js";
@@ -320,6 +321,7 @@ function Overview({ patient, canSeeClinical, revealable }: { patient: Patient; c
             {addressLine(patient) === undefined ? null : <p className="mk-hint">{addressLine(patient)}</p>}
           </div>
         </MkCard>
+        <PatientIntakeCard patientId={patient.id} />
         <PatientAppCard patientId={patient.id} />
       </div>
     </div>

@@ -453,15 +453,7 @@ fn arrival_body(row: PendingArrival, contact: bool) -> Arrival {
         intake: a.intake.map(|raw| {
             let mut body = PatientIntake::from(raw);
             if !contact {
-                for phone in [
-                    &mut body.alt_phone,
-                    &mut body.emergency_contact_phone,
-                    &mut body.family_doctor_phone,
-                ] {
-                    *phone = phone.take().map(|p| {
-                        PhoneE164::parse(&p).map_or_else(|_| "***".to_owned(), |p| p.masked())
-                    });
-                }
+                body.mask_phones();
             }
             body
         }),

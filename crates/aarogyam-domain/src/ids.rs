@@ -86,6 +86,8 @@ entities! {
     RecurringExpense, RecurringExpenseId;
     /// One run of the clinic's autoclave.
     SterilisationCycle, SterilisationCycleId;
+    /// A free-text note on a tooth.
+    ToothNote, ToothNoteId;
 }
 
 entities! {

@@ -1,5 +1,5 @@
 import { MonitorSmartphone, Pencil, Plus, Search } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 
 import { apiErrorOf, randomUuid, visitId as visitIdSchema, type ChartEntry, type DentalTerm, type ToothCondition, type ToothEruption, type ToothStatus, type ToothSurface, type PatientId, type PlanItem, type Procedure, type VisitId } from "@aarogyam/api-client";
@@ -11,13 +11,16 @@ import { useAddDentalTerm, useRecordChartEntries, useRecordProcedure } from "../
 import { useCreatePlan, useSetPlanItemStatus } from "../../../treatment-plans/queries.js";
 import { useToothHistory } from "../../../visits/queries.js";
 import { surfaceLabel } from "../../../visits/odontogram/model.js";
+import { useClinic } from "../../../../clinic.js";
 import { PillButton } from "../kit.js";
-import { allowsSurfaces, blankDraft, buildEntries, defaultMaterial, buildPlan, correctionBatch, draftFromRow, historyRows, toothName, treatmentOf, type Draft, type HistoryRow, type RowStatus } from "./model.js";
+import { allowsSurfaces, blankDraft, buildEntries, defaultMaterial, buildPlan, correctionBatch, draftFromRow, historyRows, toothName, treatmentOf, type Draft, type HistoryRow, type RowStatus, type TxStatus } from "./model.js";
 import { DetailChips } from "./detail-chips.js";
 import { FindingForm } from "./finding-form.js";
 import { HealthRow } from "./health-row.js";
 import { QuickPlan } from "./quick-plan.js";
+import { ToothNotes } from "./tooth-notes.js";
 import { TreatmentForm } from "./treatment-form.js";
+import { useMoreDetails } from "./use-chart-prefs.js";
 
 const TONE: Readonly<Record<RowStatus, "success" | "info" | "warning" | "neutral" | "danger">> = {
   Completed: "success",
@@ -87,6 +90,20 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
   const elsewhere = useRef(false);
   const toast = useToast();
   const navigate = useNavigate();
+  const { session } = useClinic();
+  // Everything beyond Notes, health and Add treatment sits behind one disclosure, remembered per person.
+  const [more, setMore] = useMoreDetails(session.user.id);
+  const showMore = more || dictate;
+  const [changing, setChanging] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
   const record = useRecordChartEntries(patientId);
   const createPlan = useCreatePlan(patientId);
   const setItem = useSetPlanItemStatus(patientId);
@@ -96,12 +113,15 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
   const busy = record.isPending || createPlan.isPending || setItem.isPending || recordProcedure.isPending;
   const open = canWrite && visitId !== undefined;
 
+  /** A planned or in-progress treatment can move on from its row, with no form. */
+  const changeable = (row: HistoryRow) => open && row.editable && (row.kind === "plan" || row.status === "In progress");
+  const nextStatuses = (row: HistoryRow): readonly TxStatus[] => (row.kind === "plan" ? ["In progress", "Completed"] : ["Completed"]);
   const startAdd = () => {
     setEditing(undefined);
     // Start where most records start: Completed, the only material that fits chosen, and a surface picked on the chart.
     const start = blankDraft();
     const first = treatmentOf(start.tx);
-    setDraft({ ...start, elsewhere: elsewhere.current, material: defaultMaterial(first, terms), surfaces: surface != null && allowsSurfaces(first, start.status) ? [surface] : [] });
+    setDraft({ ...start, status: "Planned", elsewhere: elsewhere.current, material: defaultMaterial(first, terms), surfaces: surface != null && allowsSurfaces(first, "Planned") ? [surface] : [] });
     setError(undefined);
     setMode("form");
   };
@@ -125,7 +145,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
     );
   };
 
-  const save = async () => {
+  const save = async (draft: Draft, editing: HistoryRow | undefined) => {
     if (visitId === undefined) return;
     setError(undefined);
     const tx = treatmentOf(draft.tx);
@@ -160,10 +180,46 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
         </div>
       </div>
 
+      <ToothNotes patientId={patientId} tooth={tooth} canWrite={canWrite} who={who} />
+
       {mode === "view" ? (
         <>
-          <HealthRow patientId={patientId} tooth={tooth} entries={entries} status={status} canWrite={canWrite} who={who} dictate={dictate} onDictateStarted={onDictateStarted} />
+          <HealthRow patientId={patientId} tooth={tooth} entries={entries} status={status} canWrite={canWrite} who={who} dictate={dictate} onDictateStarted={onDictateStarted} extras={showMore} />
+          {!canWrite ? null : visitId === undefined ? (
+            <p className="tc-meta">Start the visit from the bar at the top to add treatment.</p>
+          ) : (
+            <div className="tc-actions">
+              <PillButton icon={<Plus aria-hidden="true" className="size-4" />} onClick={startAdd}>
+                Add treatment
+              </PillButton>
+            </div>
+          )}
+          <button
+            type="button"
+            className="tc-chip tc-more-toggle"
+            aria-expanded={showMore}
+            onClick={() => {
+              setMore(!showMore);
+            }}
+          >
+            More details
+          </button>
+          {showMore ? (
+            <div className="tc-more-body">
           {open ? <QuickPlan patientId={patientId} tooth={tooth} visitId={visitId} terms={terms} planItems={planItems} entries={entries} onMore={startAdd} /> : null}
+          {open ? (
+            <div className="tc-actions">
+              <PillButton
+                variant="ghost"
+                icon={<Search aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  setMode("finding");
+                }}
+              >
+                Record a finding
+              </PillButton>
+            </div>
+          ) : null}
           {presentVisitId === undefined ? null : (
             <div className="tc-actions">
               <PillButton
@@ -178,6 +234,8 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
             </div>
           )}
           {canWrite ? <DetailChips patientId={patientId} tooth={tooth} entries={entries} procedures={procedures} condition={condition} eruption={eruption} /> : null}
+            </div>
+          ) : null}
           {history.isPending ? <p className="tc-meta">Loading history…</p> : null}
           {history.isError ? (
             <p role="alert" className="tc-meta">
@@ -192,10 +250,34 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
                   <strong>{row.sitting === undefined || row.treatment !== "root_canal" ? row.label : `${row.label}, sitting ${String(row.sitting)}`}</strong>
                   <span className="tc-tags">
                     {row.elsewhere === true ? <Tag>Done elsewhere</Tag> : null}
-                    <Tag tone={statusTone(TONE[row.status])}>{row.status}</Tag>
+                    {changeable(row) ? (
+                      <button type="button" className="tc-chip" aria-expanded={changing === row.key} aria-label={`Status of ${row.label}: ${row.status}. Change`} onClick={() => { setChanging(changing === row.key ? undefined : row.key); }}>
+                        {row.status}
+                      </button>
+                    ) : (
+                      <Tag tone={statusTone(TONE[row.status])}>{row.status}</Tag>
+                    )}
                   </span>
                 </div>
                 <p className="tc-meta">{[row.date === undefined ? "Not done yet" : formatDate(row.date), row.material, row.recordedBy].filter((p) => p !== undefined).join(" · ")}</p>
+                {changing === row.key && changeable(row) ? (
+                  <div className="tc-chips" role="group" aria-label={`Change status of ${row.label}`}>
+                    {nextStatuses(row).map((next) => (
+                      <button
+                        key={next}
+                        type="button"
+                        className="tc-chip"
+                        disabled={busy}
+                        onClick={() => {
+                          setChanging(undefined);
+                          void save({ ...draftFromRow(row), status: next }, row);
+                        }}
+                      >
+                        {next === "Completed" ? "Done" : next}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 {row.surfaces.length + row.canals.length === 0 ? null : (
                   <div className="tc-tags">
                     {row.surfaces.map((s) => (
@@ -224,41 +306,11 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
               </li>
             ))}
           </ol>
-          {!canWrite ? (
-            <div className="tc-actions">
-              <Button variant="secondary" onClick={onClose}>
-                Close
-              </Button>
-            </div>
-          ) : visitId === undefined ? (
-            <div className="tc-actions">
-              {/* The visit bar at the top holds the one Start visit button. */}
-              <p className="tc-meta" style={{ width: "100%" }}>
-                Start the visit from the bar at the top to add treatment.
-              </p>
-              <Button variant="secondary" onClick={onClose}>
-                Close
-              </Button>
-            </div>
-          ) : (
-            <div className="tc-actions">
-              <PillButton icon={<Plus aria-hidden="true" className="size-4" />} onClick={startAdd}>
-                Add treatment
-              </PillButton>
-              <PillButton
-                variant="ghost"
-                icon={<Search aria-hidden="true" className="size-4" />}
-                onClick={() => {
-                  setMode("finding");
-                }}
-              >
-                Record a finding
-              </PillButton>
-              <Button variant="secondary" onClick={onClose}>
-                Close
-              </Button>
-            </div>
-          )}
+          <div className="tc-actions">
+            <Button variant="secondary" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </>
       ) : mode === "finding" && visitId !== undefined ? (
         <FindingForm patientId={patientId} tooth={tooth} visitId={visitId} surface={surface} onDone={back} onClose={onClose} />
@@ -276,7 +328,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
           busy={busy}
           error={error}
           onAddMaterial={(label) => addTerm.mutateAsync({ kind: "material", label })}
-          onSave={() => void save()}
+          onSave={() => void save(draft, editing)}
           onBack={back}
           onClose={onClose}
         />

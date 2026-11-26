@@ -3379,6 +3379,7 @@
     "self_check_ins.patient_id",
     "share_links.patient_id",
     "specialty_records.patient_id",
+    "tooth_notes.patient_id",
     "treatment_plan_items.patient_id",
     "treatment_plans.patient_id",
     "visit_plan_responses.patient_id"
@@ -4734,6 +4735,7 @@
     "share_links.encounter_id",
     "specialty_records.encounter_id",
     "staff_notifications.encounter_id",
+    "tooth_notes.visit_id",
     "treatment_plans.encounter_id",
     "visit_plan_responses.encounter_id",
     "voice_notes.encounter_id"
@@ -6354,6 +6356,57 @@
    "referenced_by": [
     "present_discussions.supersedes_id"
    ],
+   "sensitivity": "health",
+   "offline": "server_only"
+  },
+  {
+   "name": "tooth_notes",
+   "domain": "clinical",
+   "purpose": "Free-text notes the doctor types or dictates on a tooth, with no treatment or health status.",
+   "rls": "clinic",
+   "star": false,
+   "partitioned": false,
+   "lifecycle": "append_only",
+   "schema": "aarogyam",
+   "notes": "Built (migration 0762). `POST/GET /patients/{id}/dental-chart/teeth/{tooth}/notes`, newest first. Never edited or deleted: to fix a note the doctor adds a new one. Deleted on erasure.",
+   "cols": [
+    {
+     "name": "patient_id",
+     "type": "uuid",
+     "nullable": false,
+     "ref": "patients",
+     "note": ""
+    },
+    {
+     "name": "tooth",
+     "type": "smallint",
+     "nullable": false,
+     "ref": null,
+     "note": "FDI 11-48, 51-85"
+    },
+    {
+     "name": "visit_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": "encounters",
+     "note": "the open visit when there was one; the key includes patient_id"
+    },
+    {
+     "name": "body",
+     "type": "text",
+     "nullable": false,
+     "ref": null,
+     "note": "1 to 2000 characters"
+    },
+    {
+     "name": "client_id",
+     "type": "uuid",
+     "nullable": true,
+     "ref": null,
+     "note": "a retry with the same id and body returns the first note; unique per clinic"
+    }
+   ],
+   "referenced_by": [],
    "sensitivity": "health",
    "offline": "server_only"
   },

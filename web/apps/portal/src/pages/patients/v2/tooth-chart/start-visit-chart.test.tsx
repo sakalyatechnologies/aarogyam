@@ -24,8 +24,6 @@ function adult() {
     const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
     const visit = fixtures.visits.find((v) => v.clinic_id === sunrise?.id);
     path = `/patients/${visit?.patient_id ?? ""}`;
-    const patient = fixtures.patients.find((p) => p.id === visit?.patient_id);
-    if (patient !== undefined) patient.age_years = 34;
   });
   return { path, backend };
 }

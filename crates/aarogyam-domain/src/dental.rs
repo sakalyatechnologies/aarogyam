@@ -638,9 +638,64 @@ impl ToothStatus {
     }
 }
 
+/// The longest free-text note on a tooth, in characters.
+pub const TOOTH_NOTE_MAX: usize = 2000;
+
+/// A free-text note on a tooth: trimmed, 1 to 2000 characters.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToothNoteBody(String);
+
+impl ToothNoteBody {
+    /// Trims `text` and checks its length.
+    ///
+    /// # Errors
+    /// [`ToothNoteError`] when it is empty after trimming or over 2000 characters.
+    pub fn new(text: &str) -> Result<Self, ToothNoteError> {
+        let text = text.trim();
+        if text.is_empty() {
+            return Err(ToothNoteError::Empty);
+        }
+        if text.chars().count() > TOOTH_NOTE_MAX {
+            return Err(ToothNoteError::TooLong);
+        }
+        Ok(Self(text.to_owned()))
+    }
+
+    /// The text.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// Why a tooth note was refused.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ToothNoteError {
+    /// Nothing to save.
+    #[error("the note is empty")]
+    Empty,
+    /// Over the limit.
+    #[error("the note must be at most 2000 characters")]
+    TooLong,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tooth_note_is_trimmed_and_bounded() {
+        assert_eq!(
+            ToothNoteBody::new("  sensitive  ").map(|n| n.as_str().to_owned()),
+            Ok("sensitive".to_owned())
+        );
+        assert_eq!(ToothNoteBody::new("   "), Err(ToothNoteError::Empty));
+        assert!(ToothNoteBody::new(&"x".repeat(2000)).is_ok());
+        assert_eq!(
+            ToothNoteBody::new(&"x".repeat(2001)),
+            Err(ToothNoteError::TooLong)
+        );
+    }
 
     fn note(text: &str) -> Detail<'_> {
         Detail {

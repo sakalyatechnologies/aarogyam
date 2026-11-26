@@ -91,6 +91,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
   const planned = planItems.filter((item) => item.tooth != null && (item.status === "proposed" || item.status === "accepted")).length;
   const done = new Set(chart.data.current.filter((e) => e.finding !== "sound").map((e) => e.tooth)).size;
   const statuses = chart.data.statuses ?? [];
+  const noted = new Set((chart.data.tooth_notes ?? []).map((n) => n.tooth));
   const canWrite = can("clinical.write");
   // Nothing is open until a tooth is picked, so the chart keeps the full width.
   const panel =
@@ -208,6 +209,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
               view={prefs.view}
               current={chart.data.current}
               statuses={statuses}
+              noted={noted}
               planItems={planItems}
               selected={multi === undefined ? selected : undefined}
               multi={multi === undefined ? undefined : new Set(multi)}

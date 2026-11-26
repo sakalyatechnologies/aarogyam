@@ -3,11 +3,13 @@
 use aarogyam_app::patient_intakes as app;
 use aarogyam_domain::ids::PatientId;
 use aarogyam_domain::patient_intake::{BloodGroup, CallTime, HeardVia, RawIntake};
+use aarogyam_domain::permission::Permission;
 use aarogyam_domain::permission::require::{PatientsRead, PatientsWrite};
 use aarogyam_domain::self_check_in::catalogue;
 use axum::Json;
 use axum::extract::State;
 use sakalya_http::{ApiJson, ApiPath};
+use sakalya_types::PhoneE164;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -133,6 +135,38 @@ impl From<PatientIntake> for RawIntake {
     }
 }
 
+fn mask(phone: &str) -> String {
+    PhoneE164::parse(phone).map_or_else(|_| "***".to_owned(), |p| p.masked())
+}
+
+impl PatientIntake {
+    fn phones(&mut self) -> [&mut Option<String>; 3] {
+        [
+            &mut self.alt_phone,
+            &mut self.emergency_contact_phone,
+            &mut self.family_doctor_phone,
+        ]
+    }
+
+    /// Masks the three phones, for callers without `patients.contact`.
+    pub(super) fn mask_phones(&mut self) {
+        for phone in self.phones() {
+            *phone = phone.take().map(|p| mask(&p));
+        }
+    }
+
+    /// A phone sent back exactly as it was masked means "keep the stored one".
+    fn keep_masked(&mut self, stored: &mut Self) {
+        for (new, old) in self.phones().into_iter().zip(stored.phones()) {
+            if let (Some(n), Some(o)) = (new.as_ref(), old.as_ref())
+                && *n == mask(o)
+            {
+                *new = Some(o.clone());
+            }
+        }
+    }
+}
+
 fn choices(all: &[(&str, &str)]) -> Vec<CheckInChoice> {
     all.iter()
         .map(|(code, label)| CheckInChoice {
@@ -219,7 +253,15 @@ pub(crate) async fn get(
         PatientId::from_uuid(id),
     )
     .await?;
-    Ok(Json(raw.into()))
+    let mut body = PatientIntake::from(raw);
+    if !request
+        .actor
+        .permissions
+        .allows(Permission::PatientsContact)
+    {
+        body.mask_phones();
+    }
+    Ok(Json(body))
 }
 
 /// Replaces the patient's case-paper fields (a field left out is cleared) and returns them.
@@ -245,13 +287,29 @@ pub(crate) async fn put(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<PatientIntake>,
 ) -> Result<Json<PatientIntake>, ApiFailure> {
+    let contact = request
+        .actor
+        .permissions
+        .allows(Permission::PatientsContact);
+    let patient = PatientId::from_uuid(id);
+    let mut body = body;
+    if !contact {
+        let mut stored = PatientIntake::from(
+            app::get(state.db(), &request.actor, request.request_id, patient).await?,
+        );
+        body.keep_masked(&mut stored);
+    }
     let saved = app::put(
         state.db(),
         &request.actor,
         request.request_id,
-        PatientId::from_uuid(id),
+        patient,
         &body.into(),
     )
     .await?;
-    Ok(Json(saved.into()))
+    let mut saved = PatientIntake::from(saved);
+    if !contact {
+        saved.mask_phones();
+    }
+    Ok(Json(saved))
 }

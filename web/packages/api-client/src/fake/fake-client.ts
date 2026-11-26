@@ -26,6 +26,7 @@ import {
   type FakeAppointment,
   type FakeAttachment,
   type FakeChartEntry,
+  type FakeToothNote,
   type FakeToothStatus,
   type FakeClinic,
   type FakeCondition,
@@ -1475,6 +1476,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             last_visit_at: null,
           };
           state.patients.push(record);
+          if (input.intake != null) {
+            const phoneOf = (v: string | null | undefined) => (v == null || v === "" ? v : /^\+/.test(v) ? v : `+91${v.replace(/\D/g, "")}`);
+            const given = Object.fromEntries(Object.entries(input.intake).filter(([, v]) => v != null && v !== ""));
+            const saved = S.patientIntake.parse(given);
+            for (const key of ["alt_phone", "emergency_contact_phone", "family_doctor_phone"] as const) {
+              const phone = phoneOf(saved[key]);
+              if (phone != null) saved[key] = phone;
+            }
+            patientIntakes.set(record.id, saved);
+          }
           return reply(wirePatient(record, caller) satisfies C.Patient);
         }),
 
@@ -5468,7 +5479,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               : state.chartEntries
                   .filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.tooth === tooth)
                   .sort((a, b) => b.effective_at.localeCompare(a.effective_at));
-          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: history.map((c) => wireChartEntry(c, state)), terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireToothNoteMarks(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
         }),
 
       recordChartEntries: (id, input, opts) =>
@@ -5489,7 +5500,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
               current: state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current").map((c) => wireChartEntry(c, state)),
               history: [],
               terms: clinicTerms(state.dentalTerms, caller.clinic.id),
-              ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id),
+              ...wireStatuses(state, caller.clinic.id, id), ...wireToothNoteMarks(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id),
             } satisfies C.DentalChart);
           if (input.client_id != null) {
             const key = `${caller.clinic.id}:${input.client_id}`;
@@ -5579,7 +5590,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             state.chartEntries.push(record);
           }
           const current = state.chartEntries.filter((c) => c.clinic_id === caller.clinic.id && c.patient_id === id && c.status === "current");
-          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
+          return reply({ current: current.map((c) => wireChartEntry(c, state)), history: [], terms: clinicTerms(state.dentalTerms, caller.clinic.id), ...wireStatuses(state, caller.clinic.id, id), ...wireToothNoteMarks(state, caller.clinic.id, id), ...wireDetails(state.toothConditions, state.toothEruptions, caller.clinic.id, id) } satisfies C.DentalChart);
         }),
 
       setToothStatus: (id, tooth, input, opts) =>
@@ -5640,6 +5651,61 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           };
           statuses.push(record);
           return reply(wireToothStatus(record));
+        }),
+
+      addToothNote: (id, tooth, body, opts) =>
+        respond(S.toothNote, opts?.signal, async () => {
+          const caller = await inClinic("clinical.write");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (!validTooth(tooth)) {
+            return invalid("tooth", "tooth must be an FDI number: 11-48, or 51-85 for primary teeth");
+          }
+          const text = body.trim();
+          if (text === "" || text.length > 2000) {
+            return invalid("body", "the note must be 1 to 2000 characters");
+          }
+          const notes = (state.toothNotes ??= []);
+          const clientId = opts?.clientId;
+          if (clientId !== undefined) {
+            const seen = notes.find((n) => n.clinic_id === caller.clinic.id && n.client_id === clientId);
+            if (seen !== undefined) {
+              return seen.patient_id === id && seen.tooth === tooth && seen.body === text ? reply(wireToothNote(seen)) : refuse(409, "id_conflict", "That client_id made something else.");
+            }
+          }
+          const record: FakeToothNote = {
+            id: fakeUuid(random, clock()),
+            clinic_id: caller.clinic.id,
+            patient_id: id,
+            tooth,
+            body: text,
+            recorded_by: caller.membership.id,
+            recorded_by_name: caller.user.display_name,
+            recorded_at: clock().toISOString(),
+            client_id: clientId ?? null,
+          };
+          notes.push(record);
+          return reply(wireToothNote(record));
+        }),
+
+      toothNotes: (id, tooth, opts) =>
+        respond(S.toothNoteList, opts?.signal, async () => {
+          const caller = await inClinic("clinical.read");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!clinicPatients(caller).some((p) => p.id === id)) {
+            return notFound;
+          }
+          if (!validTooth(tooth)) {
+            return invalid("tooth", "tooth must be an FDI number: 11-48, or 51-85 for primary teeth");
+          }
+          const items = (state.toothNotes ?? []).filter((n) => n.clinic_id === caller.clinic.id && n.patient_id === id && n.tooth === tooth).reverse();
+          return reply({ items: items.slice(0, 50).map(wireToothNote) } satisfies C.ToothNoteList);
         }),
 
       clearToothStatus: (id, tooth, opts) =>
@@ -12229,6 +12295,20 @@ function validTooth(tooth: number): boolean {
   const quadrant = Math.floor(tooth / 10);
   const position = tooth % 10;
   return Number.isInteger(tooth) && ((quadrant >= 1 && quadrant <= 4 && position >= 1 && position <= 8) || (quadrant >= 5 && quadrant <= 8 && position >= 1 && position <= 5));
+}
+
+function wireToothNote(n: FakeToothNote): C.ToothNote {
+  return { id: n.id, tooth: n.tooth, body: n.body, recorded_by: n.recorded_by, recorded_by_name: n.recorded_by_name, recorded_at: n.recorded_at };
+}
+
+/** The newest note of each tooth that has one, left out when none, as the server does. */
+function wireToothNoteMarks(state: Fixtures, clinicId: string, patientId: string): { tooth_notes?: C.ToothNoteMark[] } {
+  const newest = new Map<number, string>();
+  for (const n of state.toothNotes ?? []) {
+    if (n.clinic_id === clinicId && n.patient_id === patientId) newest.set(n.tooth, n.body.slice(0, 120));
+  }
+  const marks = [...newest].sort((a, b) => a[0] - b[0]).map(([tooth, latest_note]) => ({ tooth, latest_note }));
+  return marks.length === 0 ? {} : { tooth_notes: marks };
 }
 
 function wireToothStatus(s: FakeToothStatus): C.ToothStatus {

@@ -47,6 +47,7 @@ export function TreatmentForm({
   const rct = draft.tx === "root_canal";
   const lengthError = rct ? lengthProblem(draft.length) : undefined;
   const surfaces = allowsSurfaces(tx, draft.status);
+  const hasMore = draft.surfaces.length > 0 || draft.material !== "" || draft.note !== "" || draft.elsewhere;
   const toggle = <T extends string>(list: readonly T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
   const pickTreatment = (key: TreatmentKey) => {
@@ -61,7 +62,7 @@ export function TreatmentForm({
       status: statusesFor(key).includes(draft.status) ? draft.status : "Completed",
     });
   };
-  const statuses = statusesFor(draft.tx).filter((s) => !(editing && s === "Planned"));
+  const statuses = statusesFor(draft.tx).filter((s) => !(editing && s === "Planned") && (s !== "Watch" || draft.status === "Watch"));
 
   const addMaterial = () => {
     const label = newMaterial.trim();
@@ -151,7 +152,30 @@ export function TreatmentForm({
             </Field>
           </div>
         </div>
-      ) : surfaces ? (
+      ) : null}
+
+      <p className="tc-label" id="tc-status-label">
+        Status
+      </p>
+      <div className="tc-chips" role="group" aria-labelledby="tc-status-label">
+        {statuses.map((s: TxStatus) => (
+          <Chip
+            key={s}
+            pressed={draft.status === s}
+            onClick={() => {
+              onChange({ ...draft, status: s, surfaces: allowsSurfaces(tx, s) ? draft.surfaces : [] });
+            }}
+          >
+            {s === "Completed" ? "Done" : s}
+          </Chip>
+        ))}
+      </div>
+      {draft.status === "Planned" ? <p className="tc-meta">Adds the treatment to the patient's plan with no estimate yet.</p> : null}
+      {planned ? <p className="tc-meta">Saving records this planned treatment as work on the tooth.</p> : null}
+
+      <details className="tc-more" open={hasMore || undefined}>
+        <summary>More details</summary>
+      {surfaces ? (
         <>
           <p className="tc-label" id="tc-surf-label">
             Surfaces
@@ -171,7 +195,6 @@ export function TreatmentForm({
           </div>
         </>
       ) : null}
-
       {tx.materials.length === 0 ? null : (
         <>
           <Field label="Material">
@@ -202,22 +225,6 @@ export function TreatmentForm({
         </>
       )}
 
-      <p className="tc-label" id="tc-status-label">
-        Status
-      </p>
-      <div className="tc-chips" role="group" aria-labelledby="tc-status-label">
-        {statuses.map((s: TxStatus) => (
-          <Chip
-            key={s}
-            pressed={draft.status === s}
-            onClick={() => {
-              onChange({ ...draft, status: s, surfaces: allowsSurfaces(tx, s) ? draft.surfaces : [] });
-            }}
-          >
-            {s}
-          </Chip>
-        ))}
-      </div>
       {allowsElsewhere(draft) ? (
         <Switch
           label="Done elsewhere"
@@ -227,10 +234,7 @@ export function TreatmentForm({
           }}
         />
       ) : null}
-      {draft.status === "Planned" ? <p className="tc-meta">Adds the treatment to the patient's plan with no estimate yet.</p> : null}
-      {planned ? <p className="tc-meta">Saving records this planned treatment as work on the tooth.</p> : null}
-
-      <Field label="Note">
+      <Field label="Treatment note">
         <TextInput
           value={draft.note}
           placeholder={rct ? "e.g. BMP done, CaOH placed" : "e.g. Class II, shade A2"}
@@ -239,6 +243,8 @@ export function TreatmentForm({
           }}
         />
       </Field>
+
+      </details>
 
       {error === undefined ? null : (
         <p role="alert" className="tc-error">

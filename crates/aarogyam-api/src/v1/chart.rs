@@ -237,6 +237,20 @@ pub struct DentalChart {
     #[schema(required = false)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub eruptions: Vec<ToothEruption>,
+    /// The start of the newest note of each tooth that has notes, by tooth, so the chart can
+    /// mark them. Left out when none.
+    #[schema(required = false)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tooth_notes: Vec<ToothNoteMark>,
+}
+
+/// A tooth that has notes, with the start of its newest one.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ToothNoteMark {
+    /// FDI tooth number.
+    pub tooth: u8,
+    /// The newest note's first 120 characters.
+    pub latest_note: String,
 }
 
 impl From<ChartView> for DentalChart {
@@ -255,6 +269,14 @@ impl From<ChartView> for DentalChart {
                 .eruptions
                 .into_iter()
                 .map(ToothEruption::from)
+                .collect(),
+            tooth_notes: view
+                .tooth_notes
+                .into_iter()
+                .map(|n| ToothNoteMark {
+                    tooth: n.tooth.number(),
+                    latest_note: n.latest_note,
+                })
                 .collect(),
         }
     }

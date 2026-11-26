@@ -82,6 +82,38 @@ describe("/arrive (public, no sign-in)", () => {
     expect(screen.getByLabelText("State")).toHaveProperty("value", "Maharashtra");
   });
 
+  it("offers the case-paper sections, sends them, and never looks anyone up by phone", async () => {
+    const user = userEvent.setup();
+    const backend = fakeApi();
+    const key = await turnOn(backend);
+    const desk = backend.client({ host: SUNRISE, getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW });
+    await desk.createPatient({ full_name: "Ravi Joshi", sex: "male", age_years: 40, phone: "+919876543210" });
+    renderPortal(`/arrive?k=${key}&clinic=${SUNRISE}`, { backend });
+
+    await user.click(await screen.findByText("A few more details (optional)"));
+    for (const name of ["Personal details", "Contact", "How they found us", "Medical history"]) expect(screen.getByText(name)).toBeTruthy();
+    expect(screen.queryByText("For women")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Female" }));
+    expect(await screen.findByText("For women")).toBeTruthy();
+
+    await user.type(screen.getByLabelText(/first name/i), "Asha");
+    await user.type(screen.getByLabelText(/mobile number/i), "9876543210");
+    // A known number: nothing about who owns it is shown to the patient.
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(screen.queryByText(/already registered/i)).toBeNull();
+    expect(document.body.textContent).not.toContain("Ravi");
+
+    await user.click(screen.getByText("Personal details"));
+    await user.type(screen.getByLabelText("Occupation"), "Teacher");
+    await user.click(screen.getByRole("button", { name: "Tooth pain" }));
+    await user.click(screen.getByRole("checkbox", { name: /i agree to sunrise dental/i }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText("Please take a seat")).toBeTruthy();
+    const waiting = await desk.listArrivals();
+    if (!waiting.ok) throw new Error("expected the list");
+    expect(waiting.value.items[0]?.intake).toMatchObject({ occupation: "Teacher" });
+  });
+
   it("says the QR isn't active for a wrong key", async () => {
     renderPortal(`/arrive?k=wrong&clinic=${SUNRISE}`);
     expect(await screen.findByText("This QR code isn't active")).toBeTruthy();

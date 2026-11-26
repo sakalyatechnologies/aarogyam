@@ -9,7 +9,7 @@ use aarogyam_dal::today::{self as dal_today, CompletedVisitRow, DayMoneyRow, Tod
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::schedule::{
-    AppointmentStatus, QueueStatus, is_late, minutes_between, waits_too_long,
+    AppointmentStatus, QueueStatus, day_ends_at, is_late, minutes_between, waits_too_long,
 };
 use sakalya_db::Db;
 use sakalya_types::Paise;
@@ -90,6 +90,10 @@ pub struct TeamMember {
     pub on_leave: bool,
     /// Appointments today, not counting cancelled ones.
     pub appointments: usize,
+    /// When the doctor's day should end: the later of their last unfinished appointment's end
+    /// and the open queue at the clinic's average visit length; `None` when nothing is left
+    /// (and for days other than today).
+    pub day_ends_at: Option<OffsetDateTime>,
 }
 
 /// Why something needs attention.
@@ -183,6 +187,37 @@ pub struct Today {
     pub completed_visits: Vec<CompletedVisit>,
     /// The day's money; `None` without `finance.view`.
     pub money: Option<DayMoney>,
+    /// Sterilisation cycles recorded on the day.
+    pub sterilisation_cycles_today: i64,
+}
+
+/// One doctor's expected end of day from today's appointments and queue.
+fn day_ends_for(
+    doctor: Uuid,
+    appointments: &[AppointmentView],
+    tokens: &[TokenView],
+    average: Option<f64>,
+    now: OffsetDateTime,
+) -> Option<OffsetDateTime> {
+    let last_end = appointments
+        .iter()
+        .filter(|view| view.row.practitioner_id == doctor)
+        .filter(|view| status_of(view).is_some_and(|status| !status.is_finished()))
+        .map(|view| view.row.ends_at)
+        .max();
+    let open = tokens
+        .iter()
+        .filter(|token| token.row.practitioner_id == Some(doctor))
+        .filter(|token| {
+            QueueStatus::parse(&token.row.status).is_ok_and(|status| {
+                matches!(
+                    status,
+                    QueueStatus::Waiting | QueueStatus::Called | QueueStatus::InChair
+                )
+            })
+        })
+        .count();
+    day_ends_at(last_end, open, average, now)
 }
 
 fn status_of(view: &AppointmentView) -> Option<AppointmentStatus> {
@@ -402,6 +437,8 @@ pub async fn today(
             .into_iter()
             .map(|row| TokenView::new(row, now, date))
             .collect();
+        let average = rows.average_visit_minutes;
+        let sterilisation_cycles_today = rows.sterilisation_cycles;
         let rooms = rows.rooms;
         let shifts = rows.shifts;
         let leave = rows.leave;
@@ -418,7 +455,11 @@ pub async fn today(
                 if mine.is_empty() {
                     return None;
                 }
+                let day_ends_at = (day == Day::Today)
+                    .then(|| day_ends_for(practitioner.id, &appointments, &tokens, average, now))
+                    .flatten();
                 Some(TeamMember {
+                    day_ends_at,
                     on_leave: leave
                         .iter()
                         .any(|block| block.practitioner_id == practitioner.id),
@@ -470,6 +511,7 @@ pub async fn today(
             },
             completed_visits,
             money,
+            sterilisation_cycles_today,
             recent_patients: recent,
             team,
             appointments,

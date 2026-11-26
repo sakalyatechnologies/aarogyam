@@ -1,6 +1,8 @@
 import type { Sex } from "@aarogyam/api-client";
 import { Field, TextInput } from "@sakalya/ui";
 
+import { EMPTY_PIN, PinCodeFields, useClinicPinLookup, type PinValue } from "../../components/pin-code-fields.js";
+
 import { SEX_OPTIONS } from "../../lib/patients.js";
 
 /** The few details a walk-in needs to be registered: name, age and sex. The rest can wait. */
@@ -8,9 +10,11 @@ export interface NewWalkIn {
   fullName: string;
   age: string;
   sex: Sex | null;
+  /** Optional PIN code, city and state. */
+  pin: PinValue;
 }
 
-export const EMPTY_NEW_WALK_IN: NewWalkIn = { fullName: "", age: "", sex: null };
+export const EMPTY_NEW_WALK_IN: NewWalkIn = { fullName: "", age: "", sex: null, pin: EMPTY_PIN };
 
 /** The name is required; an age, when given, is a whole number from 0 to 120. */
 export function newWalkInProblem(value: NewWalkIn): string | undefined {
@@ -27,6 +31,7 @@ export function newWalkInProblem(value: NewWalkIn): string | undefined {
 }
 
 export function NewWalkInFields({ value, onChange }: { value: NewWalkIn; onChange: (next: NewWalkIn) => void }) {
+  const lookup = useClinicPinLookup();
   return (
     <div className="wi-section">
       <div className="wi-grid">
@@ -42,6 +47,7 @@ export function NewWalkInFields({ value, onChange }: { value: NewWalkIn; onChang
         <AgeField value={value} onChange={onChange} />
       </div>
       <SexField value={value} onChange={onChange} />
+      <PinCodeFields value={value.pin} lookup={lookup} onChange={(pin) => { onChange({ ...value, pin }); }} />
     </div>
   );
 }

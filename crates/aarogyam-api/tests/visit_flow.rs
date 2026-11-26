@@ -409,7 +409,6 @@ async fn a_visit_summary_link_opens_with_the_pin_and_only_for_visits() {
     .await;
     assert_eq!(status, StatusCode::CREATED, "{link}");
     let token = link["token"].as_str().unwrap();
-    let pin = link["pin"].as_str().unwrap();
     assert_eq!(link["channel"], "qr");
     let open = format!("/api/v1/shared/{token}/visit");
 
@@ -425,33 +424,13 @@ async fn a_visit_summary_link_opens_with_the_pin_and_only_for_visits() {
     assert_eq!(status, StatusCode::OK, "{preview}");
     assert_eq!(preview["resource"], "visit");
 
-    let wrong = if pin == "000000" { "111111" } else { "000000" };
-    let (status, _) = app
-        .send(
-            Method::POST,
-            ALPHA,
-            &open,
-            None,
-            Some(json!({ "pin": wrong })),
-        )
-        .await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    let (status, summary) = app
-        .send(
-            Method::POST,
-            ALPHA,
-            &open,
-            None,
-            Some(json!({ "pin": pin })),
-        )
-        .await;
+    // No PIN: the link opens at once.
+    let (status, summary) = app.send(Method::POST, ALPHA, &open, None, None).await;
     assert_eq!(status, StatusCode::OK, "{summary}");
     assert_eq!(summary["clinic_name"], "Alpha Dental");
     assert!(summary["treatments"].is_array());
-    // The patient's name is shown only to the patient holding the PIN, never to another clinic.
-    let (status, _) = app
-        .send(Method::POST, BETA, &open, None, Some(json!({ "pin": pin })))
-        .await;
+    // Another clinic's host doesn't know the link.
+    let (status, _) = app.send(Method::POST, BETA, &open, None, None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     // A prescription link isn't a visit link.

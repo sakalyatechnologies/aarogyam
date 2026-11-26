@@ -249,20 +249,21 @@ async fn closing_queues_the_summary_and_its_pin_once_and_a_repeat_adds_nothing()
     );
     assert_eq!(
         rows(&app, &id).await,
-        [
-            (
-                "visit.summary".into(),
-                "email".into(),
-                "queued".into(),
-                None
-            ),
-            (
-                "visit.summary_pin".into(),
-                "email".into(),
-                "queued".into(),
-                None
-            ),
-        ]
+        [(
+            "visit.summary".into(),
+            "email".into(),
+            "queued".into(),
+            None
+        ),]
+    );
+    // Visit links open without a PIN: no PIN message is queued.
+    assert_eq!(
+        count(
+            &app,
+            "select count(*) from aarogyam.messages where kind = 'visit.summary_pin'"
+        )
+        .await,
+        0
     );
     assert_eq!(
         count(
@@ -272,7 +273,7 @@ async fn closing_queues_the_summary_and_its_pin_once_and_a_repeat_adds_nothing()
         .await,
         1
     );
-    // The link's token and the PIN wait only in the one-time secret column, never in variables.
+    // The link's token waits only in the one-time secret column, never in variables.
     let secrets: Vec<(Value, Option<String>)> = sqlx::query_as(
         "select variables, secret from aarogyam.messages
          where patient_id = $1::uuid order by created_at, id",
@@ -291,7 +292,7 @@ async fn closing_queues_the_summary_and_its_pin_once_and_a_repeat_adds_nothing()
         close(&app, &owner, ALPHA, &visit, json!({})).await,
         StatusCode::CONFLICT
     );
-    assert_eq!(rows(&app, &id).await.len(), 2);
+    assert_eq!(rows(&app, &id).await.len(), 1);
     assert_eq!(
         count(
             &app,
@@ -300,20 +301,14 @@ async fn closing_queues_the_summary_and_its_pin_once_and_a_repeat_adds_nothing()
         .await,
         1
     );
-    // Sending clears the secret; the PIN waits half a minute so it arrives after the link.
+    // Sending clears the secret.
     drain(&app).await;
     let left = count(
         &app,
         "select count(*) from aarogyam.messages where secret is not null",
     )
     .await;
-    assert_eq!(left, 1);
-    let waiting: String =
-        sqlx::query_scalar("select kind from aarogyam.messages where secret is not null")
-            .fetch_one(&app.owner)
-            .await
-            .unwrap();
-    assert_eq!(waiting, "visit.summary_pin");
+    assert_eq!(left, 0);
     app.finish().await;
 }
 
@@ -561,7 +556,7 @@ async fn whatsapp_needs_opt_in_and_an_approved_template_and_stays_off_without_cr
     let second = visit(&app, &owner, &id).await;
     close(&app, &owner, ALPHA, &second, json!({})).await;
     let all = rows(&app, &id).await;
-    assert_eq!(all.iter().filter(|row| row.1 == "whatsapp").count(), 2);
+    assert_eq!(all.iter().filter(|row| row.1 == "whatsapp").count(), 1);
     drain(&app).await;
     let reasons: Vec<Option<String>> = sqlx::query_scalar(
         "select skip_reason from aarogyam.messages
@@ -571,14 +566,7 @@ async fn whatsapp_needs_opt_in_and_an_approved_template_and_stays_off_without_cr
     .fetch_all(&app.owner)
     .await
     .unwrap();
-    assert_eq!(
-        reasons,
-        [
-            Some("channel_disabled".into()),
-            // The PIN waits half a minute, then is skipped the same way.
-            None
-        ]
-    );
+    assert_eq!(reasons, [Some("channel_disabled".into()),]);
     app.finish().await;
 }
 
@@ -610,7 +598,7 @@ async fn messages_stay_inside_their_clinic() {
     .fetch_all(&app.owner)
     .await
     .unwrap();
-    assert_eq!(per_clinic, [("alpha".to_owned(), 2)]);
+    assert_eq!(per_clinic, [("alpha".to_owned(), 1)]);
     // Beta's own walk-in writes to Beta only, and Beta's switch is its own.
     let (status, made) = post(
         &app,
@@ -630,7 +618,7 @@ async fn messages_stay_inside_their_clinic() {
     .unwrap();
     assert_eq!(
         per_clinic,
-        [("alpha".to_owned(), 2), ("beta".to_owned(), 1)]
+        [("alpha".to_owned(), 1), ("beta".to_owned(), 1)]
     );
     app.finish().await;
 }

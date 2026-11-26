@@ -5636,9 +5636,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Public, no sign-in: the patient answers their plan from the visit page. The PIN is checked
-         *     every time, with the same wrong-PIN count and lock as opening the link; it does not count as
-         *     an open. One answer per link: the latest wins. A new or different answer tells the visit's
+         * Public, no sign-in: the patient answers their plan from the visit page. No PIN (a `pin` field is
+         *     ignored); it does not count as an open. One answer per link: the latest wins. A new or different answer tells the visit's
          *     doctor and the desk.
          */
         post: operations["answerSharedVisitPlan"];
@@ -5699,8 +5698,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Public, no sign-in: opens a link to a visit summary with the PIN. Five wrong PINs lock the
-         *     link. Every open is written to the access record.
+         * Public, no sign-in: opens a link to a visit summary. No PIN and no body (an older client's
+         *     body is ignored). Every open is written to the access record.
          */
         post: operations["openSharedVisit"];
         delete?: never;
@@ -5803,6 +5802,24 @@ export interface paths {
          *     can't be suspended, removed or demoted.
          */
         patch: operations["updateStaffMember"];
+        trace?: never;
+    };
+    "/api/v1/sterilisation-cycles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The sterilisation cycles of a clinic day, latest first. */
+        get: operations["listSterilisationCycles"];
+        put?: never;
+        /** Records a sterilisation cycle that ran now. */
+        post: operations["recordSterilisationCycle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/stock": {
@@ -6664,7 +6681,7 @@ export interface paths {
         put?: never;
         /**
          * Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7
-         *     days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent. The
+         *     days; at most three live per visit, the oldest revoked). Nothing is sent. The
          *     optional body's `sections` limit the text to the ticked ones and become the caller's
          *     defaults; with no body (or no `Content-Type`) the text has every section.
          */
@@ -6706,7 +6723,7 @@ export interface paths {
         put?: never;
         /**
          * The summary as Send would build it with these ticks, for the Done screen's live preview. It
-         *     mints, revokes and saves nothing; the link and PIN are stand-ins of the same length.
+         *     mints, revokes and saves nothing; the link is stand-ins of the same length.
          */
         post: operations["previewVisitPatientMessage"];
         delete?: never;
@@ -8384,6 +8401,11 @@ export interface components {
             legal_name?: string | null;
             /** @description The letterhead printed on the clinic's documents. */
             letterhead: components["schemas"]["Letterhead"];
+            /**
+             * Format: int64
+             * @description What the clinic aims to collect each month, in paise; none when unset.
+             */
+            month_revenue_target_paise?: number | null;
             /** @description Display name. */
             name: string;
             /** @description Online booking. */
@@ -8412,6 +8434,11 @@ export interface components {
             /** @description Registered legal name. */
             legal_name?: string | null;
             letterhead?: components["schemas"]["LetterheadChanges"] | null;
+            /**
+             * Format: int64
+             * @description Monthly revenue target in paise; 0 clears it.
+             */
+            month_revenue_target_paise?: number | null;
             /** @description Display name, 1 to 200 characters. */
             name?: string | null;
             online_booking?: components["schemas"]["OnlineBookingChanges"] | null;
@@ -11667,10 +11694,7 @@ export interface components {
             /** @description The sections ticked by default (every one until saved). */
             sections: string[];
         };
-        /**
-         * @description The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) and PIN
-         *     `XXXXXX` as long as real ones. Nothing was minted or saved.
-         */
+        /** @description The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) as long as a real one. Nothing was minted or saved. */
         MessagePreview: {
             /** @description The full message with the stand-ins; grey them out in the preview. */
             text: string;
@@ -12796,6 +12820,11 @@ export interface components {
             name: string;
             /** @description The standard role it starts as a copy of, such as `assistant` (not `owner`). */
             template_key: string;
+        };
+        /** @description A cycle to record: it ran now. */
+        NewSterilisationCycle: {
+            /** @description What was in the load, up to 120 characters. */
+            load_note?: string | null;
         };
         /** @description A grant to make. */
         NewSupportGrant: {
@@ -14583,12 +14612,15 @@ export interface components {
             /** @description When it was saved (RFC 3339). */
             responded_at: string;
         };
-        /** @description The patient's answer to their plan, with the PIN again. */
+        /** @description The patient's answer to their plan. */
         PlanResponseRequest: {
             /** @description `go_ahead` ("Yes, I want to go ahead") or `question` ("I have a question"). */
             choice: string;
-            /** @description The six digits the clinic gave. */
-            pin: string;
+            /**
+             * @deprecated
+             * @description Deprecated and ignored: visit links no longer have a PIN. Older clients may still send it.
+             */
+            pin?: string | null;
         };
         /** @description A self-registered record that may be an existing patient. */
         PossibleDuplicate: {
@@ -16766,6 +16798,24 @@ export interface components {
             /** @description Its queue token, once the patient has arrived. */
             queue_token_id?: string | null;
         };
+        /** @description One autoclave run. */
+        SterilisationCycle: {
+            /** @description Identifier. */
+            id: string;
+            /** @description What was in the load, in a few words. */
+            load_note?: string | null;
+            /** @description Who recorded it. */
+            recorded_by_name?: string | null;
+            /** @description When it ran, RFC 3339. */
+            run_at: string;
+        };
+        /** @description The cycles of one clinic day. */
+        SterilisationCycleList: {
+            /** @description The clinic day. */
+            date: string;
+            /** @description The cycles, latest first. */
+            items: components["schemas"]["SterilisationCycle"][];
+        };
         /** @description Usage and projection per item, and the items to reorder. */
         StockAnalytics: {
             /** @description Active items by name, or the one asked for. */
@@ -17351,6 +17401,12 @@ export interface components {
             /** @description Appointments today, not counting cancelled ones. */
             appointments: number;
             /**
+             * @description When this doctor's day should end (RFC 3339): the later of their last unfinished
+             *     appointment's end and the open queue at the clinic's average visit length. Absent when
+             *     nothing is left, and for days other than today.
+             */
+            day_ends_at?: string | null;
+            /**
              * @description The staff membership this doctor's profile belongs to, when linked. A staff list shown
              *     beside the team uses it to show each person once.
              */
@@ -17597,6 +17653,16 @@ export interface components {
             invoices_today: number;
             /**
              * Format: int64
+             * @description Received this month so far, in paise (same as `collected_this_month_paise`).
+             */
+            month_collected_paise: number;
+            /**
+             * Format: int64
+             * @description The clinic's monthly revenue target in paise; none when not set.
+             */
+            month_target_paise?: number | null;
+            /**
+             * Format: int64
              * @description Payments today.
              */
             payments_today: number;
@@ -17643,6 +17709,11 @@ export interface components {
             money?: components["schemas"]["DayMoneyFigures"] | null;
             /** @description The latest patients through the queue today, newest first. */
             recent_patients: components["schemas"]["QueueToken"][];
+            /**
+             * Format: int32
+             * @description Sterilisation cycles recorded on the day shown.
+             */
+            sterilisation_cycles_today: number;
             /** @description Doctors with working hours today. */
             team: components["schemas"]["TeamMemberToday"][];
         };
@@ -18107,7 +18178,7 @@ export interface components {
             expires_at: string;
             /** @description The number to open `WhatsApp` with, in E.164. */
             phone_e164: string;
-            /** @description The link's six-digit PIN. */
+            /** @description Not used: visit links open without a PIN. Still filled, so older apps keep working. */
             pin: string;
             /**
              * @description Who it goes to: `patient`, or `guardian` (a minor's guardian or parent, or an adult's
@@ -18115,7 +18186,7 @@ export interface components {
              */
             recipient: string;
             /**
-             * @description Greeting, link, PIN and the don't-forward line only, with no clinical words: for
+             * @description Greeting, link and the don't-forward line only, with no clinical words: for
              *     hand-offs that travel in a web URL (`wa.me`).
              */
             short_text: string;
@@ -36685,13 +36756,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Wrong PIN; the message says how many tries are left */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
             /** @description No such link, or not a link to a visit */
             404: {
                 headers: {
@@ -36706,7 +36770,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong PINs */
+            /** @description An old link locked after too many wrong PINs */
             423: {
                 headers: {
                     [name: string]: unknown;
@@ -36819,11 +36883,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OpenRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -36833,13 +36893,6 @@ export interface operations {
                     "application/json": components["schemas"]["VisitSummary"];
                 };
             };
-            /** @description Wrong PIN; the message says how many tries are left */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
             /** @description No such link, or not a link to a visit */
             404: {
                 headers: {
@@ -36847,14 +36900,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Expired */
+            /** @description Expired or revoked */
             410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong PINs */
+            /** @description An old link locked after too many wrong PINs */
             423: {
                 headers: {
                     [name: string]: unknown;
@@ -37114,6 +37167,107 @@ export interface operations {
             };
             /** @description Your own role, or the last active owner */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listSterilisationCycles: {
+        parameters: {
+            query?: {
+                /** @description The clinic day, YYYY-MM-DD (default: today) */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SterilisationCycleList"];
+                };
+            };
+            /** @description A bad date */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    recordSterilisationCycle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSterilisationCycle"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SterilisationCycle"];
+                };
+            };
+            /** @description The note is too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks tasks.use */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not a clinic, or not a member of it */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

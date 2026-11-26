@@ -477,6 +477,8 @@ pub struct TodayMoney {
     pub invoices_today: i64,
     /// Received this month so far.
     pub collected_this_month: Paise,
+    /// The clinic's monthly revenue target, when set.
+    pub month_target: Option<Paise>,
     /// UPI's share of this month's collections, in basis points.
     pub upi_share_bps: i64,
     /// Left to pay on every issued bill.
@@ -530,7 +532,11 @@ pub async fn today(
         let mut top_pending = pending.bills.clone();
         top_pending.sort_by_key(|bill| std::cmp::Reverse(bill.balance));
         top_pending.truncate(5);
+        let month_target = aarogyam_dal::settings::get(tx.conn())
+            .await?
+            .and_then(|row| crate::settings::month_target(&row.billing));
         Ok(TodayMoney {
+            month_target,
             date: today,
             collected_today: Paise::new(todays.iter().map(|row| row.amount_paise).sum()),
             payments_today: todays.iter().map(|row| row.payments).sum(),

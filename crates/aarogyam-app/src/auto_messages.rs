@@ -301,20 +301,6 @@ pub(crate) async fn visit_closed(
                 },
             )
             .await?;
-            queue(
-                tx,
-                channel,
-                Auto {
-                    kind: MessageKind::VisitSummaryPin,
-                    patient_id,
-                    variables: json!({}),
-                    secret: Some(&link.pin),
-                    dedupe_key: format!("auto:visit_pin:{}", visit.visit_id),
-                    // A moment after the link, so the two arrive in that order.
-                    scheduled_for: Some(now + Duration::seconds(30)),
-                },
-            )
-            .await?;
         }
     }
     if let Some(due) = visit.follow_up_on

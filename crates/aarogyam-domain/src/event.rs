@@ -183,6 +183,8 @@ pub enum Event {
     ExpenseVoided,
     /// A recurring expense was set up.
     RecurringExpenseCreated,
+    /// A sterilisation cycle was recorded.
+    SterilisationCycleRecorded,
     /// A recurring expense was edited, paused, resumed or stopped.
     RecurringExpenseChanged,
     /// The recurring pass recorded a rule's due expenses.
@@ -362,6 +364,7 @@ impl Event {
             Self::ExpenseRecorded => "expense.recorded",
             Self::ExpenseVoided => "expense.voided",
             Self::RecurringExpenseCreated => "recurring_expense.created",
+            Self::SterilisationCycleRecorded => "sterilisation_cycle.recorded",
             Self::RecurringExpenseChanged => "recurring_expense.changed",
             Self::RecurringExpenseRecorded => "recurring_expense.recorded",
             Self::WalkInRegistered => "walk_in.registered",

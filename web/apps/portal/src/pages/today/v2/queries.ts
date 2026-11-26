@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { unwrap, type ApiClient, type DashboardLayout, type DashboardLayoutView, type TaskOccurrenceId } from "@aarogyam/api-client";
+import { unwrap, type ApiClient, type NewSterilisationCycle, type SterilisationCycleList, type DashboardLayout, type DashboardLayoutView, type TaskOccurrenceId } from "@aarogyam/api-client";
 
 import { useClinic } from "../../../clinic.js";
 import { REFERENCE, SCHEDULE } from "../../../lib/cache-policy.js";
@@ -133,6 +133,43 @@ export function useCompleteTask() {
       for (const key of ["my-tasks", "badges", "notifications", "stock"]) {
         void queryClient.invalidateQueries({ queryKey: [key, access.org_id] });
       }
+    },
+  });
+}
+
+/** Today's sterilisation cycles; the count on "My tasks" is how many there are. */
+export function useSterilisationCycles(enabled = true) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["sterilisation-cycles", access.org_id],
+    queryFn: ({ signal }) => unwrap(api.listSterilisationCycles(undefined, { signal })),
+    enabled,
+    ...SCHEDULE,
+  });
+}
+
+/** Logs a cycle that ran now; the count goes up at once and settles when the server answers. */
+export function useRecordSterilisationCycle() {
+  const { api, access } = useClinic();
+  const queryClient = useQueryClient();
+  const key = ["sterilisation-cycles", access.org_id];
+  return useMutation({
+    mutationFn: (input: NewSterilisationCycle) => unwrap(api.recordSterilisationCycle(input)),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const before = queryClient.getQueryData<SterilisationCycleList>(key);
+      if (before !== undefined) {
+        const guess = { id: "pending", run_at: new Date().toISOString(), ...(input.load_note == null ? {} : { load_note: input.load_note }) };
+        queryClient.setQueryData<SterilisationCycleList>(key, { ...before, items: [guess, ...before.items] });
+      }
+      return { before };
+    },
+    onError: (_error, _input, context) => {
+      if (context?.before !== undefined) queryClient.setQueryData(key, context.before);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: key });
+      void queryClient.invalidateQueries({ queryKey: ["today", access.org_id] });
     },
   });
 }

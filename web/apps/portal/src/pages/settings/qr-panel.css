@@ -1,0 +1,18 @@
+/* Settings, Patient QR: the code beside its buttons, and the poster that only prints. */
+.qrp { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding-top: 12px; }
+.qrp-code { background: #fff; border-radius: 12px; border: 1px solid var(--sk-border, #dde5e0); }
+.qrp-side { display: flex; flex-direction: column; gap: 12px; flex: 1 1 220px; min-width: 0; }
+
+.qr-poster { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .qr-poster, .qr-poster * { visibility: visible; }
+  .qr-poster {
+    position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+    background: #fff; color: #000; text-align: center; padding: 24mm;
+  }
+  .qr-poster h1 { margin: 0; font-size: 36pt; font-weight: 800; }
+  .qr-poster-lead { margin: 0; font-size: 28pt; font-weight: 600; }
+  .qr-poster-host { margin: 0; font-size: 16pt; }
+  .qr-poster svg { width: 110mm; height: 110mm; }
+}

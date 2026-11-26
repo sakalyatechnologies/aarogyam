@@ -2,13 +2,13 @@
  * The visit page's own API calls: plain `fetch` and hand-checked shapes, not the portal's API
  * client, which brings every schema and zod along. Patients open this page on slow phones, so
  * the whole entry stays small (see `scripts/check-shared-size.mjs`). Public routes only; the
- * token and PIN are the only credentials.
+ * token is the only credential (visit links have no PIN).
  */
 import type { MouthSnapshot } from "@aarogyam/api-client";
 
 import { parseChart } from "./chart.js";
 
-/** What `GET /api/v1/shared/{token}` says about a link before the PIN. */
+/** What `GET /api/v1/shared/{token}` says about a link before it is opened. */
 export interface LinkPreview {
   readonly resource: string;
   readonly state: string;
@@ -111,7 +111,6 @@ export interface Visit {
 
 /** Why a call failed, in the terms the page shows. */
 export type Failure =
-  | { readonly kind: "wrong_pin"; readonly message: string }
   | { readonly kind: "locked" }
   | { readonly kind: "expired" }
   | { readonly kind: "missing" }
@@ -127,11 +126,8 @@ const optText = (value: unknown): string | null => (typeof value === "string" &&
 const optNumber = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 const list = (value: unknown): Json[] => (Array.isArray(value) ? value.filter(isObject) : []);
 
-function failureFor(status: number, body: unknown): Failure {
-  const message = isObject(body) && isObject(body["error"]) ? text(body["error"]["message"]) : undefined;
+function failureFor(status: number): Failure {
   switch (status) {
-    case 403:
-      return { kind: "wrong_pin", message: message ?? "That PIN didn't match. Please try again." };
     case 423:
       return { kind: "locked" };
     case 410:
@@ -149,12 +145,12 @@ async function call(path: string, init?: RequestInit): Promise<Result<unknown>> 
     return { ok: false, failure: { kind: "offline" } };
   }
   const body: unknown = await response.json().catch(() => undefined);
-  return response.ok ? { ok: true, value: body } : { ok: false, failure: failureFor(response.status, body) };
+  return response.ok ? { ok: true, value: body } : { ok: false, failure: failureFor(response.status) };
 }
 
 const linkPath = (token: string) => `/api/v1/shared/${encodeURIComponent(token)}`;
 
-/** The link's kind and state, before the PIN. */
+/** The link's kind and state, before it is opened. */
 export async function previewLink(token: string): Promise<Result<LinkPreview>> {
   const result = await call(linkPath(token));
   if (!result.ok) return result;
@@ -277,12 +273,12 @@ export interface PlanAnswer {
   readonly respondedAt: string;
 }
 
-/** Sends the answer to the plan; the PIN is checked again, as when opening. */
-export async function answerPlan(token: string, pin: string, choice: PlanChoice): Promise<Result<PlanAnswer>> {
+/** Sends the answer to the plan. */
+export async function answerPlan(token: string, choice: PlanChoice): Promise<Result<PlanAnswer>> {
   const result = await call(`${linkPath(token)}/plan-response`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ pin, choice }),
+    body: JSON.stringify({ choice }),
   });
   if (!result.ok) return result;
   const body = result.value;
@@ -296,13 +292,9 @@ export async function answerPlan(token: string, pin: string, choice: PlanChoice)
   };
 }
 
-/** Opens the visit with the PIN. */
-export async function openVisit(token: string, pin: string): Promise<Result<Visit>> {
-  const result = await call(`${linkPath(token)}/visit`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ pin }),
-  });
+/** Opens the visit: a POST with no body and no PIN (the preview GET holds no data). */
+export async function openVisit(token: string): Promise<Result<Visit>> {
+  const result = await call(`${linkPath(token)}/visit`, { method: "POST" });
   if (!result.ok) return result;
   const visit = parseVisit(result.value);
   return visit === undefined ? { ok: false, failure: { kind: "missing" } } : { ok: true, value: visit };

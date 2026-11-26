@@ -88,6 +88,10 @@ pub struct TodayRows {
     pub completed_visits: Vec<CompletedVisitRow>,
     /// The day's money, when asked for.
     pub money: Option<DayMoneyRow>,
+    /// Sterilisation cycles that ran in the day.
+    pub sterilisation_cycles: i64,
+    /// The clinic's average closed-visit length in minutes over the last 14 days.
+    pub average_visit_minutes: Option<f64>,
 }
 
 /// What Today shows for the local day `day`, which runs from `start` to `end`. Reads stock
@@ -235,7 +239,13 @@ pub async fn today(
                         (select count(*) from aarogyam.invoices i
                          where i.status = 'issued' and i.issued_at >= $1
                            and i.issued_at < $2)::bigint)
-             ) end as "money?: Json<DayMoneyRow>""#,
+             ) end as "money?: Json<DayMoneyRow>",
+             (select count(*) from aarogyam.sterilisation_cycles c
+              where c.run_at >= $1 and c.run_at < $2) as "sterilisation_cycles!",
+             (select avg(extract(epoch from (e.ended_at - e.started_at)) / 60.0)::float8
+              from aarogyam.encounters e
+              where e.status = 'closed' and e.ended_at > now() - interval '14 days'
+                and e.ended_at > e.started_at) as average_visit_minutes"#,
         start,
         end,
         day,
@@ -256,6 +266,8 @@ pub async fn today(
         stock: with_stock.then_some(row.stock.0),
         completed_visits: row.completed_visits.0,
         money: row.money.map(|money| money.0),
+        sterilisation_cycles: row.sterilisation_cycles,
+        average_visit_minutes: row.average_visit_minutes,
     })
 }
 

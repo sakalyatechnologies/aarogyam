@@ -97,6 +97,7 @@ pub mod smart_import;
 pub mod smile_shade;
 pub mod staff;
 pub mod staff_ops;
+pub mod sterilisation;
 pub mod stock_import;
 pub mod stock_insights;
 pub mod support;

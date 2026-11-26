@@ -1,0 +1,84 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select c.id, c.run_at, c.recorded_by, coalesce(m.display_name, u.display_name) as \"recorded_by_name?\",\n                  c.load_note as \"load_note?\", c.created_at\n           from aarogyam.sterilisation_cycles c\n           join aarogyam.memberships m on m.org_id = c.org_id and m.id = c.recorded_by\n           left join aarogyam.users u on u.id = m.user_id\n           where c.run_at >= $1 and c.run_at < $2\n           order by c.run_at desc, c.id desc\n           limit 200",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "run_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "run_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "recorded_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "recorded_by"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "recorded_by_name?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "load_note?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "load_note"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.sterilisation_cycles",
+            "name": "created_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      null,
+      true,
+      false
+    ]
+  },
+  "hash": "001381a396dab5935f18237d7bf90842086f2c99c5e275e84c2b7eb742e3cd6a"
+}

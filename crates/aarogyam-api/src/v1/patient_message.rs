@@ -1,5 +1,5 @@
 //! The visit summary for the doctor's own `WhatsApp` (docs/plans/visit-story-design.md, C2): the
-//! server builds the text and mints the link and PIN; the phone opens `WhatsApp` with it. Nothing
+//! server builds the text and mints the link; the phone opens `WhatsApp` with it. Nothing
 //! is sent from here, and the answer is never logged or cached. The Done screen's ticks, live
 //! preview, per-doctor defaults and hand-off count are in docs/plans/visit-story-v2-offers-design.md
 //! §1.6.
@@ -35,7 +35,7 @@ pub struct VisitPatientMessage {
     /// The full message, with `WhatsApp` formatting (about 1,600 characters at most): for
     /// phones and for copying.
     pub text: String,
-    /// Greeting, link, PIN and the don't-forward line only, with no clinical words: for
+    /// Greeting, link and the don't-forward line only, with no clinical words: for
     /// hand-offs that travel in a web URL (`wa.me`).
     pub short_text: String,
     /// The message for desktop `whatsapp://send` links: the full message without emoji, cut so
@@ -44,7 +44,7 @@ pub struct VisitPatientMessage {
     pub desktop_text: Option<String>,
     /// The visit page: `/shared/{token}` on the clinic's portal.
     pub url: String,
-    /// The link's six-digit PIN.
+    /// Not used: visit links open without a PIN. Still filled, so older apps keep working.
     pub pin: String,
     /// When the link stops working.
     pub expires_at: String,
@@ -75,8 +75,7 @@ impl NewPatientMessage {
     }
 }
 
-/// The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) and PIN
-/// `XXXXXX` as long as real ones. Nothing was minted or saved.
+/// The summary as Send would build it, with a stand-in link (`/shared/` and 43 × `x`) as long as a real one. Nothing was minted or saved.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct MessagePreview {
     /// The full message with the stand-ins; grey them out in the preview.
@@ -150,7 +149,7 @@ fn no_store(mut response: Response) -> Response {
 }
 
 /// Prepares the visit's summary for the doctor's `WhatsApp`: the message, a new visit link (7
-/// days; at most three live per visit, the oldest revoked) and its PIN. Nothing is sent. The
+/// days; at most three live per visit, the oldest revoked). Nothing is sent. The
 /// optional body's `sections` limit the text to the ticked ones and become the caller's
 /// defaults; with no body (or no `Content-Type`) the text has every section.
 #[utoipa::path(
@@ -217,7 +216,7 @@ pub(crate) async fn prepare(
 }
 
 /// The summary as Send would build it with these ticks, for the Done screen's live preview. It
-/// mints, revokes and saves nothing; the link and PIN are stand-ins of the same length.
+/// mints, revokes and saves nothing; the link is stand-ins of the same length.
 #[utoipa::path(
     post,
     path = "/api/v1/visits/{id}/patient-message/preview",

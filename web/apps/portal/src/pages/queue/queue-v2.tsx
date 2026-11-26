@@ -13,6 +13,7 @@ import { ageSex, patientPath } from "../../lib/patients.js";
 import { WhatsAppSummary } from "../patients/v2/whatsapp-summary.js";
 import { usePractitioners, useQueue, useRooms, useSetQueueStatus } from "../../queries.js";
 import { AddToQueue } from "./add-to-queue.js";
+import { ArrivalsStrip } from "./arrivals.js";
 import { ChairDialog } from "./chair-dialog.js";
 import { DeskSections } from "./desk-sections.js";
 import { CollectDialog } from "./collect-dialog.js";
@@ -214,6 +215,7 @@ export function QueueV2() {
           </div>
         }
       />
+      <ArrivalsStrip />
       {queue.isPending ? (
         <div role="status" aria-label="Loading the queue" className="fd-board">
           {COLUMNS.map((c) => (

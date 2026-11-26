@@ -21,7 +21,7 @@ export { ToothSheet, sheetContent, type ToothSheetProps, type SheetContent, type
 export { XrayStyle, XrayView, XrayEdges, XRAY_EDGES, type XrayProps } from "./xray.js";
 export { PaintedSlot } from "./painted-slot.js";
 export { PinsProvider, PinButton, usePins, pinOf, scenarioOf, type Pinned, type PinsApi } from "./pins.js";
-export { StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords, OPTION_ROWS } from "./options.js";
+export { setPresentActions, useActions, type PresentActions, type ChooseTarget, StudioProvider, SituationOptions, ToothOptions, useStudio, situationsOf, visitsWords, finishWords, OPTION_ROWS } from "./options.js";
 export { MaterialChoice, ToothMaterials, materialGroupFor, materialScene } from "./materials.js";
 export { StorySlot } from "./story-slot.js";
 export type { StoryProps, StoryCard, PlanLine } from "./story.js";

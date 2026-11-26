@@ -10,6 +10,7 @@ import { useStock } from "../../stock/queries.js";
 import { COPY } from "./copy.js";
 import { useCompleteTask, useMyTasks } from "./queries.js";
 import { useZone } from "./seeing.js";
+import { SterilisationLine } from "./sterilisation.js";
 import { Body, Empty, WidgetCard, type WidgetProps } from "./widget-parts.js";
 
 /** The longest note the server keeps. */
@@ -268,6 +269,7 @@ export function MyTasksWidget({ spec }: WidgetProps) {
           );
         }}
       </Body>
+      <SterilisationLine />
     </WidgetCard>
   );
 }

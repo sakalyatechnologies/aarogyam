@@ -167,6 +167,7 @@ impl AppError {
             SettingsError::Pincode => "address.pincode",
             SettingsError::Phone => "phone",
             SettingsError::UpiId => "upi_id",
+            SettingsError::MonthTarget => "month_revenue_target_paise",
         };
         Self::invalid(field, error)
     }

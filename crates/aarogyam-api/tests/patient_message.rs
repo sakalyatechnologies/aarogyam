@@ -209,14 +209,14 @@ async fn a_closed_visit_gives_the_message_a_link_and_a_pin_and_never_more_than_t
     // The typed complaint stays on the page, out of the text.
     assert!(!text.contains("Pain lower right"), "{text}");
     let desktop = body["desktop_text"].as_str().unwrap();
-    assert!(desktop.contains(url) && desktop.contains(pin), "{desktop}");
+    assert!(desktop.contains(url) && !desktop.contains(pin), "{desktop}");
     assert!(
         !desktop.contains('✅') && !desktop.contains('🙏'),
         "{desktop}"
     );
-    assert!(text.contains(url) && text.contains(pin));
+    assert!(text.contains(url) && !text.contains(pin));
     let short = body["short_text"].as_str().unwrap();
-    assert!(short.contains(url) && short.contains(pin));
+    assert!(short.contains(url) && !short.contains(pin));
     for word in ["Meera", "Extraction", "AMOXICILLIN", "Pain", "tooth"] {
         assert!(!short.contains(word), "short text has {word}: {short}");
     }
@@ -778,7 +778,6 @@ async fn the_preview_mints_nothing_and_send_saves_the_ticks() {
             text.contains(&format!("/shared/{}", "x".repeat(43))),
             "{text}"
         );
-        assert!(text.contains("XXXXXX"), "{text}");
         assert!(!text.contains(first["pin"].as_str().unwrap()));
     }
     assert_eq!(

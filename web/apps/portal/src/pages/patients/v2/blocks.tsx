@@ -7,6 +7,8 @@ import { FileText, Mic, Pause, Play, Printer, Share2, Square } from "lucide-reac
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 
+import { addressLine } from "./patient-facts.js";
+
 import { apiErrorOf, type Patient } from "@aarogyam/api-client";
 import { ApiErrorNotice, formatDate, formatDateTime, formatRupees } from "@aarogyam/app-kit";
 import { Button, Field, Select, TextArea, TextInput, useToast } from "@sakalya/ui";
@@ -582,6 +584,7 @@ export function DetailsBlock({ patient }: { patient: Patient }) {
           <Contact icon={<Phone size={15} />} label="Phone" value={formatPhone(patient.phone)} masked={maskPhone(patient.phone)} revealable={revealable} />
         )}
         {patient.email == null ? null : <Contact icon={<Mail size={15} />} label="Email" value={patient.email} masked={maskEmail(patient.email)} revealable={revealable} />}
+        {addressLine(patient) === undefined ? null : <p className="mk-hint">{addressLine(patient)}</p>}
       </div>
       <div style={{ marginTop: 12 }}>
         <PatientAppCard patientId={patient.id} />

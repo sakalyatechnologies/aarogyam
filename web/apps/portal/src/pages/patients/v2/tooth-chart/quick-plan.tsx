@@ -13,7 +13,7 @@ import { useCreatePlan, useSetPlanItemStatus } from "../../../treatment-plans/qu
 import { findingEntries } from "../../../visits/record-finding-dialog.js";
 import { TREATMENTS, blankDraft, buildPlan, defaultMaterial, treatmentOf, type TreatmentKey } from "./model.js";
 
-type Kind = "back" | "front" | "missing";
+export type Kind = "back" | "front" | "missing";
 
 const ORDER: Readonly<Record<Kind, readonly TreatmentKey[]>> = {
   back: ["root_canal", "crown", "filling", "extraction", "scaling"],
@@ -22,13 +22,13 @@ const ORDER: Readonly<Record<Kind, readonly TreatmentKey[]>> = {
 };
 /** Words on the chip: Cleaning is the seeded Scaling. */
 const LABEL: Partial<Record<TreatmentKey, string>> = { scaling: "Cleaning" };
-const UNDO_MS = 6000;
+export const UNDO_MS = 6000;
 const STORE = "aarogyam.quick-plan.v1";
 
 const COUNTS = z.record(z.string(), z.record(z.string(), z.number()));
-type Counts = Partial<Record<string, Partial<Record<string, number>>>>;
+export type Counts = Partial<Record<string, Partial<Record<string, number>>>>;
 
-function readCounts(): Counts {
+export function readCounts(): Counts {
   try {
     const raw = window.localStorage.getItem(STORE);
     const parsed: unknown = raw === null ? {} : JSON.parse(raw);
@@ -38,7 +38,7 @@ function readCounts(): Counts {
     return {};
   }
 }
-function bump(kind: Kind, key: TreatmentKey): void {
+export function bump(kind: Kind, key: TreatmentKey): void {
   try {
     const all = readCounts();
     const mine = { ...all[kind] };
@@ -63,8 +63,8 @@ export function chipsFor(kind: Kind, counts: Counts = readCounts()): readonly Tr
   return [...base].sort((a, b) => (mine[b] ?? 0) - (mine[a] ?? 0) || base.indexOf(a) - base.indexOf(b));
 }
 
-type Reason = { label: string; run: "caries_near_pulp" | "caries" | "fractured" | "infection" | "impacted" };
-const REASONS: Partial<Record<TreatmentKey, (tooth: number) => readonly Reason[]>> = {
+export type Reason = { label: string; run: "caries_near_pulp" | "caries" | "fractured" | "infection" | "impacted" };
+export const REASONS: Partial<Record<TreatmentKey, (tooth: number) => readonly Reason[]>> = {
   root_canal: () => [
     { label: "Decay near the nerve", run: "caries_near_pulp" },
     { label: "Infection", run: "infection" },
@@ -82,8 +82,8 @@ const REASONS: Partial<Record<TreatmentKey, (tooth: number) => readonly Reason[]
   crown: () => [{ label: "Broken", run: "fractured" }],
 };
 
-const labelOf = (key: TreatmentKey) => LABEL[key] ?? treatmentOf(key).label;
-const planned = (item: PlanItem, key: TreatmentKey) => (item.status === "proposed" || item.status === "accepted") && item.name.toLowerCase().startsWith(treatmentOf(key).label.toLowerCase());
+export const labelOf = (key: TreatmentKey) => LABEL[key] ?? treatmentOf(key).label;
+export const planned = (item: PlanItem, key: TreatmentKey) => (item.status === "proposed" || item.status === "accepted") && item.name.toLowerCase().startsWith(treatmentOf(key).label.toLowerCase());
 
 interface Props {
   patientId: PatientId;

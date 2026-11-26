@@ -41,7 +41,9 @@ interface Props {
   statuses?: readonly StatusLike[];
   planItems: readonly PlanItem[];
   selected: number | undefined;
-  onSelect: (tooth: number) => void;
+  onSelect: (tooth: number, how?: { shift: boolean }) => void;
+  /** Teeth picked together (select several): each shows as pressed. */
+  multi?: ReadonlySet<number> | undefined;
   /** A long press (touch or mouse) on a tooth: select it and dictate its note. */
   onLongPress?: (tooth: number) => void;
   /** Keys 1, 2 and 3 on a focused tooth: healthy, watch, needs treatment. */
@@ -61,7 +63,7 @@ export interface ToothMarks {
 }
 
 /** The chart: rows or a 3D arch, adult or child teeth. Tapping a tooth selects it; recording happens in the panel beside it. */
-export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, onLongPress, onHealthKey, marked, onHover, marks }: Props) {
+export function ToothChart({ look, dentition, view = "treatment", current, statuses = [], planItems, selected, onSelect, multi, onLongPress, onHealthKey, marked, onHover, marks }: Props) {
   const states = useMemo(() => toothStates(current, treatmentsByTooth(planItems)), [current, planItems]);
   const progress = useMemo(() => inProgressTeeth(current), [current]);
   const healths = useMemo(() => healthByTooth(current, statuses), [current, statuses]);
@@ -97,7 +99,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         data-marked={marked?.has(n) === true || undefined}
         data-tooth={n}
         data-dim={mark?.dim === true || undefined}
-        aria-pressed={selected === n}
+        aria-pressed={selected === n || multi?.has(n) === true}
         aria-label={mark?.label ?? said}
         onPointerEnter={(event) => {
           onHover?.(n);
@@ -122,6 +124,11 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         onContextMenu={(event) => {
           // A long press on a phone opens the browser's menu; the press already did its job.
           if (press.fired()) event.preventDefault();
+          // A right-click (desktop) is the same gesture as a long press.
+          else if (onLongPress !== undefined && event.button === 2) {
+            event.preventDefault();
+            onLongPress(n);
+          }
         }}
         onKeyDown={(event) => {
           const picked = HEALTHS.find((h) => h.key === event.key);
@@ -129,10 +136,10 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
           event.preventDefault();
           onHealthKey(n, picked.value);
         }}
-        onClick={() => {
+        onClick={(event) => {
           // A long press already selected the tooth and started dictation; its release is not a second tap.
           if (press.consumed()) return;
-          onSelect(n);
+          onSelect(n, { shift: event.shiftKey });
         }}
       >
         <span className="tc-num">{n}</span>
@@ -189,7 +196,7 @@ export function ToothChart({ look, dentition, view = "treatment", current, statu
         {status?.treat_within_months == null ? null : <span>Advise treatment within {status.treat_within_months} {status.treat_within_months === 1 ? "month" : "months"}</span>}
         {away.has(hover.tooth) ? <span>Done elsewhere</span> : null}
         {progress.has(hover.tooth) ? <span>Treatment in progress</span> : null}
-        <span className="tc-hoverhint">{onLongPress === undefined ? "Click to open" : "Click to open · hold to speak a note"}</span>
+        <span className="tc-hoverhint">{onLongPress === undefined ? "Click to open" : "Click to open · hold to select several"}</span>
       </div>
     );
   };

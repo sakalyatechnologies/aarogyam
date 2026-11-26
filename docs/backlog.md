@@ -229,8 +229,8 @@ The staff apps build these screens fully but show "Preview: needs server support
 - **BK-12** App Links and Universal Links on the product domain (today `aarogyam://invite`).
 - ~~**BK-13** UPI collect request or payment link from a bill~~: done 25 Nov 2026 in the staff apps. "Send UPI link" on the desk payment sheet (`billing.write`) opens the share sheet and shows the QR, from `GET /invoices/{id}/upi-link`.
 - ~~**BK-14** Seat a queued patient in a chosen chair~~: done 17 Nov 2026. The queue board shows each chair's patient by the token's `room_id`; Seat and "Seat next" send `room_id` with `in_chair`.
-- **BK-15** Monthly revenue target for the clinic.
-- **BK-16** Me-card extras: sterilisation cycles, estimated end of day.
+- ~~**BK-15** Monthly revenue target for the clinic~~: built 25 Nov 2026 (backend and portal). `PATCH /settings/clinic` takes `month_revenue_target_paise` (0 clears); `/today/money` returns `month_target_paise` and `month_collected_paise`. The phones still show their preview until they read the new fields.
+- ~~**BK-16** Me-card extras: sterilisation cycles, estimated end of day~~: built 25 Nov 2026 (backend). `POST/GET /sterilisation-cycles`; `/today` returns `sterilisation_cycles_today` and each team entry a `day_ends_at`. The phones still show their preview until they read the new fields.
 - ~~**BK-17** Queue summary (average wait, no-shows)~~: done 17 Nov 2026. Average wait comes from the loaded tokens' `wait_minutes`; no-shows from `/today` `counts.no_shows`.
 - **BK-18** In-app support chat with Sakalya.
 - **BK-19** Analytics: booked vs walk-in split.

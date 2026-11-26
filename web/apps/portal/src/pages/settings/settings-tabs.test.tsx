@@ -34,6 +34,7 @@ describe("Settings tabs", () => {
       "Team & roles",
       "Time off",
       "Booking & notifications",
+      "Patient QR",
       "Offers",
       "Website",
       "Tasks",

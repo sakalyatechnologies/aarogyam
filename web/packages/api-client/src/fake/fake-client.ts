@@ -1189,6 +1189,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
         phone: p.phone == null ? null : contact ? p.phone : maskPhone(p.phone),
         email: p.email == null ? null : contact ? p.email : maskEmail(p.email),
         preferred_language: p.preferred_language,
+        ...(p.address == null ? {} : { address: p.address }),
         status: p.status,
         created_at: p.created_at,
         last_visit_at: p.last_visit_at ?? null,
@@ -1467,6 +1468,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             phone: input.phone ?? null,
             email: input.email ?? null,
             preferred_language: input.preferred_language ?? "en-IN",
+            ...(input.address == null ? {} : { address: input.address }),
             status: "active",
             created_at: now.toISOString(),
             last_visit_at: null,
@@ -2280,6 +2282,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (changes.phone !== undefined) found.phone = changes.phone === "" ? null : changes.phone;
           if (changes.email !== undefined) found.email = changes.email === "" ? null : changes.email;
           if (changes.preferred_language != null) found.preferred_language = changes.preferred_language;
+          if (changes.address !== undefined) found.address = changes.address;
           return reply(wirePatient(found, caller) satisfies C.Patient);
         }),
 
@@ -4861,7 +4864,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.VisitPatientMessage);
         }),
 
-      openSharedVisit: (token, pin, opts) =>
+      openSharedVisit: (token, opts) =>
         respond(S.visitSummary, opts?.signal, () => {
           const link = state.shareLinks.find((l) => l.token === token && l.encounter_id != null);
           const found = link === undefined ? undefined : state.visits.find((v) => v.id === link.encounter_id);
@@ -4874,16 +4877,6 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (link.locked) {
             return refuse(423, "locked", "This link is locked after too many wrong PINs.");
           }
-          if (link.pin !== pin) {
-            link.failed_attempts += 1;
-            const left = Math.max(0, 5 - link.failed_attempts);
-            if (left === 0) {
-              link.locked = true;
-              return refuse(423, "locked", "Too many wrong PINs. Ask the clinic for a new link.");
-            }
-            return refuse(403, "forbidden", `Wrong PIN. ${String(left)} ${left === 1 ? "try" : "tries"} left.`);
-          }
-          link.failed_attempts = 0;
           const clinic = state.clinics.find((c) => c.id === link.clinic_id);
           const patient = state.patients.find((p) => p.id === found.patient_id);
           const doctor = memberRefOf(state, found.clinician_membership_id);
@@ -6858,6 +6851,9 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             clinic.phone = changes.phone === "" || changes.phone === null ? null : normalizeClinicPhone(changes.phone);
           }
           if (changes.upi_id !== undefined) clinic.upi_id = changes.upi_id === "" ? null : changes.upi_id;
+          if (changes.month_revenue_target_paise != null) {
+            clinic.month_revenue_target_paise = changes.month_revenue_target_paise === 0 ? null : changes.month_revenue_target_paise;
+          }
           if (changes.prescription_footer !== undefined) clinic.prescription_footer = changes.prescription_footer === "" ? null : changes.prescription_footer;
           if (changes.address !== undefined) clinic.address = changes.address ?? {};
           if (changes.online_booking != null) {
@@ -9264,6 +9260,38 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           } satisfies C.PendingReport);
         }),
 
+      listSterilisationCycles: (date, opts) =>
+        respond(S.sterilisationCycleList, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const day = date !== undefined && date !== "" ? date : clinicToday(caller.clinic);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+            return invalid("date", "must be YYYY-MM-DD");
+          }
+          const items = (state.sterilisationCycles ?? [])
+            .filter((c) => c.clinic_id === caller.clinic.id && localClock(new Date(c.run_at), caller.clinic.timezone).date === day)
+            .sort((a, b) => b.run_at.localeCompare(a.run_at))
+            .map((c) => ({ id: c.id, run_at: c.run_at, load_note: c.load_note, recorded_by_name: taskMemberName(c.recorded_by) }));
+          return reply({ date: day, items } satisfies C.SterilisationCycleList);
+        }),
+
+      recordSterilisationCycle: (input, opts) =>
+        respond(S.sterilisationCycle, opts?.signal, async () => {
+          const caller = await inClinic("tasks.use");
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          const note = input.load_note?.trim() ?? "";
+          if (note.length > 120) {
+            return invalid("load_note", "at most 120 characters");
+          }
+          const cycle = { id: fakeUuid(random, clock()), clinic_id: caller.clinic.id, run_at: clock().toISOString(), load_note: note === "" ? null : note, recorded_by: caller.membership.id };
+          (state.sterilisationCycles ??= []).push(cycle);
+          return reply({ id: cycle.id, run_at: cycle.run_at, load_note: cycle.load_note, recorded_by_name: taskMemberName(cycle.recorded_by) } satisfies C.SterilisationCycle);
+        }),
+
       listExpenses: (range, opts) =>
         respond(S.expenseList, opts?.signal, async () => {
           const caller = await inClinic("finance.view");
@@ -9538,6 +9566,8 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             pending_dues_patients: new Set(pending.map((i) => i.patient.id)).size,
             revenue_mix: buildRevenueMix(invoicesThisMonth, state.priceItems.filter((p) => p.clinic_id === caller.clinic.id)),
             upi_share_bps: methodTotalsThisMonth.find((m) => m.method === "upi")?.share_bps ?? 0,
+            month_target_paise: caller.clinic.month_revenue_target_paise ?? null,
+            month_collected_paise: paymentsThisMonth.reduce((sum, p) => sum + p.amount_paise, 0),
           } satisfies C.TodayMoney);
         }),
 
@@ -11367,6 +11397,7 @@ function wireClinicSettings(clinic: FakeClinic): C.ClinicSettings {
     timezone: clinic.timezone,
     phone: clinic.phone ?? null,
     upi_id: clinic.upi_id ?? null,
+    month_revenue_target_paise: clinic.month_revenue_target_paise ?? null,
     prescription_footer: clinic.prescription_footer ?? null,
     address: {
       line1: clinic.address?.line1 ?? null,
@@ -11575,6 +11606,9 @@ function validateClinicSettingsChanges(changes: C.ClinicSettingsChanges): Outcom
     if (!(E164.test(phone) && (!phone.startsWith("+91") || INDIAN_MOBILE.test(phone)))) {
       return invalid("phone", "invalid phone number");
     }
+  }
+  if (changes.month_revenue_target_paise != null && (changes.month_revenue_target_paise < 0 || changes.month_revenue_target_paise > 100_000_000_000)) {
+    return invalid("month_revenue_target_paise", "must be 0 (none) or a positive amount");
   }
   if (changes.upi_id != null && changes.upi_id !== "" && !UPI_ID.test(changes.upi_id)) {
     return invalid("upi_id", "invalid UPI ID");
@@ -12546,6 +12580,7 @@ function buildToday(state: Fixtures, clinic: FakeClinic, now: Date, asked: strin
     recent_patients,
     team,
     completed_visits,
+    sterilisation_cycles_today: (state.sterilisationCycles ?? []).filter((c) => c.clinic_id === clinic.id && localClock(new Date(c.run_at), clinic.timezone).date === date).length,
   };
   if (canSeeMoney) {
     const dayPayments = state.payments.filter((p) => p.clinic_id === clinic.id && p.status === "received" && localClock(new Date(p.received_at), clinic.timezone).date === date);

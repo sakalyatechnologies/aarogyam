@@ -84,6 +84,7 @@ pub(crate) mod smart_import;
 pub(crate) mod smile_shade;
 pub(crate) mod staff;
 pub(crate) mod staff_ops;
+pub(crate) mod sterilisation_cycles;
 pub(crate) mod stock_import;
 pub(crate) mod stock_insights;
 pub(crate) mod support_grants;
@@ -298,6 +299,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             put(medicine_sets::update).delete(medicine_sets::delete),
         )
         .route("/today", get(today::today))
+        .route(
+            "/sterilisation-cycles",
+            get(sterilisation_cycles::list).post(sterilisation_cycles::create),
+        )
         .route(
             "/patients/{id}/visits",
             get(visits::list).post(visits::start),
@@ -938,7 +943,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/prescriptions/{id}/share",
             post(prescriptions::create_share),
         )
-        // Public, no sign-in: on the clinic's host, limited by the link's token and PIN.
+        // Public, no sign-in: on the clinic's host, limited by the link's token (prescription and record links add a PIN; visit links do not).
         .route("/shared/{token}", get(prescriptions::shared_preview))
         .route("/shared/{token}/open", post(prescriptions::shared_open))
         .route("/shared/{token}/records", post(record_shares::open))

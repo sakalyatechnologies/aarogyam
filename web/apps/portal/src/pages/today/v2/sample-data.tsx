@@ -87,6 +87,7 @@ export function sampleToday(now: Date = new Date()): Today {
       { visit_id: uid(5, 1), number: "V-2001", appointment_id: uid(APPT, 0), patient: { id: PATIENTS[0]?.id, number: PATIENTS[0]?.number, full_name: PATIENTS[0]?.full_name }, clinician_id: DR_RAO.id, clinician_name: DR_RAO.display_name, started_at: at(4, 35), ended_at: at(4, 55), billed_paise: 120000, paid_paise: 120000 },
     ],
     money: { collected_paise: 480000, payments: 4, invoiced_paise: 720000, invoices: 5 },
+    sterilisation_cycles_today: 0,
   };
   // Parsing brands the ids and checks the literal against the API's own schema, so the sample can't drift from it.
   return todayResponse.parse(sample);

@@ -188,6 +188,8 @@ export const patient = z.object({
   phone: optionalText,
   email: optionalText,
   preferred_language: z.string(),
+  /** Postal address; absent when none was given. */
+  address: z.lazy(() => patientAddress).nullable().exactOptional(),
   status: z.enum(["active", "inactive", "deceased", "merged"]),
   created_at: timestamp,
   last_visit_at: optionalTimestamp,
@@ -421,6 +423,7 @@ export const clinicSettings = z.object({
   branding: clinicBranding,
   online_booking: onlineBooking,
   letterhead,
+  month_revenue_target_paise: paise.nullable().exactOptional(),
 }) satisfies z.ZodType<C.ClinicSettings>;
 export type ClinicSettings = z.output<typeof clinicSettings>;
 
@@ -941,6 +944,7 @@ const teamMemberToday = z.object({
   on_leave: z.boolean(),
   appointments: count,
   shifts: z.array(todayShift),
+  day_ends_at: timestamp.nullable().exactOptional(),
 }) satisfies z.ZodType<C.TeamMemberToday>;
 export type TeamMemberToday = z.output<typeof teamMemberToday>;
 
@@ -1027,6 +1031,7 @@ export const todayResponse = z.object({
   low_stock: z.array(lowStockAlert).nullable().exactOptional(),
   completed_visits: z.array(completedVisit),
   money: dayMoneyFigures.nullable().exactOptional(),
+  sterilisation_cycles_today: count,
 }) satisfies z.ZodType<C.TodayResponse>;
 export type Today = z.output<typeof todayResponse>;
 
@@ -3035,6 +3040,8 @@ export const todayMoney = z.object({
   pending: z.array(pendingItem),
   revenue_mix: z.array(mixItem),
   upi_share_bps: z.number().int(),
+  month_target_paise: paise.nullable().exactOptional(),
+  month_collected_paise: paise,
 }) satisfies z.ZodType<C.TodayMoney>;
 export type TodayMoney = z.output<typeof todayMoney>;
 
@@ -4747,6 +4754,23 @@ export const myTasks = z.object({
   items: z.array(taskOccurrence),
 }) satisfies z.ZodType<C.MyTasks>;
 export type MyTasks = z.output<typeof myTasks>;
+
+/** One autoclave run. */
+export const sterilisationCycle = z.object({
+  id: z.string().min(1),
+  load_note: z.string().nullable().exactOptional(),
+  recorded_by_name: z.string().nullable().exactOptional(),
+  run_at: timestamp,
+}) satisfies z.ZodType<C.SterilisationCycle>;
+export type SterilisationCycle = z.output<typeof sterilisationCycle>;
+
+export const sterilisationCycleList = z.object({
+  date,
+  items: z.array(sterilisationCycle),
+}) satisfies z.ZodType<C.SterilisationCycleList>;
+export type SterilisationCycleList = z.output<typeof sterilisationCycleList>;
+
+export type NewSterilisationCycle = C.NewSterilisationCycle;
 
 export const taskSchedule = z.object({
   kind: z.enum(["once", "daily", "every_n_days", "weekdays"]).nullable().exactOptional(),

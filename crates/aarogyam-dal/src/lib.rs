@@ -90,6 +90,7 @@ pub mod settings;
 pub mod setup;
 pub mod staff;
 pub mod staff_ops;
+pub mod sterilisation;
 pub mod stock_imports;
 pub mod stock_insights;
 pub mod support;

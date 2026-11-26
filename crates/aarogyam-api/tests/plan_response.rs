@@ -29,8 +29,8 @@ async fn post(
     app.send(Method::POST, host, path, token, Some(body)).await
 }
 
-/// A visit with a planned procedure and a link to it: (patient, visit, procedure, token, pin).
-async fn visit_with_link(app: &TestApp) -> (String, String, String, String, String) {
+/// A visit with a planned procedure and a link to it: (patient, visit, procedure, token).
+async fn visit_with_link(app: &TestApp) -> (String, String, String, String) {
     let owner = app.token(ALPHA_OWNER);
     let (status, patient) = post(
         app,
@@ -75,7 +75,6 @@ async fn visit_with_link(app: &TestApp) -> (String, String, String, String, Stri
         visit,
         planned["id"].as_str().unwrap().to_owned(),
         link["token"].as_str().unwrap().to_owned(),
-        link["pin"].as_str().unwrap().to_owned(),
     )
 }
 
@@ -83,13 +82,13 @@ fn answer_path(token: &str) -> String {
     format!("/api/v1/shared/{token}/plan-response")
 }
 
-async fn answer(app: &TestApp, token: &str, pin: &str, choice: &str) -> (StatusCode, Value) {
+async fn answer(app: &TestApp, token: &str, choice: &str) -> (StatusCode, Value) {
     post(
         app,
         ALPHA,
         None,
         &answer_path(token),
-        json!({ "pin": pin, "choice": choice }),
+        json!({ "choice": choice }),
     )
     .await
 }
@@ -128,10 +127,10 @@ async fn plan_notifications(app: &TestApp, token: &str) -> Vec<Value> {
 #[ignore = "needs DATABASE_URL"]
 async fn the_patient_answers_their_plan_and_the_clinic_is_told_once_per_visit() {
     let app = TestApp::start().await;
-    let (patient, visit, procedure, token, pin) = visit_with_link(&app).await;
+    let (patient, visit, procedure, token) = visit_with_link(&app).await;
     let opens = open_count(&app, &visit).await;
 
-    let (status, body) = answer(&app, &token, &pin, "go_ahead").await;
+    let (status, body) = answer(&app, &token, "go_ahead").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["choice"], "go_ahead");
     assert!(body["responded_at"].is_string(), "{body}");
@@ -173,7 +172,7 @@ async fn the_patient_answers_their_plan_and_the_clinic_is_told_once_per_visit() 
     assert_eq!(plan_notifications(&app, &desk).await[0]["read"], true);
 
     // The same answer again changes nothing for the clinic.
-    let (status, _) = answer(&app, &token, &pin, "go_ahead").await;
+    let (status, _) = answer(&app, &token, "go_ahead").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(plan_notifications(&app, &desk).await[0]["read"], true);
 
@@ -184,7 +183,7 @@ async fn the_patient_answers_their_plan_and_the_clinic_is_told_once_per_visit() 
     .execute(&app.owner)
     .await
     .unwrap();
-    let (status, body) = answer(&app, &token, &pin, "question").await;
+    let (status, body) = answer(&app, &token, "question").await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["choice"], "question");
     let (rows, choice): (i64, String) = sqlx::query_as(
@@ -226,7 +225,7 @@ async fn the_patient_answers_their_plan_and_the_clinic_is_told_once_per_visit() 
         BETA,
         None,
         &answer_path(&token),
-        json!({ "pin": pin, "choice": "go_ahead" }),
+        json!({ "choice": "go_ahead" }),
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -247,55 +246,42 @@ async fn the_patient_answers_their_plan_and_the_clinic_is_told_once_per_visit() 
     assert_eq!(count(app.clinic_id("beta").await).await, 0);
 
     // Unknown links and choices.
-    let (status, _) = answer(&app, "nope", &pin, "go_ahead").await;
+    let (status, _) = answer(&app, "nope", "go_ahead").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
-    let (status, body) = answer(&app, &token, &pin, "maybe").await;
+    let (status, body) = answer(&app, &token, "maybe").await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
 }
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
-async fn wrong_pins_count_with_opening_and_expired_or_revoked_links_are_gone() {
+async fn visit_links_open_without_a_pin_and_expired_or_revoked_links_are_gone() {
     let app = TestApp::start().await;
-    let (_, visit, _, token, pin) = visit_with_link(&app).await;
-    let wrong = if pin == "000000" { "111111" } else { "000000" };
-
-    let (status, body) = answer(&app, &token, wrong, "go_ahead").await;
-    assert_eq!(status, StatusCode::FORBIDDEN, "{body}");
-    assert_eq!(body["error"]["code"], "wrong_pin");
-    assert!(
-        body["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("4 tries left"),
-        "{body}"
-    );
-    // Opening shares the same counter.
+    let (_, visit, _, token) = visit_with_link(&app).await;
     let open = format!("/api/v1/shared/{token}/visit");
-    let (status, body) = post(&app, ALPHA, None, &open, json!({ "pin": wrong })).await;
-    assert_eq!(status, StatusCode::FORBIDDEN);
-    assert!(
-        body["error"]["message"]
-            .as_str()
-            .unwrap()
-            .contains("3 tries left"),
-        "{body}"
-    );
-    for _ in 0..2 {
-        let (status, _) = answer(&app, &token, wrong, "question").await;
-        assert_eq!(status, StatusCode::FORBIDDEN);
-    }
-    let (status, body) = answer(&app, &token, wrong, "question").await;
-    assert_eq!(status, StatusCode::LOCKED, "{body}");
-    // Locked for good, even with the right PIN, for answering and opening alike.
-    let (status, _) = answer(&app, &token, &pin, "go_ahead").await;
+
+    // No PIN and no body: it opens. An older client's pin is ignored, right or wrong.
+    let (status, body) = app.send(Method::POST, ALPHA, &open, None, None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (status, _) = post(&app, ALPHA, None, &open, json!({ "pin": "000000" })).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(open_count(&app, &visit).await, 2);
+    // Another clinic's host doesn't know the link.
+    let (status, _) = app.send(Method::POST, BETA, &open, None, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // An old link locked by wrong PINs stays locked (423).
+    sqlx::query("update aarogyam.share_links set locked_at = now() where encounter_id = $1")
+        .bind(visit.parse::<Uuid>().unwrap())
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let (status, _) = answer(&app, &token, "go_ahead").await;
     assert_eq!(status, StatusCode::LOCKED);
-    let (status, _) = post(&app, ALPHA, None, &open, json!({ "pin": pin })).await;
+    let (status, _) = app.send(Method::POST, ALPHA, &open, None, None).await;
     assert_eq!(status, StatusCode::LOCKED);
-    assert_eq!(open_count(&app, &visit).await, 0);
 
     // An expired link is gone; so is a revoked one.
-    let (_, visit, _, token, pin) = visit_with_link(&app).await;
+    let (_, visit, _, token) = visit_with_link(&app).await;
     sqlx::query(
         "update aarogyam.share_links set expires_at = now() - interval '1 minute'
          where encounter_id = $1",
@@ -304,16 +290,26 @@ async fn wrong_pins_count_with_opening_and_expired_or_revoked_links_are_gone() {
     .execute(&app.owner)
     .await
     .unwrap();
-    let (status, body) = answer(&app, &token, &pin, "go_ahead").await;
+    let (status, body) = answer(&app, &token, "go_ahead").await;
     assert_eq!(status, StatusCode::GONE, "{body}");
     assert_eq!(body["error"]["code"], "expired");
-    let (_, visit, _, token, pin) = visit_with_link(&app).await;
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/shared/{token}/visit"),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::GONE);
+    let (_, visit, _, token) = visit_with_link(&app).await;
     sqlx::query("update aarogyam.share_links set revoked_at = now() where encounter_id = $1")
         .bind(visit.parse::<Uuid>().unwrap())
         .execute(&app.owner)
         .await
         .unwrap();
-    let (status, _) = answer(&app, &token, &pin, "go_ahead").await;
+    let (status, _) = answer(&app, &token, "go_ahead").await;
     assert_eq!(status, StatusCode::GONE);
     let saved: i64 = sqlx::query_scalar("select count(*) from aarogyam.visit_plan_responses")
         .fetch_one(&app.owner)

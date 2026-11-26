@@ -7,6 +7,7 @@ import { Button, useToast } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useNewLook } from "../../lib/new-look.js";
+import { ArrivalsStrip } from "./arrivals.js";
 import { QueueV2 } from "./queue-v2.js";
 import { WalkInDialog } from "./walk-in-dialog.js";
 import { StartVisitButton } from "../../components/start-visit-button.js";
@@ -55,6 +56,7 @@ function QueuePageClassic() {
           ) : undefined
         }
       />
+      <ArrivalsStrip />
       {queue.isPending ? (
         <div role="status" aria-label="Loading the queue" className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {Array.from({ length: 3 }, (_, index) => (

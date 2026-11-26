@@ -33,6 +33,7 @@ export function walkInRequest(mobile: string, who: Who, fresh: NewWalkIn, intake
       ...(mobile === "" ? {} : { phone: `+91${mobile}` }),
       ...(fresh.age === "" ? {} : { age_years: Number(fresh.age) }),
       ...(fresh.sex === null ? {} : { sex: fresh.sex }),
+      ...(fresh.pin.pincode === "" ? {} : { address: { pincode: fresh.pin.pincode, city: fresh.pin.city || null, district: fresh.pin.city || null, state: fresh.pin.state || null } }),
     },
   };
 }

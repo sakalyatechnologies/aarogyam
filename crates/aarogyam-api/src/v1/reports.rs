@@ -411,6 +411,10 @@ pub struct TodayMoney {
     pub invoices_today: i64,
     /// Received this month so far.
     pub collected_this_month_paise: i64,
+    /// The clinic's monthly revenue target in paise; none when not set.
+    pub month_target_paise: Option<i64>,
+    /// Received this month so far, in paise (same as `collected_this_month_paise`).
+    pub month_collected_paise: i64,
     /// UPI's share of this month's collections, in basis points.
     pub upi_share_bps: i64,
     /// Left to pay on every issued bill (the pending dues tile).
@@ -455,6 +459,8 @@ pub(crate) async fn today_money(
         invoiced_paise: money.invoiced_today.get(),
         invoices_today: money.invoices_today,
         collected_this_month_paise: money.collected_this_month.get(),
+        month_target_paise: money.month_target.map(sakalya_types::Paise::get),
+        month_collected_paise: money.collected_this_month.get(),
         upi_share_bps: money.upi_share_bps,
         pending_dues_paise: money.pending_dues.get(),
         pending_dues_patients: money.pending_dues_patients,

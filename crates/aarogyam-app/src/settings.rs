@@ -12,13 +12,16 @@ use aarogyam_domain::letterhead::{Letterhead, LetterheadChanges};
 use aarogyam_domain::notification_prefs::{NotificationChanges, NotificationPrefs};
 use aarogyam_domain::permission::Permission;
 use sakalya_db::Db;
-use sakalya_types::{CallingCode, PhoneE164};
+use sakalya_types::{CallingCode, Paise, PhoneE164};
 use serde_json::{Map, Value};
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::scope::staff_scope;
 use crate::self_booking::{read_settings, settings_value};
+
+/// The largest monthly target accepted: one hundred crore rupees, in paise.
+const MAX_TARGET_PAISE: i64 = 100_000_000_000;
 
 /// The clinic's settings as the API shows them.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,6 +52,8 @@ pub struct ClinicSettings {
     pub booking: BookingSettings,
     /// The letterhead printed on the clinic's documents.
     pub letterhead: Letterhead,
+    /// What the clinic aims to collect each month.
+    pub month_revenue_target: Option<Paise>,
 }
 
 /// Address parts as received; each replaces the stored part, and empty clears it.
@@ -94,6 +99,8 @@ pub struct SettingsChanges {
     pub booking: BookingChanges,
     /// Letterhead changes.
     pub letterhead: Option<LetterheadChanges>,
+    /// Monthly revenue target in paise; 0 clears it.
+    pub month_revenue_target: Option<Paise>,
 }
 
 /// Changes to the online booking settings; `None` leaves a value as it is.
@@ -180,7 +187,18 @@ fn view(row: &SettingsRow) -> ClinicSettings {
         upi_id: text(&row.billing, "upi_id"),
         booking: read_settings(&row.booking),
         letterhead: Letterhead::from_value(row.branding.get("letterhead").unwrap_or(&Value::Null)),
+        month_revenue_target: month_target(&row.billing),
     }
+}
+
+/// The monthly revenue target stored in the billing settings; none when unset or not positive.
+#[must_use]
+pub fn month_target(billing: &Value) -> Option<Paise> {
+    billing
+        .get("month_revenue_target_paise")
+        .and_then(Value::as_i64)
+        .filter(|paise| *paise > 0)
+        .map(Paise::new)
 }
 
 /// Empty means none; otherwise `parse` decides.
@@ -291,6 +309,19 @@ fn apply(mut row: SettingsRow, changes: &SettingsChanges) -> Result<SettingsRow,
             "upi_id",
             upi_id.as_ref().map(UpiId::as_str),
         );
+    }
+    if let Some(target) = changes.month_revenue_target {
+        match target.get() {
+            0 => {
+                if let Some(map) = row.billing.as_object_mut() {
+                    map.remove("month_revenue_target_paise");
+                }
+            }
+            paise if (1..=MAX_TARGET_PAISE).contains(&paise) => {
+                put_value(&mut row.billing, "month_revenue_target_paise", paise.into());
+            }
+            _ => return Err(AppError::settings(SettingsError::MonthTarget)),
+        }
     }
     apply_letterhead(&mut row.branding, changes.letterhead.as_ref())?;
     row.booking = apply_booking(&row.booking, &changes.booking)?;

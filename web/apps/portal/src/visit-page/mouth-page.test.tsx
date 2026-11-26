@@ -51,8 +51,6 @@ describe("the visit page's mouth view (§1.4)", () => {
     const user = userEvent.setup();
     serve();
     render(<VisitPage token={TOKEN} />);
-    await user.type(await screen.findByLabelText("PIN"), "123456");
-    await user.click(screen.getByRole("button", { name: "Open" }));
     expect(await screen.findByRole("heading", { name: "Aarav's teeth" })).toBeTruthy();
     const order = [...document.querySelectorAll("main > *")].map((el) => el.getAttribute("aria-label") ?? el.className);
     expect(order.slice(1, 7)).toEqual(["vp-hero-mouth vp-reveal", "Why you came", "Done today", "What we found", "Your plan", "Care at home"]);

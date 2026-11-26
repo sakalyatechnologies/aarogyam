@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, FormActions, useToast } from "@sakalya/ui";
 import { MkCard, Empty, PageHeader } from "../../components/mk/index.js";
 
+import { EMPTY_PIN, type PinValue } from "../../components/pin-code-fields.js";
 import { useClinic } from "../../clinic.js";
 import { patientPath } from "../../lib/patients.js";
 import { useCreatePatient } from "../../queries.js";
@@ -23,11 +25,12 @@ function NewPatientForm() {
   const toast = useToast();
   const create = useCreatePatient();
   const form = usePatientForm();
+  const [place, setPlace] = useState<{ line1: string; pin: PinValue }>({ line1: "", pin: EMPTY_PIN });
   const { errors, isSubmitting } = form.formState;
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      const patient = await create.mutateAsync(toNewPatient(values));
+      const patient = await create.mutateAsync({ ...toNewPatient(values), ...(place.line1.trim() === "" && place.pin.pincode === "" && place.pin.city === "" ? {} : { address: { line1: place.line1.trim() || null, city: place.pin.city || null, district: place.pin.city || null, state: place.pin.state || null, pincode: place.pin.pincode || null } }) });
       toast.show({ title: `Registered ${patient.number}`, tone: "success" });
       void navigate(patientPath(patient));
     } catch (thrown) {
@@ -41,7 +44,7 @@ function NewPatientForm() {
       <PageHeader title="New patient" subtitle="The clinic number is given when you save." />
       <MkCard className="max-w-2xl">
         <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-5">
-          <PatientFields form={form} />
+          <PatientFields form={form} address={{ ...place, onChange: setPlace }} />
           {errors.root?.message === undefined ? null : (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
               {errors.root.message}

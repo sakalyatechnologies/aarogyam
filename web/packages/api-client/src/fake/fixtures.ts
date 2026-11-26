@@ -75,6 +75,8 @@ export interface FakeClinic {
   phone?: string | null;
   /** UPI ID shown on bills. */
   upi_id?: string | null;
+  /** The monthly revenue target in paise; none when unset. */
+  month_revenue_target_paise?: number | null;
   legal_name?: string | null;
   gstin?: string | null;
   prescription_footer?: string | null;
@@ -775,6 +777,8 @@ export interface Fixtures {
   stockImports?: import("./purchasing.js").FakeStockImport[];
   /** Clinic expenses (stock deliveries count as material on their own). */
   expenses?: import("./analytics.js").FakeExpense[];
+  /** Sterilisation cycles, made on first use. */
+  sterilisationCycles?: { id: string; clinic_id: string; run_at: string; load_note: string | null; recorded_by: string }[];
   /** Recurring expenses (rent, salaries), made on first use. */
   recurringExpenses?: import("./recurring-expenses.js").FakeRecurring[];
   /** Labs, lab orders and lab payments. */

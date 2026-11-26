@@ -6,6 +6,7 @@ import { useToast } from "@sakalya/ui";
 
 import { Initials, MkCard } from "../../components/mk/index.js";
 import { useClinic } from "../../clinic.js";
+import { PinCodeFields, useClinicPinLookup } from "../../components/pin-code-fields.js";
 import { useNewLook } from "../../lib/new-look.js";
 import { useClinicSettings, useUpdateClinicSettings } from "../../queries.js";
 import { SkeletonRows } from "../../components/skeleton-rows.js";
@@ -50,6 +51,8 @@ interface ProfileValues {
   gstin: string;
   phone: string;
   upi_id: string;
+  /** Whole rupees; empty for none. */
+  month_target: string;
   prescription_footer: string;
   line1: string;
   line2: string;
@@ -67,6 +70,7 @@ function toValues(settings: ClinicSettings): ProfileValues {
     gstin: settings.gstin ?? "",
     phone: settings.phone ?? "",
     upi_id: settings.upi_id ?? "",
+    month_target: settings.month_revenue_target_paise == null ? "" : String(Math.round(settings.month_revenue_target_paise / 100)),
     prescription_footer: settings.prescription_footer ?? "",
     line1: settings.address.line1 ?? "",
     line2: settings.address.line2 ?? "",
@@ -96,6 +100,7 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
   const toast = useToast();
   // In the new look the prescription footer is edited in Letterhead only; saving here leaves it alone.
   const [newLook] = useNewLook();
+  const lookup = useClinicPinLookup();
   const [form, setForm] = useState<ProfileValues>(() => toValues(settings));
   const [error, setError] = useState<string | undefined>(undefined);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<Key, string>>>({});
@@ -104,6 +109,11 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
     event.preventDefault();
     setError(undefined);
     setFieldErrors({});
+    const rupees = form.month_target.trim() === "" ? 0 : Number(form.month_target.replace(/,/g, ""));
+    if (!Number.isInteger(rupees) || rupees < 0) {
+      setFieldErrors({ month_target: "Enter a whole number of rupees, or leave it empty." });
+      return;
+    }
     update.mutate(
       {
         name: form.name,
@@ -111,6 +121,7 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
         gstin: form.gstin,
         phone: form.phone,
         upi_id: form.upi_id,
+        month_revenue_target_paise: rupees * 100,
         ...(newLook ? {} : { prescription_footer: form.prescription_footer }),
         address: { line1: form.line1, line2: form.line2, city: form.city, state: form.state, pincode: form.pincode },
       },
@@ -132,11 +143,12 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
     );
   };
 
-  const input = (key: Key, label: string, extra: { mono?: boolean; span?: "wide" | "third"; placeholder?: string; multiline?: boolean } = {}) => {
+  const input = (key: Key, label: string, extra: { mono?: boolean; span?: "wide" | "third"; placeholder?: string; multiline?: boolean; inputMode?: "numeric" } = {}) => {
     const props = {
       id: `profile-${key}`,
       className: `mk-tin ${extra.mono === true ? "mk-mono" : ""}`,
       placeholder: extra.placeholder,
+      inputMode: extra.inputMode,
       "aria-invalid": fieldErrors[key] !== undefined,
       value: form[key],
       onChange: (event: { target: { value: string } }) => {
@@ -167,13 +179,22 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
         {input("phone", "Phone")}
         {input("line1", "Address", { span: "wide", placeholder: "House, building and street" })}
         {input("line2", "Address line 2", { span: "wide", placeholder: "Area or landmark" })}
-        {input("city", "City", { span: "third" })}
-        {input("state", "State", { span: "third" })}
-        {input("pincode", "PIN code", { span: "third" })}
+        <div className="st-field st-wide flex flex-col gap-3">
+          <PinCodeFields
+            value={{ pincode: form.pincode, city: form.city, state: form.state }}
+            lookup={lookup}
+            cityLabel="City"
+            pinError={fieldErrors.pincode}
+            onChange={(next) => {
+              setForm((prev) => ({ ...prev, ...next }));
+            }}
+          />
+        </div>
       </Section>
       <Section id="billing" title="Billing and tax" hint="Used on bills, receipts and UPI payment links.">
         {input("gstin", "GSTIN", { mono: true })}
         {input("upi_id", "UPI ID", { placeholder: "clinic@okicici" })}
+        {input("month_target", "Monthly revenue target (₹)", { placeholder: "500000", inputMode: "numeric" })}
       </Section>
       {newLook ? null : (
         <Section id="prescriptions" title="Prescriptions" hint="A line printed at the bottom of every prescription.">
@@ -195,5 +216,5 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
 }
 
 function isProfileField(key: string): key is Key {
-  return key in { name: 0, legal_name: 0, gstin: 0, phone: 0, upi_id: 0, prescription_footer: 0, line1: 0, line2: 0, city: 0, state: 0, pincode: 0 };
+  return key in { name: 0, legal_name: 0, gstin: 0, phone: 0, upi_id: 0, month_target: 0, prescription_footer: 0, line1: 0, line2: 0, city: 0, state: 0, pincode: 0 };
 }

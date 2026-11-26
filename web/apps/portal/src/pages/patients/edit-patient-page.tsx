@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { z } from "zod";
 
@@ -9,6 +10,7 @@ import { Button, DateInput, Field, FormActions, PhoneInput, RadioGroup, Select, 
 import { MkCard, Empty, PageHeader } from "../../components/mk/index.js";
 
 import { useClinic } from "../../clinic.js";
+import { PinCodeFields, useClinicPinLookup, type PinValue } from "../../components/pin-code-fields.js";
 import { LANGUAGES, SEX_OPTIONS, patientPath, useTodayDate } from "../../lib/patients.js";
 import { usePatient, useUpdatePatient } from "../../queries.js";
 import { NotFoundPage } from "../not-found-page.js";
@@ -76,8 +78,31 @@ function defaultsFor(patient: Patient): Values {
   };
 }
 
-function toPatientChanges(values: Valid, canEditContact: boolean): PatientChanges {
+/** The address as the form holds it: a street line and the PIN's three place fields. */
+interface AddressValues {
+  line1: string;
+  pin: PinValue;
+}
+
+function addressDefaults(patient: Patient): AddressValues {
+  const a = patient.address;
+  return { line1: a?.line1 ?? "", pin: { pincode: a?.pincode ?? "", city: a?.city ?? a?.district ?? "", state: a?.state ?? "" } };
+}
+
+function toPatientChanges(values: Valid, canEditContact: boolean, address: AddressValues | undefined, patient: Patient): PatientChanges {
   return {
+    ...(address === undefined
+      ? {}
+      : {
+          address: {
+            ...patient.address,
+            line1: address.line1.trim() || null,
+            city: address.pin.city.trim() || null,
+            district: address.pin.city.trim() || null,
+            state: address.pin.state.trim() || null,
+            pincode: address.pin.pincode || null,
+          },
+        }),
     full_name: values.fullName.trim(),
     sex: values.sex,
     ...(values.birthMode === "dob" ? { date_of_birth: values.dateOfBirth } : { age_years: Number(values.ageYears) }),
@@ -118,12 +143,16 @@ function EditPatientForm({ id, patient, canEditContact }: { id: PatientId; patie
     mode: "onTouched",
     defaultValues: defaultsFor(patient),
   });
+  const lookup = useClinicPinLookup();
+  // Undefined until the address is touched, so saving other changes leaves it as it was.
+  const [address, setAddress] = useState<AddressValues>();
+  const shownAddress = address ?? addressDefaults(patient);
   const { errors, isSubmitting } = form.formState;
   const birthMode = useWatch({ control: form.control, name: "birthMode" });
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await update.mutateAsync(toPatientChanges(values, canEditContact));
+      await update.mutateAsync(toPatientChanges(values, canEditContact, address, patient));
       toast.show({ title: "Saved", tone: "success" });
       void navigate(patientPath(patient));
     } catch (thrown) {
@@ -199,6 +228,22 @@ function EditPatientForm({ id, patient, canEditContact }: { id: PatientId; patie
           ) : (
             <p className="text-sm text-muted">Phone and email need the contact permission to change; ask the clinic's owner.</p>
           )}
+          <Field label="Address" hint="House, building and street.">
+            <TextInput
+              autoComplete="off"
+              value={shownAddress.line1}
+              onChange={(event) => {
+                setAddress({ ...shownAddress, line1: event.currentTarget.value });
+              }}
+            />
+          </Field>
+          <PinCodeFields
+            value={shownAddress.pin}
+            lookup={lookup}
+            onChange={(pin) => {
+              setAddress({ ...shownAddress, pin });
+            }}
+          />
           <Field label="Preferred language" error={errors.preferredLanguage?.message} required>
             <Select options={LANGUAGES} {...form.register("preferredLanguage")} />
           </Field>

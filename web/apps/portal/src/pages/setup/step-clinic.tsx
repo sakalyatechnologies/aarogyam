@@ -5,6 +5,7 @@ import { apiErrorOf, type ClinicSettings, type ClinicSettingsChanges } from "@aa
 import { ApiErrorNotice } from "@aarogyam/app-kit";
 import { Skeleton, useToast } from "@sakalya/ui";
 
+import { PinCodeFields, useClinicPinLookup } from "../../components/pin-code-fields.js";
 import { useClinicSettings, useUpdateClinicSettings, useUploadLetterheadImage } from "../../queries.js";
 import { StepFrame, TextField, type StepProps } from "./step-frame.js";
 
@@ -33,6 +34,7 @@ function ClinicForm({ settings, props, savedPractice }: { settings: ClinicSettin
   const upload = useUploadLetterheadImage();
   const toast = useToast();
   const file = useRef<HTMLInputElement>(null);
+  const lookup = useClinicPinLookup();
   const [form, setForm] = useState({
     name: settings.name,
     phone: settings.phone ?? "",
@@ -111,12 +113,17 @@ function ClinicForm({ settings, props, savedPractice }: { settings: ClinicSettin
       </div>
       <TextField id="sw-line1" label="Address" value={form.line1} onChange={field("line1")} placeholder="House, building and street" error={fieldErrors.line1} autoComplete="address-line1" />
       <input className="mk-tin" style={{ marginTop: 8 }} aria-label="Address line 2" placeholder="Area or landmark" value={form.line2} onChange={(event) => { field("line2")(event.target.value); }} />
-      <div className="sw-three">
-        <input className="mk-tin" aria-label="City" placeholder="City" value={form.city} onChange={(event) => { field("city")(event.target.value); }} />
-        <input className="mk-tin" aria-label="State" placeholder="State" value={form.state} onChange={(event) => { field("state")(event.target.value); }} />
-        <input className="mk-tin" aria-label="PIN code" placeholder="PIN code" inputMode="numeric" value={form.pincode} onChange={(event) => { field("pincode")(event.target.value); }} />
+      <div className="mt-2 flex flex-col gap-3">
+        <PinCodeFields
+          value={{ pincode: form.pincode, city: form.city, state: form.state }}
+          lookup={lookup}
+          cityLabel="City"
+          pinError={fieldErrors.pincode}
+          onChange={(next) => {
+            setForm((prev) => ({ ...prev, ...next }));
+          }}
+        />
       </div>
-      {fieldErrors.pincode === undefined ? null : <p role="alert" className="sw-field-error">{fieldErrors.pincode}</p>}
       <TextField id="sw-phone" label="Phone" value={form.phone} onChange={field("phone")} type="tel" inputMode="tel" autoComplete="tel" error={fieldErrors.phone} />
 
       <span className="mk-flabel" id="sw-logo-label">

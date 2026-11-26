@@ -28,8 +28,11 @@ import { DENTITIONS, LOOKS } from "../../patients/v2/tooth-chart/tooth-chart.js"
 import { useChartPrefs, type ChartDentition, type ChartLook } from "../../patients/v2/tooth-chart/use-chart-prefs.js";
 import { usePlans } from "../../treatment-plans/queries.js";
 import { useOwnXrays } from "./own-xray-pick.js";
-import { PresentChart } from "./present-chart.js";
 
+// the doctor's Edit, Go with this and photo: a lazy host, only for people who may write the chart
+const DoctorActions = lazy(() => import("./present-actions.js").then((m) => ({ default: m.PresentActionsHost })));
+// the doctor's chart look loads only when "Show the chart" is picked
+const PresentChart = lazy(() => import("./present-chart.js").then((m) => ({ default: m.PresentChart })));
 const load3d = () => import("@aarogyam/app-kit/real-teeth-3d");
 // loaded only when asked: the X-rays tab (Explain mode's viewer and pins) and "How to brush"
 const XraysTab = lazy(() => import("./xrays-tab.js").then((m) => ({ default: m.XraysTab })));
@@ -202,6 +205,11 @@ export function PresentPage() {
       {brushing ? (
         <Suspense fallback={null}>
           <BrushingPanel band={band} name={first} onClose={() => { setBrushing(false); }} />
+        </Suspense>
+      ) : null}
+      {canDo("clinical.write") && patientId !== undefined && visitId !== undefined ? (
+        <Suspense fallback={null}>
+          <DoctorActions patientId={patientId} visitId={visitId} studio={present.data} planItems={planItems} terms={chart.data?.terms ?? []} />
         </Suspense>
       ) : null}
     </div>

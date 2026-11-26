@@ -17,6 +17,7 @@ import { NotFoundPage } from "../../not-found-page.js";
 import { ConsentLine } from "../patient-page.js";
 import { Celebration } from "./celebration.js";
 import { Pills } from "./kit.js";
+import { PatientIntakeCard } from "../../../components/intake/patient-intake-card.js";
 import { PatientFacts } from "./patient-facts.js";
 import { ConsoleLayout, StageLayout, TabsLayout, type LayoutProps } from "./layouts.js";
 import { P360_LAYOUTS, useP360Layout, type P360Layout } from "./use-layout.js";
@@ -138,6 +139,7 @@ function Patient360View({ patient }: { patient: Patient }) {
           <Menu label="More" items={moreItems} onSelect={onMore} />
         </div>
         <PatientFacts patient={patient} />
+        <PatientIntakeCard patientId={patient.id} />
       </section>
 
       <VisitBar />

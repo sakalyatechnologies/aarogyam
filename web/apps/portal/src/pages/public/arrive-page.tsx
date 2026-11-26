@@ -9,6 +9,7 @@ import { Button, Checkbox, EmptyState, Field, PhoneInput, Skeleton, TextInput, T
 
 import { useServices } from "../../clinic.js";
 import { MOCKUP_BRAND, mockupTheme } from "../../layout/mockup-theme.js";
+import { Chip, IntakeSections } from "../../components/intake/intake-sections.js";
 import { PinCodeFields } from "../../components/pin-code-fields.js";
 import { arriveBody, arriveProblems, EMPTY_ARRIVE, type ArriveProblems, type ArriveValues } from "./arrive-form.js";
 
@@ -83,20 +84,6 @@ function Done({ firstName }: { firstName: string }) {
   );
 }
 
-/** A big, round, pressable choice. */
-function Chip({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onToggle}
-      className="min-h-12 rounded-full border border-border bg-surface px-5 text-base font-medium text-text aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-on-primary"
-    >
-      {label}
-    </button>
-  );
-}
-
 function toggled(list: readonly string[], code: string): string[] {
   return list.includes(code) ? list.filter((c) => c !== code) : [...list, code];
 }
@@ -146,8 +133,8 @@ function ArriveForm({
     <form noValidate onSubmit={submit} className="flex flex-col gap-5 rounded-card border border-border bg-surface p-5">
       <div className="flex flex-col gap-2" role="group" aria-label="Who is this for">
         <div className="flex flex-wrap gap-2">
-          <Chip label="Me" on={values.forSelf} onToggle={() => { set({ forSelf: true }); }} />
-          <Chip label="My child / family member" on={!values.forSelf} onToggle={() => { set({ forSelf: false }); }} />
+          <Chip large label="Me" on={values.forSelf} onToggle={() => { set({ forSelf: true }); }} />
+          <Chip large label="My child / family member" on={!values.forSelf} onToggle={() => { set({ forSelf: false }); }} />
         </div>
       </div>
       {values.forSelf ? null : (
@@ -159,7 +146,7 @@ function ArriveForm({
             <p className="text-sm font-medium text-text">You are the patient&apos;s…</p>
             <div className="flex flex-wrap gap-2">
               {page.relations.map((relation) => (
-                <Chip key={relation.code} label={relation.label} on={values.relation === relation.code} onToggle={() => { set({ relation: relation.code }); }} />
+                <Chip large key={relation.code} label={relation.label} on={values.relation === relation.code} onToggle={() => { set({ relation: relation.code }); }} />
               ))}
             </div>
             {problems.relation === undefined ? null : <p role="alert" className="text-sm text-danger-text">{problems.relation}</p>}
@@ -179,7 +166,7 @@ function ArriveForm({
         <p className="text-sm font-medium text-text">What brings you in?</p>
         <div className="flex flex-wrap gap-2">
           {page.reasons.map((reason) => (
-            <Chip key={reason.code} label={reason.label} on={values.reasons.includes(reason.code)} onToggle={() => { set({ reasons: toggled(values.reasons, reason.code) }); }} />
+            <Chip large key={reason.code} label={reason.label} on={values.reasons.includes(reason.code)} onToggle={() => { set({ reasons: toggled(values.reasons, reason.code) }); }} />
           ))}
         </div>
         <TextInput className="h-12 text-base" aria-label="Anything else, in a few words" placeholder="Anything else, in a few words" maxLength={200} value={values.reasonText} onChange={(event) => { set({ reasonText: event.currentTarget.value }); }} />
@@ -200,7 +187,7 @@ function ArriveForm({
                 ["male", "Male"],
                 ["other", "Other"],
               ].map(([code, label]) => (
-                <Chip key={code} label={label ?? ""} on={values.sex === code} onToggle={() => { set({ sex: values.sex === code ? "" : (code ?? "") }); }} />
+                <Chip large key={code} label={label ?? ""} on={values.sex === code} onToggle={() => { set({ sex: values.sex === code ? "" : (code ?? "") }); }} />
               ))}
             </div>
           </div>
@@ -211,19 +198,17 @@ function ArriveForm({
             <TextInput className="h-12 text-base" autoComplete="street-address" placeholder="House, building and street" value={values.line1} onChange={(event) => { set({ line1: event.currentTarget.value }); }} />
           </Field>
           <PinCodeFields large value={values.pin} onChange={(pin) => { set({ pin }); }} lookup={lookup} {...(problems.pincode === undefined ? {} : { pinError: problems.pincode })} />
-          {page.health_flags.length === 0 ? null : (
-            <div className="flex flex-col gap-2" role="group" aria-label="Any of these">
-              <p className="text-sm font-medium text-text">Any of these?</p>
-              <div className="flex flex-wrap gap-2">
-                {page.health_flags.map((flag) => (
-                  <Chip key={flag.code} label={flag.label} on={values.health.includes(flag.code)} onToggle={() => { set({ health: toggled(values.health, flag.code) }); }} />
-                ))}
-              </div>
-            </div>
-          )}
-          <Field label="Allergies" hint="Medicines or anything else, in your words.">
-            <TextInput className="h-12 text-base" value={values.allergies} maxLength={200} onChange={(event) => { set({ allergies: event.currentTarget.value }); }} />
-          </Field>
+          <IntakeSections
+            large
+            value={values.intake}
+            onChange={(intake) => {
+              set({ intake });
+            }}
+            choices={page}
+            female={values.sex === "female"}
+            mobile={values.phone}
+            problems={problems}
+          />
           <Checkbox label="Send me appointment reminders on WhatsApp or SMS" checked={values.reminders} onChange={(event) => { set({ reminders: event.currentTarget.checked }); }} />
         </div>
       </details>

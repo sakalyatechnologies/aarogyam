@@ -1476,6 +1476,16 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
             last_visit_at: null,
           };
           state.patients.push(record);
+          if (input.intake != null) {
+            const phoneOf = (v: string | null | undefined) => (v == null || v === "" ? v : /^\+/.test(v) ? v : `+91${v.replace(/\D/g, "")}`);
+            const given = Object.fromEntries(Object.entries(input.intake).filter(([, v]) => v != null && v !== ""));
+            const saved = S.patientIntake.parse(given);
+            for (const key of ["alt_phone", "emergency_contact_phone", "family_doctor_phone"] as const) {
+              const phone = phoneOf(saved[key]);
+              if (phone != null) saved[key] = phone;
+            }
+            patientIntakes.set(record.id, saved);
+          }
           return reply(wirePatient(record, caller) satisfies C.Patient);
         }),
 

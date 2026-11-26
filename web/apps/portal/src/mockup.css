@@ -834,3 +834,9 @@ body > [data-base-ui-portal] { position: relative; z-index: 150; }
 /* The Aarogyam mark in the rail head: the A in the rail's strong ink, the crossbar in its accent. */
 .mk2-aro { color: var(--rail-ink-strong); }
 .mk2-aro svg { width: 26px; height: 26px; }
+/* The app name beside the rail's A, then the clinic, so the logo and name read as one. */
+.mk2-clinic-name { display: flex; align-items: center; gap: 12px; }
+.mk2-appname { font-size: 19px; font-weight: 800; letter-spacing: -.02em; color: var(--brand-text); }
+.mk2-sep { width: 1px; height: 18px; background: var(--rule); }
+/* Open rail: it already shows the A, the name and the clinic switcher, so the top bar repeats none of them. */
+.mk2:not(.mk2-collapsed) .mk2-clinic-name { display: none; }

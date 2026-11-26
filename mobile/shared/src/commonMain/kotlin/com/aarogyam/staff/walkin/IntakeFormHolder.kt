@@ -2,6 +2,7 @@ package com.aarogyam.staff.walkin
 
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.consentNotices
+import com.aarogyam.staff.api.intakeOptions
 import com.aarogyam.staff.api.model.FamilyOfFields
 import com.aarogyam.staff.api.registerWalkIn
 import com.aarogyam.staff.clinic.ClinicContext
@@ -39,6 +40,27 @@ interface IntakeFormHolder {
 
     /** The phone typed in the lookup, prefilled; digits only (a `+91` or trunk `0` drops out). */
     fun setPhone(typed: String)
+
+    /** Fills the mobile from the desk's own search: no lookup runs, as the desk just did it. */
+    fun prefillPhone(typed: String)
+
+    /** "Add family member on this number": links the new patient to [patientId] (relation `child` until changed). */
+    fun addFamilyOnNumber(patientId: String)
+
+    /** Types into or picks one of the optional case-paper fields. */
+    fun setDetail(
+        field: DetailField,
+        text: String,
+    )
+
+    /** Ticks or unticks a medical-history code (`none` stands alone). */
+    fun toggleHealth(code: String)
+
+    /** Pregnant: yes, no, or unanswered (null). */
+    fun setPregnant(value: Boolean?)
+
+    /** Nursing: yes, no, or unanswered (null). */
+    fun setNursing(value: Boolean?)
 
     /** Types into one part of the address; a full PIN fills district and state. */
     fun setAddress(
@@ -181,7 +203,36 @@ internal class IntakeFormStateHolder(
         scope.launch { loadReference() }
     }
 
-    override fun setPhone(typed: String) = edit { copy(phone = mobileDigits(typed)).clear(IntakeField.Phone) }
+    private val lookups =
+        PhoneLookupRunner(clinic.api, scope, PhoneLookupRunner.DEBOUNCE_MILLIS, log) { found ->
+            edit { copy(lookup = found) }
+        }
+
+    override fun setPhone(typed: String) {
+        edit { copy(phone = mobileDigits(typed)).clear(IntakeField.Phone) }
+        // Only the staff form looks up: a complete mobile, once.
+        val complete = mutable.value.phone.takeIf { isCompleteMobile(it) }
+        lookups.request(complete)
+        if (complete == null) {
+            // A family link picked on the match card goes with the card.
+            edit { copy(lookup = LookupState.Idle, familyOf = if (lookup is LookupState.Matches) null else familyOf) }
+        }
+    }
+
+    override fun prefillPhone(typed: String) = edit { copy(phone = mobileDigits(typed)).clear(IntakeField.Phone) }
+
+    override fun addFamilyOnNumber(patientId: String) = edit { copy(familyOf = FamilyOf(patientId, DEFAULT_RELATION)) }
+
+    override fun setDetail(
+        field: DetailField,
+        text: String,
+    ) = edit { copy(details = details.with(field, text), errors = errors - listOfNotNull(field.problemKey()).toSet()) }
+
+    override fun toggleHealth(code: String) = edit { copy(details = details.toggleHealth(code)) }
+
+    override fun setPregnant(value: Boolean?) = edit { copy(details = details.withPregnant(value)) }
+
+    override fun setNursing(value: Boolean?) = edit { copy(details = details.copy(nursing = value)) }
 
     private val autofill =
         PincodeAutofill(clinic.api, scope, log) { change -> edit { copy(address = change(address)) } }
@@ -306,7 +357,7 @@ internal class IntakeFormStateHolder(
         refreshFlags()
         val form = mutable.value
         if (form.submitting || form.done != null) return
-        val errors = validate(form, today()) + familyErrors(form)
+        val errors = validate(form, today()) + familyErrors(form) + form.details.problems(form.showWomen)
         val memberErrors = if (form.forFamily) memberProblems(form.members, today()) else emptyMap()
         if (errors.isNotEmpty() || memberErrors.isNotEmpty()) {
             return edit { copy(errors = errors, memberErrors = memberErrors, submitError = null) }
@@ -360,7 +411,14 @@ internal class IntakeFormStateHolder(
     override fun reset() {
         clearBytes()
         val old = mutable.value
-        mutable.value = IntakeForm(doctors = old.doctors, allergyPicks = old.allergyPicks, notice = old.notice)
+        lookups.request(null)
+        mutable.value =
+            IntakeForm(
+                doctors = old.doctors,
+                allergyPicks = old.allergyPicks,
+                notice = old.notice,
+                options = old.options,
+            )
         refreshFlags()
     }
 
@@ -389,6 +447,16 @@ internal class IntakeFormStateHolder(
                     dateOfBirth = form.dateOfBirth.takeIf { it.isNotEmpty() },
                     email = form.email.trim().takeIf { it.isNotEmpty() },
                     address = form.address.toApi(),
+                    intake = if (form.showDetails) form.details.toApi(form.showWomen) else null,
+                    health = if (form.showDetails) form.details.healthCodes() else null,
+                    allergiesText =
+                        if (form.showDetails) {
+                            form.details.allergiesText
+                                .trim()
+                                .ifEmpty { null }
+                        } else {
+                            null
+                        },
                 ),
             noticeId = form.notice?.id,
             reason = form.reason.trim().takeIf { checkIn && ServerCaps.walkInReason && it.isNotEmpty() },
@@ -439,7 +507,8 @@ internal class IntakeFormStateHolder(
             (clinic.api.consentNotices() as? Outcome.Success)?.value?.items?.firstOrNull()?.let {
                 IntakeNotice(it.id, it.version, it.label, it.body)
             }
-        edit { copy(doctors = doctors, allergyPicks = picks, notice = notice) }
+        val options = if (canWriteIntake()) (clinic.api.intakeOptions() as? Outcome.Success)?.value else null
+        edit { copy(doctors = doctors, allergyPicks = picks, notice = notice, options = options) }
     }
 
     private fun clearBytes() {
@@ -447,7 +516,12 @@ internal class IntakeFormStateHolder(
         photo = null
     }
 
-    private fun refreshFlags() = edit { copy(showReason = ServerCaps.walkInReason, showFamily = ServerCaps.family) }
+    private fun canWriteIntake() = "intake.write" in clinic.permissions
+
+    private fun refreshFlags() =
+        edit {
+            copy(showReason = ServerCaps.walkInReason, showFamily = ServerCaps.family, showDetails = canWriteIntake())
+        }
 
     private fun edit(change: IntakeForm.() -> IntakeForm) = mutable.update { it.change() }
 
@@ -457,6 +531,7 @@ internal class IntakeFormStateHolder(
         const val DATE_LENGTH = 10
         const val AGE_DIGITS = 3
         const val MAX_REASON = 200
+        const val DEFAULT_RELATION = "child"
     }
 }
 
@@ -494,3 +569,13 @@ private fun birthProblem(
     val age = form.age.toIntOrNull() ?: return IntakeProblem.Required
     return if (age > MAX_AGE) IntakeProblem.Invalid else null
 }
+
+/** The error slot a detail field reports under, when it has one. */
+private fun DetailField.problemKey(): IntakeField? =
+    when (this) {
+        DetailField.AltPhone -> IntakeField.AltPhone
+        DetailField.EmergencyPhone -> IntakeField.EmergencyPhone
+        DetailField.DoctorPhone -> IntakeField.DoctorPhone
+        DetailField.DueDate -> IntakeField.DueDate
+        else -> null
+    }

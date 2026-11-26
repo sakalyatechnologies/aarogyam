@@ -4,8 +4,10 @@ import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.acceptArrival
 import com.aarogyam.staff.api.arrivals
 import com.aarogyam.staff.api.dismissArrival
+import com.aarogyam.staff.api.intakeOptions
 import com.aarogyam.staff.api.model.AcceptBody
 import com.aarogyam.staff.api.model.Arrival
+import com.aarogyam.staff.api.model.IntakeOptions
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.sexOf
 import com.aarogyam.staff.walkin.DoctorOption
@@ -46,11 +48,12 @@ class ArrivalsHolder(
         if (!canRead) return
         scope.launch {
             if (canAccept && (mutable.value as? ArrivalsState.Shown)?.doctors.isNullOrEmpty()) loadDoctors()
+            if (canAccept && options == null) options = (clinic.api.intakeOptions() as? Outcome.Success)?.value
             when (val result = clinic.api.arrivals()) {
                 is Outcome.Success -> {
                     mutable.update { state ->
                         val s = shown(state)
-                        s.copy(rows = result.value.items.map { it.toRow(s.rows) })
+                        s.copy(rows = result.value.items.map { it.toRow(s.rows, options) })
                     }
                 }
 
@@ -60,6 +63,9 @@ class ArrivalsHolder(
             }
         }
     }
+
+    /** The words for the codes in an arrival's case-paper fields; loaded once, and the codes show until then. */
+    private var options: IntakeOptions? = null
 
     private suspend fun loadDoctors() {
         val list =
@@ -204,7 +210,10 @@ class ArrivalsHolder(
 }
 
 /** The row for this arrival; the desk's earlier choice and busy flag survive a refresh while the match is still there. */
-internal fun Arrival.toRow(before: List<ArrivalRow>): ArrivalRow {
+internal fun Arrival.toRow(
+    before: List<ArrivalRow>,
+    options: IntakeOptions? = null,
+): ArrivalRow {
     val found = matches.items.map { PhoneMatchRow(it.id, it.fullName, it.number, it.ageYears, sexOf(it.sex)) }
     val kin = matches.familyGroup.map { ArrivalRelative(it.id, it.fullName, it.number, it.relation) }
     val earlier = before.firstOrNull { it.id == id }
@@ -224,5 +233,6 @@ internal fun Arrival.toRow(before: List<ArrivalRow>): ArrivalRow {
             },
         chosenDoctorId = earlier?.chosenDoctorId,
         busy = earlier?.busy == true,
+        intake = intakeSummary(options),
     )
 }

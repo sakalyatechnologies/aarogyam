@@ -63,7 +63,7 @@ fun IntakeScreen(
     ends: IntakeEnds = IntakeEnds(),
 ) {
     val form by holder.state.collectAsStateWithLifecycle()
-    LaunchedEffect(holder) { if (phone != null && form.phone.isEmpty()) holder.setPhone(phone) }
+    LaunchedEffect(holder) { if (phone != null && form.phone.isEmpty()) holder.prefillPhone(phone) }
     val done = form.done
     // "Book appointment": the patient is saved; the booking sheet opens on them.
     LaunchedEffect(done) { if (done?.next == IntakeNext.Book) ends.onBook?.invoke(done.patientId, form.name) }
@@ -98,8 +98,10 @@ private fun IntakeFields(
         Text(stringResource(R.string.dk_iv_title), style = SkTypography.title, color = SkTheme.colors.text.color)
         form.submitError?.let { DeskNotice(submitText(it)) }
         IntakeDetails(holder, form)
+        IntakeLookupCard(holder, form, ends)
         DeskLabel(stringResource(R.string.address_title))
         AddressSection(form.address, holder::setAddress)
+        IntakeCaseSections(holder, form)
         if (form.showFamily && family.isNotEmpty()) IntakeFamily(holder, family)
         if (form.showFamily) IntakeVisitFor(holder, form)
         AllergySection(holder, form)
@@ -374,7 +376,7 @@ private fun submitText(error: IntakeSubmitError): String =
         is IntakeSubmitError.Server -> stringResource(error.error.message())
     }
 
-private fun problemText(
+internal fun problemText(
     field: IntakeField,
     problem: IntakeProblem,
 ): Int =

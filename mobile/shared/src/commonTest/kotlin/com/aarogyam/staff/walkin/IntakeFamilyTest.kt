@@ -79,7 +79,7 @@ class IntakeFamilyTest {
 
     private fun IntakeFormHolder.fillMain() {
         setName("Ravi Kulkarni")
-        setPhone("9876543210")
+        prefillPhone("9876543210")
         setAge("40")
         toggleNoKnownAllergies()
         setReadAloud(true)
@@ -161,7 +161,7 @@ class IntakeFamilyTest {
             val order =
                 backend.requests
                     .map { it.method.value + " " + it.url.encodedPath }
-                    .filter { "patients" in it || "walk-ins" in it }
+                    .filter { it.startsWith("POST") && ("patients" in it || "walk-ins" in it) }
             assertEquals(
                 listOf(
                     "POST /api/v1/walk-ins",

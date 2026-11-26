@@ -326,3 +326,54 @@ async fn an_arrival_carries_the_intake_to_the_patient() {
     assert_eq!(merged["heard_via"], "doctor");
     app.finish().await;
 }
+
+/// Without `patients.contact` the intake phones come back masked, and sending a masked value
+/// back keeps the stored one.
+#[tokio::test]
+#[ignore = "needs DATABASE_URL"]
+async fn intake_phones_are_masked_without_contact() {
+    let app = TestApp::start().await;
+    let owner = app.token(ALPHA_OWNER);
+    let assistant = app.token(ALPHA_ASSISTANT);
+    let (_, patient) = register_patient(&app, &owner, json!({ "full_name": "Meera Shah" })).await;
+    let path = format!(
+        "/api/v1/patients/{}/intake",
+        patient["id"].as_str().unwrap()
+    );
+    let body = json!({
+        "alt_phone": "9876543210", "emergency_contact_phone": "9123456780",
+        "family_doctor_phone": "9000012345", "occupation": "Teacher"
+    });
+    let (status, _) = call(&app, Method::PUT, ALPHA, &path, Some(&owner), Some(body)).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (_, masked) = call(&app, Method::GET, ALPHA, &path, Some(&assistant), None).await;
+    for field in [
+        "alt_phone",
+        "emergency_contact_phone",
+        "family_doctor_phone",
+    ] {
+        assert!(masked[field].as_str().unwrap().contains('*'), "{masked}");
+    }
+    let (_, full) = call(&app, Method::GET, ALPHA, &path, Some(&owner), None).await;
+    assert_eq!(full["alt_phone"], "+919876543210");
+
+    let mut edit = masked.clone();
+    edit["occupation"] = json!("Pilot");
+    let (status, saved) = call(
+        &app,
+        Method::PUT,
+        ALPHA,
+        &path,
+        Some(&assistant),
+        Some(edit),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{saved}");
+    assert!(saved["alt_phone"].as_str().unwrap().contains('*'));
+    let (_, after) = call(&app, Method::GET, ALPHA, &path, Some(&owner), None).await;
+    assert_eq!(after["alt_phone"], "+919876543210");
+    assert_eq!(after["family_doctor_phone"], "+919000012345");
+    assert_eq!(after["occupation"], "Pilot");
+    app.finish().await;
+}

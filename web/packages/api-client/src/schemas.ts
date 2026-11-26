@@ -3510,7 +3510,6 @@ export const sharedPreview = z.object({
 export type SharedPreview = z.output<typeof sharedPreview>;
 
 /** Body of `POST /api/v1/shared/{token}/open`. */
-export type OpenRequest = C.OpenRequest;
 
 export const verification = z.object({
   status: z.string(),

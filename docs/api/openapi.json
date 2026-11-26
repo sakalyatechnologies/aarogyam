@@ -14514,7 +14514,7 @@
         "tags": [
           "prescriptions"
         ],
-        "summary": "Makes a link for the patient to open the prescription with a PIN. The body is optional: the\nlifetime (24 to 720 hours, seven days by default) and how it is handed over.",
+        "summary": "Makes a link for the patient to open the prescription. The body is optional: the\nlifetime (24 to 720 hours, seven days by default) and how it is handed over.",
         "operationId": "createPrescriptionShare",
         "parameters": [
           {
@@ -18257,7 +18257,7 @@
         "tags": [
           "public"
         ],
-        "summary": "Public, no sign-in: opens the prescription with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
+        "summary": "Public, no sign-in: opens the prescription. No PIN and no body (an older client's body is ignored).\nEvery open is written to the access record.",
         "operationId": "openSharedPrescription",
         "parameters": [
           {
@@ -18270,16 +18270,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OpenRequest"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
@@ -18290,17 +18280,14 @@
               }
             }
           },
-          "403": {
-            "description": "Wrong PIN; the message says how many tries are left"
-          },
           "404": {
             "description": "No such link"
           },
           "410": {
-            "description": "Expired"
+            "description": "Expired or revoked"
           },
           "423": {
-            "description": "Locked after too many wrong PINs"
+            "description": "An old link locked after too many wrong PINs"
           }
         }
       }
@@ -18363,7 +18350,7 @@
         "tags": [
           "public"
         ],
-        "summary": "Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.\nEvery open is written to the access record.",
+        "summary": "Public, no sign-in: opens a link to records. No PIN and no body (an older client's body is ignored).\nEvery open is written to the access record.",
         "operationId": "openSharedRecords",
         "parameters": [
           {
@@ -18376,16 +18363,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OpenRecords"
-              }
-            }
-          },
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
@@ -18396,17 +18373,14 @@
               }
             }
           },
-          "403": {
-            "description": "Wrong PIN; the message says how many tries are left"
-          },
           "404": {
             "description": "No such link, or not a link to records"
           },
           "410": {
-            "description": "Expired"
+            "description": "Expired or revoked"
           },
           "423": {
-            "description": "Locked after too many wrong PINs"
+            "description": "An old link locked after too many wrong PINs"
           }
         }
       }
@@ -37907,32 +37881,6 @@
           }
         }
       },
-      "OpenRecords": {
-        "type": "object",
-        "description": "The PIN.",
-        "required": [
-          "pin"
-        ],
-        "properties": {
-          "pin": {
-            "type": "string",
-            "description": "The six digits the clinic gave."
-          }
-        }
-      },
-      "OpenRequest": {
-        "type": "object",
-        "description": "The PIN.",
-        "required": [
-          "pin"
-        ],
-        "properties": {
-          "pin": {
-            "type": "string",
-            "description": "The six digits printed on the paper."
-          }
-        }
-      },
       "OpeningShift": {
         "type": "object",
         "description": "A stretch of the week the clinic is open.",
@@ -44544,7 +44492,7 @@
       },
       "SharedPreview": {
         "type": "object",
-        "description": "What a link shows before its PIN: no patient data.",
+        "description": "What a link shows before it opens: no patient data.",
         "required": [
           "clinic_name",
           "resource",

@@ -1185,8 +1185,8 @@ export interface ApiClient {
   getSharedPreview(token: string, options?: RequestOptions): Promise<ApiResult<SharedPreview>>;
   /** Clinic host, public: the clinic's letterhead for a share link's page (no patient data). */
   getSharedLetterhead(token: string, options?: RequestOptions): Promise<ApiResult<LetterheadDocument>>;
-  /** Any host, public: opens a shared prescription with its PIN. */
-  openShared(token: string, pin: string, options?: RequestOptions): Promise<ApiResult<Prescription>>;
+  /** Any host, public: opens a shared prescription. No PIN; an old link locked by wrong PINs stays locked (423). */
+  openShared(token: string, options?: RequestOptions): Promise<ApiResult<Prescription>>;
   /** Any host, public: the QR code's check that a prescription is genuine. */
   verifyPrescription(token: string, options?: RequestOptions): Promise<ApiResult<Verification>>;
   /** Clinic host, public: applies an email's unsubscribe link; the patient stops getting email of that kind from the clinic. */

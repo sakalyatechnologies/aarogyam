@@ -1,5 +1,5 @@
 //! Links to a patient's records: a chosen set of kinds (chart, X-rays, bills), a chosen lifetime,
-//! opened by the patient with the PIN on the clinic's host.
+//! opened by the patient with the link alone (no PIN) on the clinic's host.
 #![expect(
     clippy::unwrap_used,
     reason = "tests fail loudly instead of returning errors"
@@ -48,16 +48,13 @@ async fn fetch(app: &TestApp, host: &str, path: &str) -> (StatusCode, Vec<u8>) {
     )
 }
 
-async fn open(app: &TestApp, token: &str, pin: &str) -> (StatusCode, Value) {
+async fn open_on(app: &TestApp, host: &str, token: &str) -> (StatusCode, Value) {
     let path = format!("/api/v1/shared/{token}/records");
-    app.send(
-        Method::POST,
-        ALPHA,
-        &path,
-        None,
-        Some(json!({ "pin": pin })),
-    )
-    .await
+    app.send(Method::POST, host, &path, None, None).await
+}
+
+async fn open(app: &TestApp, token: &str) -> (StatusCode, Value) {
+    open_on(app, ALPHA, token).await
 }
 
 #[tokio::test]
@@ -169,7 +166,7 @@ async fn a_link_shows_only_the_chosen_records_for_the_chosen_time() {
     }
     assert!(ends[0] < ends[1] && ends[1] < ends[2], "{ends:?}");
 
-    // The full link: preview names the kinds; a wrong PIN counts; the right one opens it.
+    // The full link: preview names the kinds; the link opens with no PIN.
     let (status, link) = make(ALPHA, &owner, json!(["bills", "chart", "xrays"]), "24h").await;
     assert_eq!(status, StatusCode::CREATED, "{link}");
     assert_eq!(link["record_types"], json!(["chart", "xrays", "bills"]));
@@ -188,8 +185,8 @@ async fn a_link_shows_only_the_chosen_records_for_the_chosen_time() {
         .await;
     assert_eq!(preview["resource"], "records");
     assert_eq!(preview["record_types"], json!(["chart", "xrays", "bills"]));
-    assert_eq!(open(&app, token, "000000").await.0, StatusCode::FORBIDDEN);
-    let (status, records) = open(&app, token, pin).await;
+    assert_eq!(open_on(&app, BETA, token).await.0, StatusCode::NOT_FOUND);
+    let (status, records) = open(&app, token).await;
     assert_eq!(status, StatusCode::OK, "{records}");
     assert_eq!(records["chart"][0]["finding"], "caries");
     assert_eq!(records["bills"][0]["total_paise"], 100_000);
@@ -204,12 +201,7 @@ async fn a_link_shows_only_the_chosen_records_for_the_chosen_time() {
 
     // A link to bills alone shows no chart or X-rays, and its token opens no X-ray.
     let (_, bills_only) = make(ALPHA, &owner, json!(["bills"]), "1h").await;
-    let (status, shown) = open(
-        &app,
-        bills_only["token"].as_str().unwrap(),
-        bills_only["pin"].as_str().unwrap(),
-    )
-    .await;
+    let (status, shown) = open(&app, bills_only["token"].as_str().unwrap()).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         (&shown["chart"], &shown["xrays"]),
@@ -218,14 +210,15 @@ async fn a_link_shows_only_the_chosen_records_for_the_chosen_time() {
     let other = url.replace(token, bills_only["token"].as_str().unwrap());
     assert_eq!(fetch(&app, ALPHA, &other).await.0, StatusCode::NOT_FOUND);
 
-    // Five wrong PINs lock a link; the staff list shows what happened, never the secrets.
-    for _ in 0..4 {
-        open(&app, bills_only["token"].as_str().unwrap(), "000000").await;
-    }
+    // An old link locked by wrong PINs stays locked; the staff list shows what happened, never
+    // the secrets.
+    sqlx::query("update aarogyam.share_links set locked_at = now() where id = $1::uuid")
+        .bind(bills_only["id"].as_str().unwrap())
+        .execute(&app.owner)
+        .await
+        .unwrap();
     assert_eq!(
-        open(&app, bills_only["token"].as_str().unwrap(), "000000")
-            .await
-            .0,
+        open(&app, bills_only["token"].as_str().unwrap()).await.0,
         StatusCode::LOCKED
     );
     let (status, list) = app

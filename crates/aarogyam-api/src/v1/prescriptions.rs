@@ -880,7 +880,7 @@ pub(super) fn optional_body<T: serde::de::DeserializeOwned + Default>(
         .map_err(|_| ApiError::bad_request("invalid_request", "the request body is not valid"))
 }
 
-/// Makes a link for the patient to open the prescription with a PIN. The body is optional: the
+/// Makes a link for the patient to open the prescription. The body is optional: the
 /// lifetime (24 to 720 hours, seven days by default) and how it is handed over.
 #[utoipa::path(
     post,
@@ -927,7 +927,7 @@ pub(super) const fn state_name(state: LinkState) -> &'static str {
     }
 }
 
-/// What a link shows before its PIN: no patient data.
+/// What a link shows before it opens: no patient data.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SharedPreview {
     /// The clinic's name.
@@ -979,14 +979,7 @@ pub(crate) async fn shared_preview(
     }))
 }
 
-/// The PIN.
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct OpenRequest {
-    /// The six digits printed on the paper.
-    pub pin: String,
-}
-
-/// Public, no sign-in: opens the prescription with the PIN. Five wrong PINs lock the link.
+/// Public, no sign-in: opens the prescription. No PIN and no body (an older client's body is ignored).
 /// Every open is written to the access record.
 #[utoipa::path(
     post,
@@ -994,27 +987,23 @@ pub struct OpenRequest {
     operation_id = "openSharedPrescription",
     tag = "public",
     params(("token" = String, Path, description = "The link's token")),
-    request_body = OpenRequest,
     responses(
         (status = 200, body = Prescription),
-        (status = 403, description = "Wrong PIN; the message says how many tries are left"),
         (status = 404, description = "No such link"),
-        (status = 410, description = "Expired"),
-        (status = 423, description = "Locked after too many wrong PINs")
+        (status = 410, description = "Expired or revoked"),
+        (status = 423, description = "An old link locked after too many wrong PINs")
     )
 )]
 pub(crate) async fn shared_open(
     State(state): State<AppState>,
     public: ClinicHost,
     ApiPath(token): ApiPath<String>,
-    ApiJson(body): ApiJson<OpenRequest>,
 ) -> Result<Response, ApiFailure> {
     let outcome = share::open(
         state.db(),
         public.clinic_id,
         public.request_id,
         &token,
-        &body.pin,
         OffsetDateTime::now_utc(),
     )
     .await?;
@@ -1030,17 +1019,12 @@ pub(crate) async fn shared_open(
             tracing::info!(event = Event::ShareLinkOpened.as_str(), "share link opened");
             Json(Prescription::from(*view)).into_response()
         }
-        OpenOutcome::WrongPin(left) => refuse(
-            StatusCode::FORBIDDEN,
-            "wrong_pin",
-            format!("The PIN is wrong. {left} tries left."),
-        ),
         OpenOutcome::Locked => {
             tracing::info!(event = Event::ShareLinkLocked.as_str(), "share link locked");
             refuse(
                 StatusCode::LOCKED,
                 "locked",
-                "Too many wrong PINs. Ask the clinic for a new link.".into(),
+                "This link is locked. Ask the clinic for a new link.".into(),
             )
         }
         OpenOutcome::Expired => refuse(

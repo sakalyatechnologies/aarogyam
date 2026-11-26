@@ -106,6 +106,7 @@ pub const PORTAL_ROUTES: &[&str] = &[
     "/labs",
     "/stock",
     "/analytics",
+    "/arrive",
     "/messages",
     "/staff",
     "/settings",

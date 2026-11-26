@@ -9833,7 +9833,7 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return clinic === undefined ? notFound : reply(wireLetterheadDocument(clinic, state.practitioners) satisfies C.LetterheadDocument);
         }),
 
-      openShared: (token, pin, opts) =>
+      openShared: (token, opts) =>
         respond(S.prescription, opts?.signal, () => {
           const link = state.shareLinks.find((l) => l.token === token);
           if (link === undefined) {
@@ -9846,16 +9846,6 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           if (link.locked) {
             return refuse(423, "locked", "This link is locked after too many wrong PINs.");
           }
-          if (link.pin !== pin) {
-            link.failed_attempts += 1;
-            const left = Math.max(0, 5 - link.failed_attempts);
-            if (left === 0) {
-              link.locked = true;
-              return refuse(423, "locked", "Too many wrong PINs. Ask the clinic for a new link.");
-            }
-            return refuse(403, "forbidden", `Wrong PIN. ${String(left)} ${left === 1 ? "try" : "tries"} left.`);
-          }
-          link.failed_attempts = 0;
           const rx = state.prescriptions.find((r) => r.id === link.prescription_id);
           if (rx === undefined) {
             return notFound;

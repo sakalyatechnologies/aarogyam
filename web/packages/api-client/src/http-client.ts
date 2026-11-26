@@ -1222,8 +1222,8 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
       call({ method: "GET", path: `/api/v1/shared/${encodeURIComponent(token)}`, schema: sharedPreview, signal: opts?.signal }),
     getSharedLetterhead: (token, opts) =>
       call({ method: "GET", path: `/api/v1/shared/${encodeURIComponent(token)}/letterhead`, schema: letterheadDocument, signal: opts?.signal }),
-    openShared: (token, pin, opts) =>
-      call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/open`, schema: prescription, body: { pin }, signal: opts?.signal }),
+    openShared: (token, opts) =>
+      call({ method: "POST", path: `/api/v1/shared/${encodeURIComponent(token)}/open`, schema: prescription, signal: opts?.signal }),
     verifyPrescription: (token, opts) =>
       call({ method: "GET", path: `/api/v1/verify/prescriptions/${encodeURIComponent(token)}`, schema: verification, signal: opts?.signal }),
     unsubscribe: (token, opts) =>

@@ -1,5 +1,5 @@
 //! Prescriptions on a real database: drafts, the allergy check with a fake allergy source,
-//! cancel and reissue, Quick Rx, patient links with a PIN (sent apart from the link), and the QR
+//! cancel and reissue, Quick Rx, patient links (no PIN), and the QR
 //! verification page.
 #![expect(
     clippy::unwrap_used,
@@ -240,21 +240,14 @@ async fn cancel_reissues_and_quick_rx_repeats_the_last() {
     app.finish().await;
 }
 
-async fn shared(app: &TestApp, token: &str, pin: &str) -> (StatusCode, Value) {
+async fn shared(app: &TestApp, token: &str) -> (StatusCode, Value) {
     let path = format!("/api/v1/shared/{token}/open");
-    app.send(
-        Method::POST,
-        ALPHA,
-        &path,
-        None,
-        Some(json!({ "pin": pin })),
-    )
-    .await
+    app.send(Method::POST, ALPHA, &path, None, None).await
 }
 
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
-async fn patient_links_open_with_the_pin_and_lock_after_five_wrong_tries() {
+async fn patient_links_open_without_a_pin_and_old_locked_links_stay_locked() {
     let app = start().await;
     let owner = app.token(ALPHA_OWNER);
     let patient = patient(&app, ALPHA, &owner).await;
@@ -275,7 +268,7 @@ async fn patient_links_open_with_the_pin_and_lock_after_five_wrong_tries() {
     let pin = link["pin"].as_str().unwrap();
     assert_eq!((token.len(), pin.len()), (43, 6));
 
-    // Before the PIN: only that it exists and which clinic sent it.
+    // Before it opens: only that it exists and which clinic sent it.
     let (status, preview) = app
         .send(
             Method::GET,
@@ -291,22 +284,7 @@ async fn patient_links_open_with_the_pin_and_lock_after_five_wrong_tries() {
         json!({ "clinic_name": "Alpha Dental", "resource": "prescription",
                                 "state": "usable", "expires_at": preview["expires_at"] })
     );
-    let (status, _) = app
-        .send(
-            Method::GET,
-            BETA,
-            &format!("/api/v1/shared/{token}"),
-            None,
-            None,
-        )
-        .await;
-    assert_eq!(
-        status,
-        StatusCode::NOT_FOUND,
-        "another clinic's host knows nothing"
-    );
-
-    let (status, opened) = shared(&app, token, pin).await;
+    let (status, opened) = shared(&app, token).await;
     assert_eq!(status, StatusCode::OK, "{opened}");
     assert_eq!(opened["number"], issued["number"]);
     let (actor, purpose, link_id): (String, String, uuid::Uuid) = sqlx::query_as(
@@ -322,21 +300,35 @@ async fn patient_links_open_with_the_pin_and_lock_after_five_wrong_tries() {
     );
     assert_eq!(link_id.to_string(), link["id"].as_str().unwrap());
 
-    let wrong = if pin == "000000" { "111111" } else { "000000" };
-    for left in (1..5).rev() {
-        let (status, body) = shared(&app, token, wrong).await;
-        assert_eq!(status, StatusCode::FORBIDDEN);
-        assert!(
-            body["error"]["message"]
-                .as_str()
-                .unwrap()
-                .contains(&format!("{left} tries"))
-        );
-    }
-    let (status, _) = shared(&app, token, "12ab").await;
-    assert_eq!(status, StatusCode::LOCKED, "the fifth wrong PIN locks it");
-    let (status, _) = shared(&app, token, pin).await;
-    assert_eq!(status, StatusCode::LOCKED, "even the right PIN once locked");
+    // Another clinic's host: 404.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            BETA,
+            &format!("/api/v1/shared/{token}/open"),
+            None,
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    // An old PIN in the body is ignored.
+    let (status, _) = app
+        .send(
+            Method::POST,
+            ALPHA,
+            &format!("/api/v1/shared/{token}/open"),
+            None,
+            Some(json!({ "pin": "000000" })),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    // An old link locked by wrong PINs stays locked.
+    sqlx::query("update aarogyam.share_links set locked_at = now()")
+        .execute(&app.owner)
+        .await
+        .unwrap();
+    let (status, _) = shared(&app, token).await;
+    assert_eq!(status, StatusCode::LOCKED);
     let (_, preview) = app
         .send(
             Method::GET,
@@ -347,7 +339,7 @@ async fn patient_links_open_with_the_pin_and_lock_after_five_wrong_tries() {
         )
         .await;
     assert_eq!(preview["state"], "locked");
-    let (status, _) = shared(&app, "not-a-token", pin).await;
+    let (status, _) = shared(&app, "not-a-token").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     // Expired links refuse.
@@ -355,7 +347,7 @@ async fn patient_links_open_with_the_pin_and_lock_after_five_wrong_tries() {
         .execute(&app.owner)
         .await
         .unwrap();
-    let (status, _) = shared(&app, token, pin).await;
+    let (status, _) = shared(&app, token).await;
     assert_eq!(status, StatusCode::GONE);
     app.finish().await;
 }
@@ -760,7 +752,7 @@ async fn issuing_emails_the_patient_a_link_without_the_pin_or_medicines() {
     let message = &issued["patient_message"];
     assert_eq!(message["status"], "sent");
     let pin = message["pin"].as_str().unwrap().to_owned();
-    assert_eq!(pin.len(), 6);
+    assert_eq!(pin.len(), 6, "the PIN field stays for older clients");
 
     let rows = queued(&app).await;
     assert_eq!(rows.len(), 1);
@@ -773,8 +765,8 @@ async fn issuing_emails_the_patient_a_link_without_the_pin_or_medicines() {
     assert_eq!(payload["portal_host"], ALPHA);
     let token = token.clone().unwrap();
 
-    // The queued link opens the prescription with the PIN.
-    let (status, opened) = shared(&app, &token, &pin).await;
+    // The queued link opens the prescription with no PIN.
+    let (status, opened) = shared(&app, &token).await;
     assert_eq!(status, StatusCode::OK, "{opened}");
 
     // The queued message is delivered.
@@ -809,14 +801,12 @@ async fn issuing_emails_the_patient_a_link_without_the_pin_or_medicines() {
     app.finish().await;
 }
 
-/// A link message and its PIN message: kind, channel, variables, secret, and how many seconds
-/// after the message was queued it is due.
-type Queued = (String, String, Value, Option<String>, f64);
+/// A link message: kind, channel, variables, secret.
+type Queued = (String, String, Value, Option<String>);
 
-async fn link_and_pin_messages(app: &TestApp) -> Vec<Queued> {
+async fn link_messages(app: &TestApp) -> Vec<Queued> {
     sqlx::query_as(
-        "select m.kind, m.channel, m.variables, m.secret,
-                extract(epoch from m.scheduled_for - m.created_at)::float8
+        "select m.kind, m.channel, m.variables, m.secret
          from aarogyam.messages m
          where m.kind in ('prescription.shared', 'prescription.shared_pin')
          order by m.created_at, m.kind",
@@ -826,44 +816,9 @@ async fn link_and_pin_messages(app: &TestApp) -> Vec<Queued> {
     .unwrap()
 }
 
-/// Checks a link message and the PIN message after it: same channel, the PIN about 30 seconds
-/// later, nothing about the patient or the medicines. Returns the link's token and its PIN.
-fn link_then_pin(link: &Queued, pin: &Queued, channel: &str) -> (String, String) {
-    assert_eq!(
-        (link.0.as_str(), link.1.as_str()),
-        ("prescription.shared", channel)
-    );
-    assert_eq!(
-        (pin.0.as_str(), pin.1.as_str()),
-        ("prescription.shared_pin", channel)
-    );
-    assert!(link.4.abs() < 1.0, "the link is due now: {}", link.4);
-    assert!(
-        (25.0..=35.0).contains(&pin.4),
-        "the PIN is due ~30 s later: {}",
-        pin.4
-    );
-    // The PIN's message names only the day the link expires (the clinic is read when sent).
-    assert_eq!(pin.2, json!({ "expires_on": link.2["expires_on"] }));
-    let token = link.3.clone().unwrap();
-    let secret = pin.3.clone().unwrap();
-    assert_eq!(secret.len(), 6);
-    let stored = format!("{}{}", link.2, pin.2);
-    for leak in [
-        secret.as_str(),
-        token.as_str(),
-        "Ibuprofen",
-        "Rahul",
-        "Verma",
-    ] {
-        assert!(!stored.contains(leak), "a payload leaks {leak}");
-    }
-    (token, secret)
-}
-
 #[tokio::test]
 #[ignore = "needs DATABASE_URL"]
-async fn the_pin_follows_the_link_on_its_channel_and_opens_only_that_link() {
+async fn sharing_queues_only_the_link_on_its_channel_and_each_link_opens_without_a_pin() {
     let app = start().await;
     let owner = app.token(ALPHA_OWNER);
     let patient = patient_with(
@@ -880,13 +835,16 @@ async fn the_pin_follows_the_link_on_its_channel_and_opens_only_that_link() {
         .unwrap()
         .to_owned();
 
-    // Issuing emails the link, then the PIN 30 seconds later.
-    let rows = link_and_pin_messages(&app).await;
-    assert_eq!(rows.len(), 2, "{rows:?}");
-    let (first_token, first_pin) = link_then_pin(&rows[0], &rows[1], "email");
-    assert_eq!(first_pin, shown, "the PIN sent is the PIN shown to staff");
+    // Issuing emails the link and nothing else: no PIN message is queued.
+    let rows = link_messages(&app).await;
+    assert_eq!(rows.len(), 1, "{rows:?}");
+    assert_eq!(
+        (rows[0].0.as_str(), rows[0].1.as_str()),
+        ("prescription.shared", "email")
+    );
+    let first_token = rows[0].3.clone().unwrap();
 
-    // Sharing again on WhatsApp sends a new link and its own PIN, on WhatsApp.
+    // Sharing again on WhatsApp sends a new link, on WhatsApp, and again no PIN message.
     let share = format!("/api/v1/prescriptions/{id}/share");
     let (status, again) = app
         .send(
@@ -898,40 +856,24 @@ async fn the_pin_follows_the_link_on_its_channel_and_opens_only_that_link() {
         )
         .await;
     assert_eq!(status, StatusCode::CREATED, "{again}");
-    let rows = link_and_pin_messages(&app).await;
-    assert_eq!(rows.len(), 4, "{rows:?}");
-    let (second_token, second_pin) = link_then_pin(&rows[2], &rows[3], "whatsapp");
-    assert_eq!(second_pin, again["pin"].as_str().unwrap());
+    let rows = link_messages(&app).await;
+    assert_eq!(rows.len(), 2, "{rows:?}");
+    assert!(rows.iter().all(|row| row.0 != "prescription.shared_pin"));
+    assert_eq!(
+        (rows[1].0.as_str(), rows[1].1.as_str()),
+        ("prescription.shared", "whatsapp")
+    );
+    let second_token = rows[1].3.clone().unwrap();
     assert_ne!(first_token, second_token);
-
-    // A PIN from the second share doesn't open the first link; each link's own PIN does.
-    if second_pin != first_pin {
-        let (status, _) = shared(&app, &first_token, &second_pin).await;
-        assert_eq!(status, StatusCode::FORBIDDEN);
+    let stored = format!("{}{}", rows[0].2, rows[1].2);
+    for leak in [shown.as_str(), "Ibuprofen", "Rahul", "Verma"] {
+        assert!(!stored.contains(leak), "a payload leaks {leak}");
     }
-    let (status, opened) = shared(&app, &first_token, &first_pin).await;
-    assert_eq!(status, StatusCode::OK, "{opened}");
-    let (status, opened) = shared(&app, &second_token, &second_pin).await;
-    assert_eq!(status, StatusCode::OK, "{opened}");
 
-    // Only the link is due now: the PIN waits its 30 seconds.
-    let (_, report) = app
-        .send(
-            Method::POST,
-            "localhost",
-            "/api/v1/internal/outbox/drain",
-            None,
-            None,
-        )
-        .await;
-    let (sent_pins,): (i64,) = sqlx::query_as(
-        "select count(*) from aarogyam.messages
-         where kind = 'prescription.shared_pin' and status <> 'queued'",
-    )
-    .fetch_one(&app.owner)
-    .await
-    .unwrap();
-    assert_eq!(sent_pins, 0, "{report}");
+    for token in [&first_token, &second_token] {
+        let (status, opened) = shared(&app, token).await;
+        assert_eq!(status, StatusCode::OK, "{opened}");
+    }
     app.finish().await;
 }
 

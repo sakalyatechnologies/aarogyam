@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Printer, ShieldAlert } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router";
 
 import type { Prescription } from "@aarogyam/api-client";
 import { useDocumentTitle } from "@aarogyam/app-kit";
-import { Button, EmptyState, Field, Skeleton, TextInput } from "@sakalya/ui";
+import { Button, EmptyState, Skeleton } from "@sakalya/ui";
 
 import { useServices } from "../../clinic.js";
 import { LetterheadSheet } from "../../components/letterhead/letterhead.js";
@@ -47,9 +47,10 @@ const formatDay = (value: string) =>
 
 /**
  * The public, patient-facing page for a shared prescription (`/shared/:token`): a full page of its
- * own, not a dialog over the portal. No sign-in, a PIN instead; the link works for seven days and
- * locks after five wrong PINs. The clinic's letterhead sits on top before and after the PIN, the
- * sheet is A4-like on a desktop and reflows on a phone, and Print / Save as PDF uses the browser.
+ * own, not a dialog over the portal. No sign-in and no PIN: the long random link is the secret, it
+ * works for seven days, and the prescription comes only from a POST after the preview. The
+ * clinic's letterhead sits on top, the sheet is A4-like on a desktop and reflows on a phone, and
+ * Print / Save as PDF uses the browser.
  */
 const stayHere = () => undefined;
 
@@ -67,10 +68,35 @@ export function SharedPage() {
     queryFn: () => services.neutral.getSharedLetterhead(token),
   });
   const [locked, setLocked] = useState(false);
-  const [pin, setPin] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string>();
   const [prescription, setPrescription] = useState<Prescription>();
+  const [failed, setFailed] = useState(false);
+  const usable =
+    preview.data?.ok === true &&
+    preview.data.value.state === "usable" &&
+    preview.data.value.resource !== "visit";
+
+  // The preview holds no data; the prescription itself comes only from this POST, once per link.
+  useEffect(() => {
+    if (!usable) {
+      return;
+    }
+    let live = true;
+    void services.neutral.openShared(token).then((opened) => {
+      if (!live) {
+        return;
+      }
+      if (opened.ok) {
+        setPrescription(opened.value);
+      } else if (opened.error.status === 423) {
+        setLocked(true);
+      } else {
+        setFailed(true);
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [usable, token, services]);
 
   if (preview.data === undefined || letterhead.data === undefined) {
     return (
@@ -94,7 +120,13 @@ export function SharedPage() {
   const document = letterhead.data.ok
     ? letterhead.data.value
     : plainLetterhead(clinicName ?? "Aarogyam");
-  const state = locked ? "locked" : result.ok ? result.value.state : "missing";
+  const state = locked
+    ? "locked"
+    : failed
+      ? "missing"
+      : result.ok
+        ? result.value.state
+        : "missing";
 
   const Toolbar =
     prescription === undefined ? null : (
@@ -117,28 +149,7 @@ export function SharedPage() {
       <div className="shp-page">
         <LetterheadSheet document={document}>
           {prescription === undefined ? (
-            <PinGate
-              state={state}
-              pin={pin}
-              setPin={setPin}
-              busy={busy}
-              error={error}
-              onOpen={() => {
-                setBusy(true);
-                setError(undefined);
-                void services.neutral.openShared(token, pin).then((opened) => {
-                  setBusy(false);
-                  if (opened.ok) {
-                    setPrescription(opened.value);
-                  } else if (opened.error.status === 423) {
-                    setLocked(true);
-                  } else {
-                    setError(opened.error.message);
-                    setPin("");
-                  }
-                });
-              }}
-            />
+            <Unavailable state={state} />
           ) : (
             <PrescriptionBody prescription={prescription} />
           )}
@@ -148,73 +159,26 @@ export function SharedPage() {
   );
 }
 
-function PinGate({
-  state,
-  pin,
-  setPin,
-  busy,
-  error,
-  onOpen,
-}: {
-  state: string;
-  pin: string;
-  setPin: (pin: string) => void;
-  busy: boolean;
-  error: string | undefined;
-  onOpen: () => void;
-}) {
-  if (state !== "usable") {
+function Unavailable({ state }: { state: string }) {
+  if (state === "usable") {
     return (
-      <EmptyState
-        icon={<ShieldAlert className="size-7" />}
-        title={
-          state === "locked"
-            ? "This link is locked"
-            : "This link isn't available"
-        }
-        description={
-          state === "locked"
-            ? "Too many wrong PINs were entered. Ask the clinic for a new link."
-            : "It may have expired, or doesn't exist. Ask the clinic for a new link."
-        }
-      />
+      <p className="shp-muted" role="status">
+        Opening your prescription…
+      </p>
     );
   }
   return (
-    <form
-      className="shp-pin"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (pin.length === 6 && !busy) {
-          onOpen();
-        }
-      }}
-    >
-      <h1 className="shp-title">Your prescription</h1>
-      <p className="shp-muted">
-        Enter the 6-digit PIN from your message. It is also printed on your copy.
-      </p>
-      <Field label="PIN" error={error} required>
-        <TextInput
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          autoFocus
-          className="font-mono text-lg tracking-widest"
-          value={pin}
-          onChange={(event) => {
-            setPin(event.currentTarget.value.replace(/\D/g, "").slice(0, 6));
-          }}
-        />
-      </Field>
-      <Button
-        type="submit"
-        className="mt-4 w-full"
-        disabled={busy || pin.length !== 6}
-      >
-        {busy ? "Checking…" : "View prescription"}
-      </Button>
-    </form>
+    <EmptyState
+      icon={<ShieldAlert className="size-7" />}
+      title={
+        state === "locked" ? "This link is locked" : "This link isn't available"
+      }
+      description={
+        state === "locked"
+          ? "Please ask the clinic to send a new link."
+          : "It may have expired, or doesn't exist. Ask the clinic for a new link."
+      }
+    />
   );
 }
 

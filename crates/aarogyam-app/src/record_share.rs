@@ -1,6 +1,6 @@
 //! Links to a patient's records: a member picks what the patient may see (the current chart,
 //! X-rays, issued bills) and how long the link works. The patient opens it on the clinic's host
-//! with the PIN, as for prescriptions; the PIN is limited the same way. Creating a link, opening
+//! with the link alone, as for prescriptions (no PIN). Creating a link, opening
 //! it and downloading an X-ray through it are all written to the access record.
 
 use aarogyam_dal::billing::{self as billing_dal, InvoiceFilter};
@@ -9,9 +9,7 @@ use aarogyam_dal::{access, chart, prescriptions as links};
 use aarogyam_domain::access::ClinicActor;
 use aarogyam_domain::ids::{AttachmentId, ClinicId, PatientId, ShareLinkId};
 use aarogyam_domain::permission::Permission;
-use aarogyam_domain::share::{
-    Expiry, LinkState, MAX_PIN_ATTEMPTS, Pin, RecordType, ShareError, check_record_types,
-};
+use aarogyam_domain::share::{Expiry, LinkState, RecordType, ShareError, check_record_types};
 use sakalya_db::{Db, ScopedTx};
 use serde_json::Value;
 use time::{Duration, OffsetDateTime};
@@ -216,11 +214,9 @@ pub struct Records {
 /// What opening a link to records did.
 #[derive(Debug, Clone)]
 pub enum OpenOutcome {
-    /// The PIN was right.
+    /// The link is live: the records.
     Opened(Box<Records>),
-    /// The PIN was wrong; this many tries are left.
-    WrongPin(i32),
-    /// Too many wrong PINs.
+    /// An old link locked by too many wrong PINs.
     Locked,
     /// Past its expiry, or revoked.
     Expired,
@@ -325,8 +321,7 @@ fn kinds_of(link: &links::ShareLinkRow) -> Vec<RecordType> {
         .collect()
 }
 
-/// Opens a link to records with the PIN. A wrong PIN counts and the fifth locks the link; a
-/// right one returns the records and writes the access record.
+/// Opens a link to records: returns the records and writes the access record. No PIN.
 ///
 /// # Errors
 /// [`AppError::NotFound`] for an unknown token or a link that is not to records.
@@ -336,7 +331,6 @@ pub async fn open(
     clinic_id: ClinicId,
     request_id: Option<Uuid>,
     token: &str,
-    pin: &str,
     now: OffsetDateTime,
 ) -> Result<OpenOutcome, AppError> {
     db.scoped(&public_scope(clinic_id, request_id), async |tx| {
@@ -353,18 +347,6 @@ pub async fn open(
             LinkState::Locked => return Ok(OpenOutcome::Locked),
             LinkState::Expired => return Ok(OpenOutcome::Expired),
             LinkState::Usable => {}
-        }
-        let right =
-            Pin::parse(pin).is_some_and(|pin| pin_hash(token, pin.as_str()) == link.pin_hash);
-        if !right {
-            let attempts = link.failed_attempts + 1;
-            let locked = attempts >= MAX_PIN_ATTEMPTS;
-            links::share_link_failed(tx.conn(), link.id, attempts, locked.then_some(now)).await?;
-            return Ok(if locked {
-                OpenOutcome::Locked
-            } else {
-                OpenOutcome::WrongPin(MAX_PIN_ATTEMPTS - attempts)
-            });
         }
         links::share_link_opened(tx.conn(), link.id, now).await?;
         let kinds = kinds_of(&link);

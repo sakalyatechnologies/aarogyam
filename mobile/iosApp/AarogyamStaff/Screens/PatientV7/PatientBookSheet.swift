@@ -15,6 +15,19 @@ enum BookingDays {
         }
     }
 
+    /// The device-calendar date at noon for an ISO day, for the date picker.
+    static func pickerDate(_ iso: String) -> Date? {
+        let p = iso.split(separator: "-").compactMap { Int($0) }
+        guard p.count == 3 else { return nil }
+        return Calendar.current.date(from: DateComponents(year: p[0], month: p[1], day: p[2], hour: 12))
+    }
+
+    /// The ISO day (`YYYY-MM-DD`) a picked date falls on, in the device calendar.
+    static func iso(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
+    }
+
     /// The shared date for an ISO day.
     static func date(_ iso: String) -> Kotlinx_datetimeLocalDate {
         let p = iso.split(separator: "-").compactMap { Int32($0) }
@@ -42,6 +55,8 @@ private struct BookBody: View {
     let state: BookingState
     let name: String
     let today: String
+    @State private var calendarOpen = false
+    @State private var picked = Date()
     @Environment(\.skTheme) private var theme
     @Environment(\.dismiss) private var dismiss
 
@@ -58,9 +73,22 @@ private struct BookBody: View {
                     if state.doctors.count > 1 {
                         SkChoiceChips(state.doctors, selected: Set(state.doctors.filter { $0.id == state.doctorId }), label: { $0.label }) { holder.chooseDoctor(id: $0.id) }
                     }
-                    V7ChipRow {
-                        ForEach(BookingDays.next(7, from: today), id: \.self) { day in
-                            SkChoiceChip(ClinicFormat.day(iso: day), selected: day == state.date.isoText) { holder.chooseDate(date: BookingDays.date(day)) }
+                    HStack(spacing: 8) {
+                        Button {
+                            picked = BookingDays.pickerDate(state.date.isoText) ?? Date()
+                            calendarOpen = true
+                        } label: {
+                            Image(systemName: "calendar").font(.body.weight(.semibold)).foregroundStyle(r.primary.color)
+                                .frame(width: SkSpacing.minTouchTarget, height: SkSpacing.minTouchTarget)
+                                .background(r.primaryContainer.color, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(pv("pv.book.calendar"))
+                        .accessibilityIdentifier("book.calendar")
+                        V7ChipRow {
+                            ForEach(BookingDays.next(7, from: today), id: \.self) { day in
+                                SkChoiceChip(ClinicFormat.day(iso: day), selected: day == state.date.isoText) { holder.chooseDate(date: BookingDays.date(day)) }
+                            }
                         }
                     }
                     V7Label(text: pvf("pv.book.free", ClinicFormat.day(iso: state.date.isoText)))
@@ -82,6 +110,26 @@ private struct BookBody: View {
             .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 30)
         }
         .skSheet()
+        .sheet(isPresented: $calendarOpen) { calendarSheet }
+    }
+
+    /// A month calendar from today on; choosing a day sets the booking day and closes the sheet.
+    private var calendarSheet: some View {
+        NavigationStack {
+            DatePicker(pv("pv.book.calendar"), selection: $picked, in: (BookingDays.pickerDate(today) ?? Date())..., displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .padding(.horizontal, 12)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button(pv("pv.book.calendar.done")) {
+                            holder.chooseDate(date: BookingDays.date(BookingDays.iso(picked)))
+                            calendarOpen = false
+                        }
+                    }
+                }
+                .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
     }
 
     @ViewBuilder private var slots: some View {

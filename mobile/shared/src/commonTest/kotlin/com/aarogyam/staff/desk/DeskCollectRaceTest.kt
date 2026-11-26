@@ -251,11 +251,29 @@ class DeskCollectRaceTest {
             assertFalse(ServerCaps.notificationAudience)
         }
 
+    /**
+     * The bug behind "Collect payment is dead from the search results": the sheet is opened for the patient (no bill
+     * named), a patient with nothing due made `cardOpen` false, and the sheets close themselves on that, so the sheet
+     * flashed shut. It must stay open and show "nothing to collect".
+     */
+    @Test
+    fun collecting_for_a_patient_with_nothing_due_keeps_the_sheet_open() =
+        runTest {
+            val backend = FakeBackend()
+            val h = holder(backend)
+            until { h.state.value is DeskPayState.Ready }
+            backend.on(list, { json(items(invoiceJson("i1", "v1", 5000, 5000))) })
+            h.refresh()
+            h.state.first { it is DeskPayState.Ready && it.dues.isEmpty() }
+            assertTrue(h.cardOpen.value, "the sheet must stay open to say there is nothing to collect")
+        }
+
     @Test
     fun a_zero_balance_closes_the_card() =
         runTest {
             val backend = FakeBackend()
-            val h = holder(backend)
+            // A card is opened for one bill, read through the list when the role cannot collect-summary.
+            val h = holder(backend, permissions = listOf("billing.read", "billing.write"), invoiceId = "i1")
             until { h.state.value is DeskPayState.Ready }
             backend.on(list, { json(items(invoiceJson("i1", "v1", 5000, 5000))) })
             h.refresh()

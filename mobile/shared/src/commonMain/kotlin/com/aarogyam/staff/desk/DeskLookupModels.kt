@@ -37,6 +37,8 @@ data class DeskProfile(
     val name: String = "",
     /** The matched patient this relative is linked to; null for a person on the number. */
     val familyOf: String? = null,
+    /** The mobile number on the record (masked without `patients.contact`); null when the record has none. */
+    val phone: String? = null,
 )
 
 /** What the Desk lookup draws. */

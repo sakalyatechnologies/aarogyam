@@ -29,6 +29,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -239,6 +240,8 @@ fun DeskProfileRow(
     val p = SkTheme.palette
     val name = profile.name.ifEmpty { profile.initials }
     val compact = checkInTitle == null && !profile.checkedInToday
+    // The search results (they open the profile on a tap): Book and Collect are icons beside Check in.
+    val lookup = onOpen != null
     Column(
         Modifier
             .fillMaxWidth()
@@ -263,11 +266,10 @@ fun DeskProfileRow(
                     ),
             ) {
                 Text(name, style = SkTypography.bodyStrong, color = p.onSurface.color)
-                Text(
-                    patientLine(profile.number, profile.ageYears, profile.sex),
-                    style = SkTypography.footnote,
-                    color = p.onSurfaceVariant.color,
-                )
+                // The lookup shows the mobile number under the name; the Today card keeps the file number and age.
+                val line =
+                    if (lookup) profile.phone.orEmpty() else patientLine(profile.number, profile.ageYears, profile.sex)
+                if (line.isNotEmpty()) Text(line, style = SkTypography.footnote, color = p.onSurfaceVariant.color)
                 val relation = profile.relation
                 if (relation != null && ofName != null) {
                     Text(
@@ -281,6 +283,10 @@ fun DeskProfileRow(
                     DeskMutedText(stringResource(R.string.dk_d9_lookup_last_visit, day))
                 }
             }
+            if (lookup) {
+                onBook?.let { LookupIconAction("cal", stringResource(R.string.dk_d9_lookup_book), it) }
+                if (canCollect) LookupIconAction("wallet", stringResource(R.string.dk_d9_lookup_collect), onCollect)
+            }
             if (profile.checkedInToday) {
                 SkChip(stringResource(R.string.dk_d9_lookup_checked_in), tone = SkTone.Success)
             } else if (compact) {
@@ -292,16 +298,38 @@ fun DeskProfileRow(
         if (checkInTitle != null && !profile.checkedInToday) {
             SkPillButton(checkInTitle, onCheckIn, wide = true)
         }
-        if (state != null || canCollect || family || onOpen != null || onBook != null) {
+        if (state != null || (!lookup && (canCollect || family))) {
             DeskWrap {
                 state?.let { SkChip(it.title(), tone = SkTone.Info) }
                 val tonal = SkPillVariant.Tonal
-                onOpen?.let { SkPillButton(stringResource(R.string.dk_d9_lookup_open), it, variant = tonal) }
-                onBook?.let { SkPillButton(stringResource(R.string.dk_d9_lookup_book), it, variant = tonal) }
-                if (canCollect) SkPillButton(stringResource(R.string.dk_d9_lookup_collect), onCollect, variant = tonal)
-                if (family) SkPillButton(stringResource(R.string.dk_d9_family_section), onFamily, variant = tonal)
+                if (canCollect && !lookup) {
+                    SkPillButton(stringResource(R.string.dk_d9_lookup_collect), onCollect, variant = tonal)
+                }
+                if (family &&
+                    !lookup
+                ) {
+                    SkPillButton(stringResource(R.string.dk_d9_family_section), onFamily, variant = tonal)
+                }
             }
         }
+    }
+}
+
+/** A compact icon action on a search result: [label] is what a screen reader says. */
+@Composable
+private fun LookupIconAction(
+    icon: String,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        Modifier
+            .size(ICON_ACTION.dp)
+            .clickable(role = Role.Button, onClickLabel = label, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        SkIcon(Icons.of(icon), SkTheme.colors.primaryText.color, size = ICON_GLYPH.dp)
     }
 }
 
@@ -329,3 +357,5 @@ private const val FIELD_MIN = 64
 private const val FIELD_RADIUS = 20
 private const val HINT = 0.6f
 private const val AVATAR = 44
+private const val ICON_ACTION = 44
+private const val ICON_GLYPH = 22

@@ -18,7 +18,6 @@ struct DeskLookupScreen: View {
     /// Books an appointment for this patient instead of checking in now.
     var onBook: (DeskPayTarget) -> Void = { _ in }
     @State private var typed = DeskLaunch.firstPhone
-    @State private var relatives: DeskPayTarget?
     @State private var net = V9Connectivity()
     @FocusState private var focused: Bool
     @Environment(\.dismiss) private var dismiss
@@ -48,7 +47,6 @@ struct DeskLookupScreen: View {
             if !typed.isEmpty { change(typed) }
             focused = true
         }
-        .sheet(item: $relatives) { DeskFamilySheet(graph: graph, clinic: clinic, target: $0) }
     }
 
     private func change(_ text: String) {
@@ -96,11 +94,9 @@ struct DeskLookupScreen: View {
                 ForEach(found.profiles, id: \.id) { profile in
                     DeskMatchRow(
                         profile: profile, ofName: found.profiles.first { $0.id == profile.familyOf }?.name,
-                        canCollect: canCollect, canFamily: clinic.permissions.contains("patients.read") && ServerCaps.shared.family,
-                        canBook: canBook,
+                        canCollect: canCollect, canBook: canBook,
                         onCheckIn: { holder.checkIn(patientId: profile.id) },
                         onCollect: { onCollect(DeskPayTarget(patientId: profile.id, name: profile.name)) },
-                        onFamily: { relatives = DeskPayTarget(patientId: profile.id, name: profile.name) },
                         onOpen: { onOpen(profile.id) },
                         onBook: { onBook(DeskPayTarget(patientId: profile.id, name: profile.name)) }
                     )

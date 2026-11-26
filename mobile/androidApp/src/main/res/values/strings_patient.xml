@@ -150,6 +150,7 @@
     <string name="pv_book_no_slots">No free slots this day.</string>
     <string name="pv_book_not_allowed">Your role cannot book appointments.</string>
     <string name="pv_book_pick">Pick a slot</string>
+    <string name="pv_book_calendar">Pick a date from the calendar</string>
     <string name="pv_book_pick_doctor">Pick a doctor to see free slots.</string>
     <string name="pv_book_reminder">A WhatsApp reminder goes out the evening before.</string>
     <string name="pv_book_title">Book appointment</string>

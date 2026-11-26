@@ -150,6 +150,7 @@
     <string name="pv_book_no_slots">इस दिन कोई खाली स्लॉट नहीं।</string>
     <string name="pv_book_not_allowed">आपकी भूमिका अपॉइंटमेंट बुक नहीं कर सकती।</string>
     <string name="pv_book_pick">स्लॉट चुनें</string>
+    <string name="pv_book_calendar">कैलेंडर से तारीख चुनें</string>
     <string name="pv_book_pick_doctor">खाली स्लॉट देखने के लिए डॉक्टर चुनें।</string>
     <string name="pv_book_reminder">एक दिन पहले शाम को व्हाट्सऐप रिमाइंडर जाता है।</string>
     <string name="pv_book_title">अपॉइंटमेंट बुक करें</string>

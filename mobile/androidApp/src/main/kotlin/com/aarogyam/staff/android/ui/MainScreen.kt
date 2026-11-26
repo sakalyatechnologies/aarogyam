@@ -2,15 +2,23 @@ package com.aarogyam.staff.android.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,11 +28,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -48,6 +62,7 @@ import com.sakalya.mobile.designcompose.SkNavDestination
 import com.sakalya.mobile.designcompose.SkNavRail
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTransitions
+import com.sakalya.mobile.designcompose.SkTypography
 import com.sakalya.mobile.designcompose.color
 
 /** Windows at least this wide get the rail instead of the floating bar. */
@@ -110,21 +125,25 @@ fun MainScreen(
         Row(Modifier.fillMaxSize()) {
             if (wide) SkNavRail(items, tab.name, select, action = action)
             Box(Modifier.weight(1f).nestedScroll(hideOnScroll)) {
-                AnimatedContent(
-                    targetState = tab,
-                    transitionSpec = { SkTransitions.tabEnter(reduced) togetherWith SkTransitions.tabExit() },
-                    label = "tab",
-                ) { shown ->
-                    TabContent(shown, navModel, graph, clinic, nav, onWalkIn, onSwitchClinic) { select(it.name) }
-                }
-                // Today and More are light pages with no top bar: scrolled content stops at the status bar.
-                if (tab in LIGHT_TOP) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .windowInsetsTopHeight(WindowInsets.statusBars)
-                            .background(SkTheme.colors.background.color),
-                    )
+                Column(Modifier.fillMaxSize()) {
+                    BrandBar()
+                    Box(Modifier.weight(1f).consumeWindowInsets(WindowInsets.statusBars)) {
+                        AnimatedContent(
+                            targetState = tab,
+                            transitionSpec = { SkTransitions.tabEnter(reduced) togetherWith SkTransitions.tabExit() },
+                            label = "tab",
+                        ) { shown ->
+                            TabContent(
+                                shown,
+                                navModel,
+                                graph,
+                                clinic,
+                                nav,
+                                onWalkIn,
+                                onSwitchClinic,
+                            ) { select(it.name) }
+                        }
+                    }
                 }
                 if (!wide) {
                     SkFloatingNavBar(
@@ -232,5 +251,37 @@ private val Tab.icon: String
             Tab.More -> "grid"
         }
 
-/** Tabs whose page runs up to the status bar without a dark header of its own. */
-private val LIGHT_TOP = setOf(Tab.Today, Tab.More)
+/** The app logo and name at the top left of every main screen, under the status bar. */
+@Composable
+private fun BrandBar() {
+    val brand = stringResource(R.string.app_name)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(SkTheme.colors.background.color)
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .semantics(mergeDescendants = true) { contentDescription = brand },
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(
+                    LOGO.dp,
+                ).clip(RoundedCornerShape(LOGO_RADIUS.dp))
+                .background(colorResource(R.color.launcher_background)),
+        ) {
+            Image(
+                painterResource(R.drawable.ic_launcher_foreground),
+                contentDescription = null,
+                modifier = Modifier.size(LOGO.dp).scale(LOGO_ZOOM),
+            )
+        }
+        Text(brand, style = SkTypography.headline, color = SkTheme.colors.text.color)
+    }
+}
+
+private const val LOGO = 28
+private const val LOGO_RADIUS = 8
+private const val LOGO_ZOOM = 2.6f

@@ -109,6 +109,13 @@ class DeskPaymentStateHolder(
     private val canProof get() = BILLING_WRITE in clinic.permissions && ServerCaps.paymentProof
     private val runner = graph.outbox
 
+    /**
+     * True when the sheet was opened for one bill (a To-pay card or Wrap up). Only then does "nothing is due"
+     * close it. Opened from the search results for the patient as a whole it must stay open and say so: closing
+     * it left Collect payment looking dead for anyone without an issued bill.
+     */
+    private val forOneBill = invoiceId != null
+
     /** "Send UPI link" for a bill with a balance (BK-13); needs `billing.write`. */
     val upiLink = UpiLinkHolder(clinic, scope)
     private val mutableState =
@@ -122,7 +129,7 @@ class DeskPaymentStateHolder(
 
     /**
      * The To-pay card is open until its `collect_payment` notification is `handled` (see [checkHandled];
-     * needs `ServerCaps.notificationAudience`) or no bill has a balance.
+     * needs `ServerCaps.notificationAudience`) or, for a card opened for one bill, that bill has no balance.
      */
     val cardOpen: StateFlow<Boolean> = mutableCardOpen.asStateFlow()
 
@@ -174,7 +181,7 @@ class DeskPaymentStateHolder(
                             }
                         }
                     mutableState.value = DeskPayState.Ready(dues.map { it.copy(upi = upis[it.id]) }, canProof)
-                    if (dues.isEmpty()) mutableCardOpen.value = false
+                    if (dues.isEmpty() && forOneBill) mutableCardOpen.value = false
                 }
 
                 is Outcome.Failure -> {
@@ -195,7 +202,7 @@ class DeskPaymentStateHolder(
                     val dues = listOfNotNull(due?.copy(upi = bill.upi))
                     dues.forEach { showUpiOf(it) }
                     mutableState.value = DeskPayState.Ready(dues, canProof)
-                    if (dues.isEmpty()) mutableCardOpen.value = false
+                    if (dues.isEmpty() && forOneBill) mutableCardOpen.value = false
                 }
 
                 is Outcome.Failure -> {

@@ -91,6 +91,7 @@ class DeskLookupStateHolder(
                             state != null,
                             state,
                             name = it.fullName,
+                            phone = it.phone,
                         )
                     }
                 val actions = profiles.filter { !it.checkedInToday }.map { DeskAction.CheckIn(it.id) }
@@ -151,6 +152,7 @@ class DeskLookupStateHolder(
                             state != null,
                             state,
                             name = it.fullName,
+                            phone = phone,
                         )
                     }
                 // Relatives sit right under the person they are linked to, with what they are to them.
@@ -171,6 +173,7 @@ class DeskLookupStateHolder(
                                     relation = it.relation,
                                     name = it.fullName,
                                     familyOf = person.id,
+                                    phone = person.phone,
                                 )
                             }
                     }

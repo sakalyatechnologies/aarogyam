@@ -370,7 +370,7 @@ private fun Tile(
         }
         Text(
             stringResource(tile.label),
-            style = SkTypography.caption.copy(fontWeight = FontWeight.Bold),
+            style = SkTypography.footnote.copy(fontWeight = FontWeight.Bold),
             color = p.onSurface.color,
             textAlign = TextAlign.Center,
             maxLines = 2,
@@ -450,7 +450,7 @@ private val MoreTile.icon: String
         }
 
 // Measured from the mockup's More page CSS (.tiles, .tile, .ti, .li, .list).
-private const val COLUMNS = 3
+private const val COLUMNS = 2
 private const val TILE_GAP = 8
 private const val TILE_RADIUS = 20
 private const val TILE_PAD_V = 12

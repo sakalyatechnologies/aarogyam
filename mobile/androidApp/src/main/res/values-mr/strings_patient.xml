@@ -150,6 +150,7 @@
     <string name="pv_book_no_slots">या दिवशी मोकळे स्लॉट नाहीत.</string>
     <string name="pv_book_not_allowed">तुमची भूमिका अपॉइंटमेंट बुक करू शकत नाही.</string>
     <string name="pv_book_pick">स्लॉट निवडा</string>
+    <string name="pv_book_calendar">कॅलेंडरमधून तारीख निवडा</string>
     <string name="pv_book_pick_doctor">मोकळे स्लॉट पाहण्यासाठी डॉक्टर निवडा.</string>
     <string name="pv_book_reminder">आदल्या संध्याकाळी व्हॉट्सॲप रिमाइंडर जातो.</string>
     <string name="pv_book_title">अपॉइंटमेंट बुक करा</string>

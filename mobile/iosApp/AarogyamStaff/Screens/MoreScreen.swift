@@ -34,7 +34,7 @@ struct MoreScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 profileRow
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: MoreSizes.gap), count: 3), spacing: MoreSizes.gap) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: MoreSizes.gap), count: MoreSizes.columns), spacing: MoreSizes.gap) {
                     ForEach(nav.tiles.filter(\.isGridTile), id: \.self) { tile in
                         Button { open(tile) } label: { MoreTileView(tile: tile) }
                             .buttonStyle(.skPressable)
@@ -173,6 +173,8 @@ enum MoreSizes {
     static let tileIcon: CGFloat = 38
     static let tileIconRadius: CGFloat = 13
     static let gap: CGFloat = 8
+    /// Tiles per row on the More grid.
+    static let columns = 2
     static let gridTop: CGFloat = 12
 
     /// The list's corners: 22 on the outer ends, 8 between rows (one row is round all over).
@@ -265,9 +267,9 @@ struct MoreTileView: View {
             V7Icon(name: tile.iconName, size: 19, tint: (tile.warm ? r.onTertiaryContainer : r.onPrimaryContainer).color)
                 .frame(width: MoreSizes.tileIcon, height: MoreSizes.tileIcon)
                 .background((tile.warm ? r.tertiaryContainer : r.primaryContainer).color, in: RoundedRectangle(cornerRadius: MoreSizes.tileIconRadius, style: .continuous))
-            Text(tile.title).font(.system(size: 11.5, weight: .bold)).foregroundStyle(r.onSurface.color).lineLimit(2).multilineTextAlignment(.center)
+            Text(tile.title).font(.system(size: 13.5, weight: .bold)).foregroundStyle(r.onSurface.color).lineLimit(2).multilineTextAlignment(.center)
             if let sub = tile.subtitle {
-                Text(sub).font(.system(size: 10, weight: .medium)).foregroundStyle(r.onSurfaceVariant.color).lineLimit(1).padding(.top, -4)
+                Text(sub).font(.system(size: 11.5, weight: .medium)).foregroundStyle(r.onSurfaceVariant.color).lineLimit(1).padding(.top, -4)
             }
         }
         .frame(maxWidth: .infinity)

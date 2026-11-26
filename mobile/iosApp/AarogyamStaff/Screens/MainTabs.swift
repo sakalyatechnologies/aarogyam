@@ -147,7 +147,7 @@ struct MainTabs: View {
                     }
                 }
                 .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense, permissions: clinic.permissions)
-                .brandMark()
+                .brandMark(onTap: goHome)
                 .patientDestination(graph: graph, clinic: clinic)
                 .navigationDestination(item: $todayVisit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }
             }
@@ -157,7 +157,7 @@ struct MainTabs: View {
                     PatientsScreen(holder: holder, state: state) { patientsPath.append(PatientRoute(id: $0)) }
                 }
                 .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense, permissions: clinic.permissions)
-                .brandMark()
+                .brandMark(onTap: goHome)
                 .patientDestination(graph: graph, clinic: clinic)
             }
         case .schedule:
@@ -167,7 +167,7 @@ struct MainTabs: View {
                     request: $scheduleRequest
                 )
                     .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense, permissions: clinic.permissions)
-                    .brandMark()
+                    .brandMark(onTap: goHome)
                     .patientDestination(graph: graph, clinic: clinic)
             }
         case .expenses:
@@ -175,14 +175,22 @@ struct MainTabs: View {
                 ClinicalRoutes.expensesPage(graph: graph, clinic: clinic, showsAdd: false)
                     .id(expenseRevision)
                     .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense, permissions: clinic.permissions)
-                    .brandMark()
+                    .brandMark(onTap: goHome)
             }
         case .more:
             NavigationStack(path: $morePath) {
                 MoreScreen(graph: graph, clinic: clinic, nav: nav, onSwitchClinic: onSwitchClinic, path: $morePath)
-                    .brandMark()
+                    .brandMark(onTap: goHome)
             }
         }
+    }
+
+    /// The logo: back to the Today tab (the first one without it) with its stack at the root.
+    private func goHome() {
+        todayPath = []
+        todayVisit = nil
+        let tabs = nav.tabs
+        selected = tabs.contains(.today) ? .today : (tabs.first ?? .today)
     }
 
     /// Opens the screen a tapped push names; Today when the role has no such screen.

@@ -65,11 +65,9 @@ internal fun VisitShareSummary(
             }
 
             is VisitShareState.Ready -> {
-                val text = stringResource(R.string.vv_v9v_share_message, current.url, current.pin)
+                val text = stringResource(R.string.vv_v9v_share_message, current.url)
                 SkCard {
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.M.dp)) {
-                        Muted(stringResource(R.string.vv_v9v_share_pin))
-                        Text(current.pin, style = SkTypography.largeTitle, color = colors.text.color)
                         Muted(stringResource(R.string.vv_v9v_share_note))
                         SkButton(
                             stringResource(R.string.vv_v9v_share_whatsapp),

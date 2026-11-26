@@ -208,9 +208,7 @@
     <string name="pv_share_expires_on">लिंक %1$s पर्यंत चालेल</string>
     <string name="pv_share_failed">लिंक तयार झाली नाही. पुन्हा प्रयत्न करा.</string>
     <string name="pv_share_hour">1 तास</string>
-    <string name="pv_share_message">PIN असलेली मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो.</string>
-    <string name="pv_share_pin">PIN, रुग्णाला सांगा</string>
-    <string name="pv_share_pin_note">PIN एकदाच दिसतो. तो लिंकपासून वेगळा पाठवा.</string>
+    <string name="pv_share_message">मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो.</string>
     <string name="pv_share_active">सुरू असलेल्या लिंक</string>
     <string name="pv_share_none">अजून कोणतीही लिंक नाही.</string>
     <string name="pv_share_usable">%1$s पर्यंत चालेल</string>
@@ -281,6 +279,18 @@
     <string name="pv_tooth_lower_left">खाली डावा</string>
     <string name="pv_tooth_lower_right">खाली उजवा</string>
     <string name="pv_tooth_now">दातावर सध्या</string>
+    <string name="pv_tooth_title">दात %1$d</string>
+    <string name="pv_tooth_upper_left">वर डावा</string>
+    <string name="pv_tooth_upper_right">वर उजवा</string>
+    <string name="p9_history_more">जुन्या भेटी दाखवा</string>
+    <string name="p9_history_rx_line">औषध: %1$s</string>
+    <string name="p9_history_plan_line">योजना: %1$s</string>
+    <string name="p9_chip_photo_count">%1$d फोटो</string>
+    <string name="p9_work_done">झाले</string>
+    <string name="p9_work_planned">नियोजित</string>
+    <string name="p9_work_in_progress">चालू</string>
+    <string name="p9_work_elsewhere">इतरत्र झाले</string>
+    <string name="p9_work_found">आढळले</string>
     <string name="pv_edit_action">तपशील बदला</string>
     <string name="pv_edit_title">तपशील बदला</string>
     <string name="pv_edit_phone">मोबाइल नंबर</string>
@@ -295,16 +305,4 @@
     <string name="pv_details_title">तपशील</string>
     <string name="pv_details_age_sex">वय आणि लिंग</string>
     <string name="pv_details_address">पत्ता</string>
-    <string name="pv_tooth_title">दात %1$d</string>
-    <string name="pv_tooth_upper_left">वर डावा</string>
-    <string name="pv_tooth_upper_right">वर उजवा</string>
-    <string name="p9_history_more">जुन्या भेटी दाखवा</string>
-    <string name="p9_history_rx_line">औषध: %1$s</string>
-    <string name="p9_history_plan_line">योजना: %1$s</string>
-    <string name="p9_chip_photo_count">%1$d फोटो</string>
-    <string name="p9_work_done">झाले</string>
-    <string name="p9_work_planned">नियोजित</string>
-    <string name="p9_work_in_progress">चालू</string>
-    <string name="p9_work_elsewhere">इतरत्र झाले</string>
-    <string name="p9_work_found">आढळले</string>
 </resources>

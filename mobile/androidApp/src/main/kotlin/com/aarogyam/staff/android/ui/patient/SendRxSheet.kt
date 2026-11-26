@@ -54,20 +54,9 @@ internal fun SendRxSheet(
 
             is ShareState.Ready -> {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    V7Label(stringResource(R.string.rx_pin_label))
-                    Text(
-                        share.link.pin,
-                        style =
-                            v7(
-                                34f,
-                                FontWeight.ExtraBold,
-                            ).copy(fontFamily = FontFamily.Monospace, letterSpacing = 4.sp),
-                        color = SkTheme.palette.onSurface.color,
-                    )
-                    V7Muted(stringResource(R.string.rx_pin_note))
                     share.link.expiresAt?.let { V7Muted(stringResource(R.string.rx_link_expires, it.date.display())) }
                 }
-                // The text names only the clinic and the link; the PIN is told aloud, never sent with it.
+                // The text names only the clinic and the link.
                 val text = stringResource(R.string.rx_share_text, state.issued?.clinicName.orEmpty(), share.link.url)
                 val chooser = stringResource(R.string.rx_share_chooser)
                 SkPillButton(

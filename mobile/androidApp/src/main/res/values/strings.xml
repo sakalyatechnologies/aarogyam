@@ -103,12 +103,10 @@
     <string name="rx_issuing">Issuing</string>
     <string name="rx_issued_title">Prescription issued</string>
     <string name="rx_link_creating">Making the patient\'s link</string>
-    <string name="rx_pin_label">Read this PIN to the patient</string>
-    <string name="rx_pin_note">The patient needs it to open the link. It is shown only now.</string>
     <string name="rx_link_expires">Link works until %1$s</string>
     <string name="rx_share">Share link</string>
     <string name="rx_share_retry">Try making the link again</string>
-    <string name="rx_share_text">Prescription from %1$s. Open it here, with the PIN I will tell you: %2$s</string>
+    <string name="rx_share_text">Prescription from %1$s. Open it here: %2$s</string>
     <string name="rx_share_chooser">Share prescription link</string>
     <string name="done">Done</string>
 

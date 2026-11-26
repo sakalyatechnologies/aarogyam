@@ -55,13 +55,6 @@ struct RxDelivery: View {
         let r = theme.roles
         let message = link.shareMessage(clinic: state.issued?.clinicName ?? "") + " " + link.url
         return VStack(alignment: .leading, spacing: SkSheetSizes.gap) {
-            SheetLine {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("rx.pin.label").font(.system(size: 12)).foregroundStyle(r.onSurfaceVariant.color)
-                    Text(link.pin).font(.system(size: 34, weight: .heavy)).monospacedDigit().foregroundStyle(r.onSurface.color)
-                    Text("rx.pin.note").font(.system(size: 12)).foregroundStyle(r.onSurfaceVariant.color)
-                }
-            }
             if let masked = ClinicalFormat.maskedPhone(phone) {
                 Text(CLf("c.rx.send.to", masked)).font(.system(size: 13)).foregroundStyle(r.onSurfaceVariant.color)
             }

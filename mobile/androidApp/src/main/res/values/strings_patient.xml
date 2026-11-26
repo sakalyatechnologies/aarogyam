@@ -208,9 +208,7 @@
     <string name="pv_share_expires_on">Link works until %1$s</string>
     <string name="pv_share_failed">Could not create the link. Try again.</string>
     <string name="pv_share_hour">1 hour</string>
-    <string name="pv_share_message">An expiring link with a PIN. The patient can open it without an app.</string>
-    <string name="pv_share_pin">PIN, read it out to the patient</string>
-    <string name="pv_share_pin_note">The PIN is shown once. Send it separately from the link.</string>
+    <string name="pv_share_message">An expiring link. The patient can open it without an app.</string>
     <string name="pv_share_active">Active links</string>
     <string name="pv_share_none">No links yet.</string>
     <string name="pv_share_usable">Works until %1$s</string>
@@ -281,6 +279,18 @@
     <string name="pv_tooth_lower_left">Lower left</string>
     <string name="pv_tooth_lower_right">Lower right</string>
     <string name="pv_tooth_now">On the tooth now</string>
+    <string name="pv_tooth_title">Tooth %1$d</string>
+    <string name="pv_tooth_upper_left">Upper left</string>
+    <string name="pv_tooth_upper_right">Upper right</string>
+    <string name="p9_history_more">Show older visits</string>
+    <string name="p9_history_rx_line">Rx: %1$s</string>
+    <string name="p9_history_plan_line">Plan: %1$s</string>
+    <string name="p9_chip_photo_count">%1$d photos</string>
+    <string name="p9_work_done">done</string>
+    <string name="p9_work_planned">planned</string>
+    <string name="p9_work_in_progress">in progress</string>
+    <string name="p9_work_elsewhere">done elsewhere</string>
+    <string name="p9_work_found">found</string>
     <string name="pv_edit_action">Edit details</string>
     <string name="pv_edit_title">Edit details</string>
     <string name="pv_edit_phone">Mobile number</string>
@@ -295,16 +305,4 @@
     <string name="pv_details_title">Details</string>
     <string name="pv_details_age_sex">Age and sex</string>
     <string name="pv_details_address">Address</string>
-    <string name="pv_tooth_title">Tooth %1$d</string>
-    <string name="pv_tooth_upper_left">Upper left</string>
-    <string name="pv_tooth_upper_right">Upper right</string>
-    <string name="p9_history_more">Show older visits</string>
-    <string name="p9_history_rx_line">Rx: %1$s</string>
-    <string name="p9_history_plan_line">Plan: %1$s</string>
-    <string name="p9_chip_photo_count">%1$d photos</string>
-    <string name="p9_work_done">done</string>
-    <string name="p9_work_planned">planned</string>
-    <string name="p9_work_in_progress">in progress</string>
-    <string name="p9_work_elsewhere">done elsewhere</string>
-    <string name="p9_work_found">found</string>
 </resources>

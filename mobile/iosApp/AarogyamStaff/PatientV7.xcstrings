@@ -3136,42 +3136,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "An expiring link with a PIN. The patient can open it without an app."
+            "value": "An expiring link. The patient can open it without an app."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN वाला समय-सीमित लिंक। मरीज़ इसे बिना ऐप के खोल सकता है।"
+            "value": "समय-सीमित लिंक। मरीज़ इसे बिना ऐप के खोल सकता है।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN असलेली मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो."
-          }
-        }
-      }
-    },
-    "pv.share.pin": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN, read it out to the patient"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN, मरीज़ को बोलकर बताएँ"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN, रुग्णाला सांगा"
+            "value": "मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो."
           }
         }
       }
@@ -4822,29 +4799,6 @@
         }
       }
     },
-    "pv.share.pin_note": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The PIN is shown once. Send it separately from the link."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN एक बार दिखता है। इसे लिंक से अलग भेजें।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN एकदाच दिसतो. तो लिंकपासून वेगळा पाठवा."
-          }
-        }
-      }
-    },
     "pv.share.active": {
       "extractionState": "manual",
       "localizations": {
@@ -4979,6 +4933,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld वेळा उघडली"
+          }
+        }
+      }
+    },
+    "pv.share.no_kinds": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your role cannot share any records."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आपकी भूमिका कोई रिकॉर्ड शेयर नहीं कर सकती।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुमची भूमिका कोणतेही रेकॉर्ड शेअर करू शकत नाही."
+          }
+        }
+      }
+    },
+    "pv.share.another": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make another link"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "एक और लिंक बनाएं"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आणखी एक लिंक बनवा"
           }
         }
       }
@@ -5393,52 +5393,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "मोबाइल नंबर"
-          }
-        }
-      }
-    },
-    "pv.share.no_kinds": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your role cannot share any records."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आपकी भूमिका कोई रिकॉर्ड शेयर नहीं कर सकती।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "तुमची भूमिका कोणतेही रेकॉर्ड शेअर करू शकत नाही."
-          }
-        }
-      }
-    },
-    "pv.share.another": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Make another link"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "एक और लिंक बनाएं"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "आणखी एक लिंक बनवा"
           }
         }
       }

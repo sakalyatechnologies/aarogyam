@@ -82,9 +82,8 @@
     <string name="vv_v9v_share_action">Share visit summary</string>
     <string name="vv_v9v_share_cannot">WhatsApp could not be opened.</string>
     <string name="vv_v9v_share_creating">Making the link…</string>
-    <string name="vv_v9v_share_message">Your visit summary: %1$s . PIN: %2$s</string>
-    <string name="vv_v9v_share_note">Shown once. The link works for 7 days. The message carries the link and PIN only.</string>
-    <string name="vv_v9v_share_pin">PIN for the patient</string>
+    <string name="vv_v9v_share_message">Your visit summary: %1$s</string>
+    <string name="vv_v9v_share_note">Shown once. The link works for 7 days. The message carries the link only.</string>
     <string name="vv_v9v_share_whatsapp">Send on WhatsApp</string>
     <string name="vv_v9v_started">Started %1$s</string>
     <string name="vv_v9v_sum_back">Back to %1$s</string>
@@ -129,7 +128,7 @@
     <string name="vv_dv10_done_rx">Rx sent</string>
     <string name="vv_dv10_done_visit">Visit closed</string>
     <string name="vv_wa_title">Visit summary for the patient</string>
-    <string name="vv_wa_hint">Why they came, what you did, their plan, care at home and medicines, with a link that needs a PIN.</string>
+    <string name="vv_wa_hint">Why they came, what you did, their plan, care at home and medicines, with a link to the summary.</string>
     <string name="vv_wa_send">Send on WhatsApp</string>
     <string name="vv_wa_prepare">Prepare WhatsApp summary</string>
     <string name="vv_wa_preparing">Preparing…</string>
@@ -153,7 +152,7 @@
     <string name="vv_wa_tick_offer">Offer</string>
     <string name="vv_wa_preview_more">Show the whole message</string>
     <string name="vv_wa_preview_less">Show less</string>
-    <string name="vv_wa_stand_in">The real link and PIN are made when you send.</string>
+    <string name="vv_wa_stand_in">The real link is made when you send.</string>
     <string name="vv_present_open">Show patient</string>
     <string name="vv_present_failed">Couldn’t load the mouth view. Check the connection and try again.</string>
     <string name="vv_present_unsupported">This app version can’t show the mouth view. Update the app.</string>
@@ -206,7 +205,7 @@
     <string name="vv_c_rx_send_sms">SMS</string>
     <string name="vv_c_rx_send_to">To %1$s</string>
     <string name="vv_c_rx_send_whatsapp">WhatsApp</string>
-    <string name="vv_c_rx_sent_message">The link is on its way. Read the PIN out to the patient.</string>
+    <string name="vv_c_rx_sent_message">The link is on its way.</string>
     <string name="vv_c_rx_sent_title">Sent</string>
     <string name="vv_outbox_badge" tools:ignore="PluralsCandidate">Saved, will send · %1$d</string>
 </resources>

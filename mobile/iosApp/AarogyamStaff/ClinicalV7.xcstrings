@@ -2998,19 +2998,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The link is on its way. Read the PIN out to the patient."
+            "value": "The link is on its way."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "लिंक भेज दी गई है। पिन मरीज़ को बोलकर बताएँ।"
+            "value": "लिंक भेज दी गई है।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "लिंक पाठवली आहे. पिन रुग्णाला तोंडी सांगा."
+            "value": "लिंक पाठवली आहे."
           }
         }
       }

@@ -233,11 +233,11 @@ fun PatientPage(
             DeskFamilySheet(family, loaded?.view?.name.orEmpty(), patientId) { sheet = null }
         }
 
-        null -> {}
         PatientSheet.Edit -> {
             loaded?.view?.let { EditPatientSheet(graph, clinic, it, onSaved = holder::refresh) { sheet = null } }
         }
 
+        null -> {}
     }
     presenting?.let { visitId ->
         PresentScreen(graph, clinic, visitId, onAddDepth = {}, onClose = { presenting = null })

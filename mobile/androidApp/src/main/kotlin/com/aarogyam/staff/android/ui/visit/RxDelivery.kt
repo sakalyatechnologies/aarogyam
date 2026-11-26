@@ -105,9 +105,6 @@ private fun Chooser(
         }
         return
     }
-    Muted(stringResource(R.string.rx_pin_label))
-    Text(link.pin, style = SkTypography.largeTitle, color = colors.text.color)
-    Muted(stringResource(R.string.rx_pin_note))
     VisitFormat.maskedPhone(phone)?.let { Muted(stringResource(R.string.vv_c_rx_send_to, it)) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.SM.dp)) {
         VisitChip(stringResource(R.string.vv_c_rx_send_whatsapp), channel == Channel.WhatsApp) {

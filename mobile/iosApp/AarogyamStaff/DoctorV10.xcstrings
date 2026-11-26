@@ -1595,19 +1595,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Why they came, what you did, their plan, care at home and medicines, with a link that needs a PIN."
+            "value": "Why they came, what you did, their plan, care at home and medicines, with a link to the summary."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "वे क्यों आए, आपने क्या किया, आगे की योजना, घर पर देखभाल और दवाइयाँ, PIN वाले लिंक के साथ।"
+            "value": "वे क्यों आए, आपने क्या किया, आगे की योजना, घर पर देखभाल और दवाइयाँ, सारांश के लिंक के साथ।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "ते का आले, तुम्ही काय केले, पुढची योजना, घरी काळजी आणि औषधे, PIN असलेल्या लिंकसह."
+            "value": "ते का आले, तुम्ही काय केले, पुढची योजना, घरी काळजी आणि औषधे, सारांशाच्या लिंकसह."
           }
         }
       }
@@ -2147,19 +2147,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The real link and PIN are made when you send."
+            "value": "The real link is made when you send."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "असली लिंक और PIN भेजते समय बनते हैं।"
+            "value": "असली लिंक भेजते समय बनती है।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "खरी लिंक आणि PIN पाठवताना तयार होतात."
+            "value": "खरी लिंक पाठवताना तयार होते."
           }
         }
       }

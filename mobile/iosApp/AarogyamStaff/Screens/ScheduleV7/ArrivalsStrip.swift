@@ -59,7 +59,7 @@ private struct ArrivalsSheet: View {
                     Text("checkin.empty").skTextStyle(SkTypeScale.body).foregroundStyle(r.onSurfaceVariant.color)
                 }
                 ForEach(shown.rows, id: \.id) { row in
-                    ArrivalCard(holder: holder, row: row, canAccept: shown.canAccept)
+                    ArrivalCard(holder: holder, row: row, canAccept: shown.canAccept, doctors: shown.doctors)
                 }
             }
         }
@@ -71,6 +71,7 @@ private struct ArrivalCard: View {
     let holder: ArrivalsHolder
     let row: ArrivalRow
     let canAccept: Bool
+    let doctors: [DoctorOption]
     @Environment(\.skTheme) private var theme
 
     var body: some View {
@@ -85,6 +86,9 @@ private struct ArrivalCard: View {
                 if !row.matches.isEmpty {
                     Text("checkin.pick").font(.footnote).foregroundStyle(r.onSurfaceVariant.color)
                 }
+                if !row.relatives.isEmpty {
+                    Text("checkin.relatives").font(.footnote).foregroundStyle(r.onSurfaceVariant.color)
+                }
                 GroupedCard {
                     ForEach(row.matches, id: \.id) { match in
                         PatientChoiceRow(
@@ -94,8 +98,25 @@ private struct ArrivalCard: View {
                         ) { holder.choose(id: row.id, patientId: match.id) }
                         GroupedDivider()
                     }
+                    ForEach(row.relatives, id: \.id) { kin in
+                        PatientChoiceRow(
+                            title: kin.name,
+                            line: kin.number + " · " + DeskRelation.title(wire: kin.relation),
+                            on: row.chosenPatientId == kin.id
+                        ) { holder.choose(id: row.id, patientId: kin.id) }
+                        GroupedDivider()
+                    }
                     PatientChoiceRow(title: String(localized: "checkin.new_patient"), line: nil, on: row.chosenPatientId == nil, new: true) {
                         holder.choose(id: row.id, patientId: nil)
+                    }
+                }
+            }
+            if canAccept, !doctors.isEmpty {
+                Text("walk_in.doctor").font(.footnote).foregroundStyle(r.onSurfaceVariant.color)
+                V7Flow(spacing: 8) {
+                    GlassChip(text: String(localized: "walk_in.doctor.any"), selected: row.chosenDoctorId == nil) { holder.chooseDoctor(id: row.id, doctorId: nil) }
+                    ForEach(doctors, id: \.id) { doctor in
+                        GlassChip(text: doctor.name, selected: row.chosenDoctorId == doctor.id) { holder.chooseDoctor(id: row.id, doctorId: doctor.id) }
                     }
                 }
             }

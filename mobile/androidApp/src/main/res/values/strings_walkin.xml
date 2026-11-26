@@ -83,4 +83,5 @@
     <string name="address_state">State</string>
     <string name="address_pincode">PIN code</string>
     <string name="address_pincode_hint">Enter all 6 digits</string>
+    <string name="checkin_relatives">Or a relative of theirs</string>
 </resources>

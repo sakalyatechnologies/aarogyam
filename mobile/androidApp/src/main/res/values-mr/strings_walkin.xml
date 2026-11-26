@@ -84,4 +84,5 @@
     <string name="address_state">राज्य</string>
     <string name="address_pincode">पिन कोड</string>
     <string name="address_pincode_hint">सर्व 6 अंक लिहा</string>
+    <string name="checkin_relatives">किंवा त्यांचे नातेवाईक</string>
 </resources>

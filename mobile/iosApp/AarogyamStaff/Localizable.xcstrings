@@ -9365,6 +9365,29 @@
         }
       }
     },
+    "checkin.relatives": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or a relative of theirs"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या उनके परिवार का कोई सदस्य"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किंवा त्यांचे नातेवाईक"
+          }
+        }
+      }
+    },
     "address.pincode": {
       "extractionState": "manual",
       "localizations": {

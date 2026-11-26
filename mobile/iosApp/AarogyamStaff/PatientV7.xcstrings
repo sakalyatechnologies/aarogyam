@@ -3787,25 +3787,25 @@
         }
       }
     },
-    "pv.tooth.health_save_note": {
+    "pv.tooth.health_note_saved": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Save note"
+            "value": "Saved"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "टिप्पणी सेव करें"
+            "value": "सेव हो गया"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "टीप सेव्ह करा"
+            "value": "सेव्ह झाले"
           }
         }
       }

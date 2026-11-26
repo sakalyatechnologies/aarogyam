@@ -14,6 +14,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -169,6 +170,41 @@ class ToothHealthTest {
                 ).text
             assertTrue(""""note":"deep caries distal"""" in sent && """"health":"needs_treatment"""" in sent, sent)
             assertEquals("deep caries distal", chart.statusOf(36)?.note)
+        }
+
+    @Test
+    fun a_typed_note_saves_itself_as_healthy_after_a_pause_and_shows_again_on_reselecting() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(route, { json(chart(listOf(entry("e1", 36, "caries", "O")))) })
+            backend.on(
+                "$route/teeth/11/status",
+                {
+                    json(
+                        """{"tooth":11,"health":"healthy","note":"Chipped edge","recorded_at":"2026-11-18T04:30:00Z"}""",
+                    )
+                },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, readWrite)
+            val chart = graph.chart(clinic, "p1", backgroundScope)
+            chart.state.first { it is ChartState.Loaded }
+            val sheet = ToothSheetStateHolder(clinic, chart, null, backgroundScope)
+            sheet.openTooth(11)
+            sheet.editHealthNote(11, "Chip")
+            advanceTimeBy(500)
+            sheet.editHealthNote(11, "Chipped edge")
+            advanceTimeBy(700)
+            assertTrue(backend.requests.none { it.url.encodedPath.endsWith("/teeth/11/status") }, "still typing")
+            advanceTimeBy(200)
+            sheet.health.first { it.noteSaved }
+            val puts = backend.requests.filter { it.url.encodedPath.endsWith("/teeth/11/status") }
+            assertEquals(1, puts.size)
+            val sent = (puts.single().body as TextContent).text
+            assertTrue(""""health":"healthy"""" in sent && """"note":"Chipped edge"""" in sent, sent)
+            sheet.openTooth(36)
+            sheet.openTooth(11)
+            assertEquals("Chipped edge", sheet.health.value.note)
         }
 
     @Test

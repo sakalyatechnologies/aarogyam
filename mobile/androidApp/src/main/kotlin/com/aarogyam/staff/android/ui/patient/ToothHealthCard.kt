@@ -40,7 +40,7 @@ import com.sakalya.mobile.designcompose.color
 /**
  * The tooth's health: Healthy, Watch or Needs treatment. Without the doctor's status the chart's
  * suggestion is picked and says so; one tap saves a status (no visit needed). Watch and Needs
- * treatment take a "treat within" time; a one-line note saves with its own button.
+ * treatment take a "treat within" time; a one-line note saves itself.
  */
 @Composable
 internal fun ToothHealthCard(
@@ -60,7 +60,7 @@ internal fun ToothHealthCard(
     val listen = rememberMicStarter({ sheet.dictateHealthNote(tooth.number, it) })
     LaunchedEffect(tooth.number) {
         sheet.openTooth(tooth.number)
-        if (dictate && canRecord && level != null) listen(language)
+        if (dictate && canRecord) listen(language)
     }
     val levels = HealthLevel.entries.associateWith { healthLabel(it) }
     val spans = TREAT_WITHIN_MONTHS.associateWith { months(it) }
@@ -105,7 +105,7 @@ internal fun ToothHealthCard(
                     status.treatWithinMonths?.let { V7Muted(spans[it] ?: months(it)) }
                 }
             }
-            if (canRecord && level != null) {
+            if (canRecord) {
                 NoteEditor(sheet, tooth.number, save, status, language, { language = it }, listen)
             } else {
                 status?.note?.let { V7Muted(it) }
@@ -122,7 +122,7 @@ internal fun ToothHealthCard(
     }
 }
 
-/** The one-line note: typed, or dictated in the chosen language; saved with the tooth's health. */
+/** The one-line note: typed, or dictated in the chosen language; saved by itself when typing pauses. */
 @Composable
 private fun NoteEditor(
     sheet: ToothSheetStateHolder,
@@ -134,7 +134,7 @@ private fun NoteEditor(
     listen: (DictationLanguage) -> Unit,
 ) {
     val listening = save.listening != null
-    SkField(stringResource(R.string.pv_tooth_health_note), save.note, sheet::editHealthNote)
+    SkField(stringResource(R.string.pv_tooth_health_note), save.note, { sheet.editHealthNote(tooth, it) })
     save.live?.let { V7Muted(it) }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SkPillButton(
@@ -148,9 +148,7 @@ private fun NoteEditor(
             label = { it.shortCode() },
         )
     }
-    if (!listening && save.note.trim() != status?.note.orEmpty()) {
-        SkPillButton(stringResource(R.string.pv_tooth_health_save_note), { sheet.saveHealthNote(tooth) }, wide = true)
-    }
+    if (save.noteSaved) V7Muted(stringResource(R.string.pv_tooth_health_note_saved))
 }
 
 /** EN, HI, MR or GU: the short switch beside the tooth note's mic. */

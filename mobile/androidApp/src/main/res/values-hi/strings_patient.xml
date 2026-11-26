@@ -237,7 +237,7 @@
     <string name="pv_tooth_health_unassessed">अभी जाँचा नहीं गया</string>
     <string name="pv_tooth_health_within">इतने समय में इलाज</string>
     <string name="pv_tooth_health_note">टिप्पणी</string>
-    <string name="pv_tooth_health_save_note">टिप्पणी सेव करें</string>
+    <string name="pv_tooth_health_note_saved">सेव हो गया</string>
     <string name="pv_tooth_health_reset">चार्ट का सुझाव लें</string>
     <string name="pv_tooth_health_failed">दाँत का स्वास्थ्य सेव नहीं हुआ। फिर कोशिश करें।</string>
     <string name="pv_detail_title">विवरण</string>

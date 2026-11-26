@@ -193,7 +193,10 @@ class ToothSheetStateHolder(
 
     fun openTooth(tooth: Int) = editor.open(tooth)
 
-    fun editHealthNote(text: String) = editor.editNote(text)
+    fun editHealthNote(
+        tooth: Int,
+        text: String,
+    ) = editor.editNote(tooth, text)
 
     fun saveHealthNote(tooth: Int) = editor.saveNote(tooth)
 

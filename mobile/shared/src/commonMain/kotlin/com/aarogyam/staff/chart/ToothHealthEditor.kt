@@ -14,9 +14,11 @@ import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -31,6 +33,8 @@ data class HealthSaveState(
     val listening: DictationLanguage? = null,
     /** Words still being recognised. */
     val live: String? = null,
+    /** The note as shown was saved; false again as soon as it is edited. */
+    val noteSaved: Boolean = false,
 )
 
 /**
@@ -47,6 +51,8 @@ internal class ToothHealthEditor(
     private val mutableHealth = MutableStateFlow(HealthSaveState())
     val state: StateFlow<HealthSaveState> = mutableHealth.asStateFlow()
     private var listenJob: Job? = null
+    private var noteJob: Job? = null
+    private var noteTooth: Int? = null
 
     /**
      * Sets the doctor's health for [tooth]; no visit needed. [months] goes only with watch or needs
@@ -57,6 +63,7 @@ internal class ToothHealthEditor(
         level: HealthLevel,
         months: Int? = null,
         note: String? = null,
+        fromNote: Boolean = false,
     ) {
         if (mutableHealth.value.saving) return
         val within = months?.takeIf { level.advisesTreatment && it in TREAT_WITHIN_MONTHS }
@@ -77,7 +84,16 @@ internal class ToothHealthEditor(
                     log.info("chart.health_set")
                     val saved = statusesOf(listOf(answer.value), clinic.timeZone)[tooth]
                     saved?.let { chart.applyStatus(tooth, it) }
-                    mutableHealth.update { HealthSaveState(note = saved?.note.orEmpty(), listening = it.listening) }
+                    mutableHealth.update {
+                        // Words typed while this was saving stay; their own save follows.
+                        val kept = if (it.note.trim() == text.orEmpty()) saved?.note.orEmpty() else it.note
+                        HealthSaveState(
+                            note = kept,
+                            listening = it.listening,
+                            live = it.live,
+                            noteSaved = fromNote && kept.trim() == text.orEmpty(),
+                        )
+                    }
                 }
 
                 is Outcome.Failure -> {
@@ -112,21 +128,49 @@ internal class ToothHealthEditor(
     /** The sheet opened on [tooth]: its saved note is the one to edit. */
     fun open(tooth: Int) {
         if (mutableHealth.value.listening != null) return
-        mutableHealth.update { it.copy(error = null, note = chart.statusOf(tooth)?.note.orEmpty(), live = null) }
+        // A note still waiting for its pause belongs to the tooth it was typed on.
+        noteTooth?.takeIf { it != tooth }?.let { flushNote(it) }
+        mutableHealth.update {
+            it.copy(error = null, note = chart.statusOf(tooth)?.note.orEmpty(), live = null, noteSaved = false)
+        }
     }
 
-    fun editNote(text: String) = mutableHealth.update { it.copy(note = text.take(MAX_HEALTH_NOTE)) }
+    /** The note was typed on [tooth]: it saves by itself once typing pauses. */
+    fun editNote(
+        tooth: Int,
+        text: String,
+    ) {
+        mutableHealth.update { it.copy(note = text.take(MAX_HEALTH_NOTE), noteSaved = false) }
+        noteTooth = tooth
+        noteJob?.cancel()
+        noteJob =
+            scope.launch {
+                delay(NOTE_PAUSE_MS)
+                mutableHealth.first { !it.saving }
+                noteTooth = null
+                saveNote(tooth)
+            }
+    }
+
+    private fun flushNote(tooth: Int) {
+        noteJob?.cancel()
+        noteTooth = null
+        scope.launch {
+            mutableHealth.first { !it.saving }
+            saveNote(tooth)
+        }
+    }
 
     /**
-     * Saves the note with the tooth's health: the doctor's, else what its findings suggest. A tooth
-     * with neither (not assessed) has nothing to hang the note on, so nothing is sent.
+     * Saves the note with the tooth's health: the doctor's, else what its findings suggest, else
+     * healthy (a note on a tooth not assessed yet is a finding on its own).
      */
     fun saveNote(tooth: Int) {
         val status = chart.statusOf(tooth)
-        val level = status?.level ?: chart.toothView(tooth).suggestedHealth ?: return
+        val level = status?.level ?: chart.toothView(tooth).suggestedHealth ?: HealthLevel.Healthy
         val note = mutableHealth.value.note.trim()
-        if (note == status?.note.orEmpty() && status != null) return
-        set(tooth, level, status?.treatWithinMonths, note)
+        if (note == status?.note.orEmpty()) return
+        set(tooth, level, status?.treatWithinMonths, note, fromNote = true)
     }
 
     /** Dictates into the tooth note in [language]; when listening stops the note is saved. */
@@ -184,5 +228,6 @@ internal class ToothHealthEditor(
 
     private companion object {
         const val MAX_HEALTH_NOTE = 500
+        const val NOTE_PAUSE_MS = 800L
     }
 }

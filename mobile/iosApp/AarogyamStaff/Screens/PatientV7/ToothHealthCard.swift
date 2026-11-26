@@ -4,7 +4,7 @@ import SwiftUI
 
 /// The tooth's health: Healthy, Watch or Needs treatment. Without the doctor's status the chart's
 /// suggestion is picked and says so; one tap saves a status (no visit needed). Watch and Needs
-/// treatment take a "treat within" time; a one-line note saves with its own button.
+/// treatment take a "treat within" time; a one-line note saves itself.
 struct ToothHealthCard: View {
     let sheet: ToothSheetStateHolder
     let tooth: ToothView
@@ -14,7 +14,7 @@ struct ToothHealthCard: View {
     var voice: DictationLanguage = .english
     /// Start dictating into the note at once (a long press on the tooth).
     var dictate = false
-    @State private var save = HealthSaveState(saving: false, error: nil, note: "", listening: nil, live: nil)
+    @State private var save = HealthSaveState(saving: false, error: nil, note: "", listening: nil, live: nil, noteSaved: false)
     @State private var language: DictationLanguage?
     @Environment(\.skTheme) private var theme
 
@@ -50,7 +50,7 @@ struct ToothHealthCard: View {
                         V7Muted(Self.span(within.intValue))
                     }
                 }
-                if canRecord && level != nil {
+                if canRecord {
                     noteEditor
                 } else if let saved = status?.note {
                     V7Muted(saved)
@@ -67,7 +67,7 @@ struct ToothHealthCard: View {
         }
         .onAppear {
             sheet.openTooth(tooth: tooth.number)
-            if dictate && canRecord && level != nil { sheet.dictateHealthNote(tooth: tooth.number, language: chosen) }
+            if dictate && canRecord { sheet.dictateHealthNote(tooth: tooth.number, language: chosen) }
         }
         .task { for await next in sheet.health { save = next } }
     }
@@ -77,7 +77,7 @@ struct ToothHealthCard: View {
     /// The one-line note: typed, or dictated in the chosen language; saved with the tooth's health.
     @ViewBuilder private var noteEditor: some View {
         let listening = save.listening != nil
-        SkField(pv("pv.tooth.health_note"), text: Binding(get: { save.note }, set: { sheet.editHealthNote(text: $0) }))
+        SkField(pv("pv.tooth.health_note"), text: Binding(get: { save.note }, set: { sheet.editHealthNote(tooth: tooth.number, text: $0) }))
         if let live = save.live { V7Muted(live) }
         HStack(spacing: 8) {
             SkPillButton(listening ? pv("pv.tooth.note_stop") : pv("pv.tooth.note_dictate"), variant: .tonal, icon: nil) {
@@ -87,9 +87,7 @@ struct ToothHealthCard: View {
                 if !listening { language = $0 }
             }
         }
-        if !listening && save.note.trimmingCharacters(in: .whitespaces) != (status?.note ?? "") {
-            SkPillButton(pv("pv.tooth.health_save_note"), wide: true) { sheet.saveHealthNote(tooth: tooth.number) }
-        }
+        if save.noteSaved { V7Muted(pv("pv.tooth.health_note_saved")) }
     }
 
     static func span(_ months: Int) -> String {

@@ -237,7 +237,7 @@
     <string name="pv_tooth_health_unassessed">Not assessed yet</string>
     <string name="pv_tooth_health_within">Treat within</string>
     <string name="pv_tooth_health_note">Note</string>
-    <string name="pv_tooth_health_save_note">Save note</string>
+    <string name="pv_tooth_health_note_saved">Saved</string>
     <string name="pv_tooth_health_reset">Use the chart\'s suggestion</string>
     <string name="pv_tooth_health_failed">Couldn\'t save the tooth\'s health. Try again.</string>
     <string name="pv_detail_title">Details</string>

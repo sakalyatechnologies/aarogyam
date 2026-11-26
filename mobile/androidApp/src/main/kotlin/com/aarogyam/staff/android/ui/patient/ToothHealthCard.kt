@@ -66,6 +66,11 @@ internal fun ToothHealthCard(
     val spans = TREAT_WITHIN_MONTHS.associateWith { months(it) }
     V7Card {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (canRecord) {
+                NoteEditor(sheet, tooth.number, save, status, language, { language = it }, listen)
+            } else {
+                status?.note?.let { V7Muted(it) }
+            }
             V7Label(stringResource(R.string.pv_tooth_health))
             if (canRecord) {
                 SkChoiceChips(
@@ -104,11 +109,6 @@ internal fun ToothHealthCard(
                 } else {
                     status.treatWithinMonths?.let { V7Muted(spans[it] ?: months(it)) }
                 }
-            }
-            if (canRecord) {
-                NoteEditor(sheet, tooth.number, save, status, language, { language = it }, listen)
-            } else {
-                status?.note?.let { V7Muted(it) }
             }
             if (canRecord && status != null) ResetLink { sheet.clearHealth(tooth.number) }
             if (save.error != null) {

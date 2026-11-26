@@ -26,6 +26,11 @@ struct ToothHealthCard: View {
         let r = theme.roles
         V7Card {
             VStack(alignment: .leading, spacing: 8) {
+                if canRecord {
+                    noteEditor
+                } else if let saved = status?.note {
+                    V7Muted(saved)
+                }
                 V7Label(text: pv("pv.tooth.health"))
                 if canRecord {
                     SkChoiceChips(Array(HealthLevel.allCases), selected: Set(level.map { [$0] } ?? []), label: { $0.label }) { picked in
@@ -49,11 +54,6 @@ struct ToothHealthCard: View {
                     } else if let within = status.treatWithinMonths {
                         V7Muted(Self.span(within.intValue))
                     }
-                }
-                if canRecord {
-                    noteEditor
-                } else if let saved = status?.note {
-                    V7Muted(saved)
                 }
                 if canRecord && status != nil {
                     Button { sheet.clearHealth(tooth: tooth.number) } label: {

@@ -223,9 +223,11 @@
     <string name="pv_share_title">Share record</string>
     <string name="pv_share_week">7 days</string>
     <string name="pv_share_xrays">X-rays</string>
-    <string name="pv_status_completed">Completed</string>
+    <string name="pv_status_completed">Done</string>
     <string name="pv_status_planned">Planned</string>
-    <string name="pv_status_watch">Watch</string>
+    <string name="pv_status_watch">In progress</string>
+    <string name="pv_tooth_more">More details</string>
+    <string name="pv_tooth_treatments">Treatments</string>
     <string name="pv_tooth_add">Add treatment</string>
     <string name="pv_tooth_note_dictate">Dictate</string>
     <string name="pv_tooth_note_stop">Stop</string>

@@ -67,6 +67,7 @@ internal fun ToothSheet(
     val isGroup = group.size > 1
     var adding by remember { mutableStateOf(false) }
     val tooth = selection.tooth
+    LaunchedEffect(tooth.number) { sheet.loadTreatments(tooth.number) }
     LaunchedEffect(form.saved) {
         if (form.saved) {
             sheet.reset()
@@ -94,18 +95,22 @@ internal fun ToothSheet(
                 }
             }
         } else {
-            NowCard(tooth)
             ToothHealthCard(sheet, tooth, selection.status, chart.canRecord, graph.voiceLanguage(), dictate)
-            if (chart.canRecord) ToothDetailsCard(sheet, tooth.number, selection.details)
-            HistoryCard(tooth, selection.history, chart.canRecord) { entry ->
-                sheet.startEdit(entry, chart.terms)
-                adding = true
-            }
             if (chart.canRecord) {
                 SkPillButton(stringResource(R.string.pv_tooth_add), {
                     sheet.reset()
+                    sheet.setNote(sheet.health.value.note)
                     adding = true
                 }, wide = true)
+            }
+            ToothTreatmentRows(sheet, chart.canRecord)
+            MoreDetails {
+                NowCard(tooth)
+                if (chart.canRecord) ToothDetailsCard(sheet, tooth.number, selection.details)
+                HistoryCard(tooth, selection.history, chart.canRecord) { entry ->
+                    sheet.startEdit(entry, chart.terms)
+                    adding = true
+                }
             }
         }
     }

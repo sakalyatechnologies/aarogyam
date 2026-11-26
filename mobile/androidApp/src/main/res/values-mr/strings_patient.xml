@@ -225,7 +225,9 @@
     <string name="pv_share_xrays">एक्स-रे</string>
     <string name="pv_status_completed">पूर्ण</string>
     <string name="pv_status_planned">नियोजित</string>
-    <string name="pv_status_watch">निरीक्षण</string>
+    <string name="pv_status_watch">सुरू</string>
+    <string name="pv_tooth_more">अधिक तपशील</string>
+    <string name="pv_tooth_treatments">उपचार</string>
     <string name="pv_tooth_add">उपचार जोडा</string>
     <string name="pv_tooth_note_dictate">बोलून लिहा</string>
     <string name="pv_tooth_note_stop">थांबा</string>

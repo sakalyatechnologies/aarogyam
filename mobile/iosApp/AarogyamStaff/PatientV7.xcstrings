@@ -3274,7 +3274,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Completed"
+            "value": "Done"
           }
         },
         "hi": {
@@ -3320,19 +3320,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Watch"
+            "value": "In progress"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "निगरानी"
+            "value": "जारी"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "निरीक्षण"
+            "value": "सुरू"
           }
         }
       }
@@ -5439,6 +5439,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "झाले"
+          }
+        }
+      }
+    },
+    "pv.tooth.more": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More details"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "और विवरण"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अधिक तपशील"
+          }
+        }
+      }
+    },
+    "pv.tooth.treatments": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Treatments"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उपचार"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उपचार"
           }
         }
       }

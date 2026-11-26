@@ -68,6 +68,15 @@ class ToothSheetStateHolder(
     /** The tooth's health being saved, and its note being typed or dictated ([ToothHealthEditor]). */
     val health: StateFlow<HealthSaveState> = editor.state
     private val details = ToothDetailEditor(clinic, chart, scope, log)
+    private val treatments = ToothTreatments(clinic, chart, scope, log)
+
+    /** The tooth's planned and done treatments, with the one being marked done ([ToothTreatments]). */
+    val treatmentRows: StateFlow<ToothTreatmentsState> = treatments.state
+
+    fun loadTreatments(tooth: Int) = treatments.open(tooth)
+
+    /** A planned treatment's status chip was tapped: it is done. */
+    fun completeTreatment(id: String) = treatments.complete(id)
 
     /** A detail chip being saved, or the last one refused ([ToothDetailEditor]). */
     val detail: StateFlow<DetailSaveState> = details.state

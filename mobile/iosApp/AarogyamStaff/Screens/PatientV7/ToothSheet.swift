@@ -46,12 +46,15 @@ private struct ToothSheetBody: View {
                         if isGroup { dismiss() } else { adding = false; sheet.reset() }
                     }
                 } else {
-                    nowCard
                     ToothHealthCard(sheet: sheet, tooth: selection.tooth, status: selection.status, canRecord: chart.canRecord, voice: voice, dictate: dictate)
-                    if chart.canRecord { ToothDetailsCard(sheet: sheet, tooth: selection.tooth.number, details: selection.details) }
-                    historyCard
                     if chart.canRecord {
-                        SkPillButton(pv("pv.tooth.add"), wide: true) { sheet.reset(); adding = true }
+                        SkPillButton(pv("pv.tooth.add"), wide: true) { sheet.reset(); sheet.setNote(text: sheet.health.value.note); adding = true }
+                    }
+                    ToothTreatmentRows(sheet: sheet, canRecord: chart.canRecord)
+                    ToothMoreDetails {
+                        nowCard
+                        if chart.canRecord { ToothDetailsCard(sheet: sheet, tooth: selection.tooth.number, details: selection.details) }
+                        historyCard
                     }
                 }
             }
@@ -59,6 +62,7 @@ private struct ToothSheetBody: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .skSheet()
+        .onAppear { sheet.loadTreatments(tooth: selection.tooth.number) }
         #if DEBUG && AARO_ENV_Local
         .onAppear { if DevLaunch.toothForm { adding = true } }
         #endif

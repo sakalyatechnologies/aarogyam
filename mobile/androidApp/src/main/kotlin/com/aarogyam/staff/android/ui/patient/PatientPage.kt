@@ -172,6 +172,7 @@ fun PatientPage(
                                     modifier = Modifier.padding(Spacing.L.dp),
                                 )
                             }
+                            PatientDetailsCard(loaded.view)
                             if ("clinical.write" in can) {
                                 SkPillButton(
                                     stringResource(R.string.p9_start_treatment),

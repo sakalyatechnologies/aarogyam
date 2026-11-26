@@ -172,6 +172,7 @@ struct Patient360Screen: View {
             }
         }
         if let error { Text(error.message).v7Text(12.5).foregroundStyle(theme.roles.error.color).padding(SkSpacing.l) }
+        PatientDetailsCard(view: view)
         if can.treat {
             SkPillButton(CL("c.visit.start"), variant: .warm, icon: V7Icon.path("tooth"), wide: true) { visit = VisitRoute(patientId: patientId) }
                 .padding(.horizontal, SkSpacing.l).padding(.top, 12)

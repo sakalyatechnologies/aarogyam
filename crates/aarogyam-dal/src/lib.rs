@@ -102,6 +102,7 @@ pub mod telemetry;
 pub mod time_off;
 pub mod timeline;
 pub mod today;
+pub mod tooth_notes;
 pub mod treatment;
 pub mod visit_messages;
 pub mod visit_plan_responses;

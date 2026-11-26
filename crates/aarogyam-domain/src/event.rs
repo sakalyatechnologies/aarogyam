@@ -185,6 +185,8 @@ pub enum Event {
     RecurringExpenseCreated,
     /// A sterilisation cycle was recorded.
     SterilisationCycleRecorded,
+    /// A free-text note was added to a tooth.
+    ToothNoteAdded,
     /// A recurring expense was edited, paused, resumed or stopped.
     RecurringExpenseChanged,
     /// The recurring pass recorded a rule's due expenses.
@@ -365,6 +367,7 @@ impl Event {
             Self::ExpenseVoided => "expense.voided",
             Self::RecurringExpenseCreated => "recurring_expense.created",
             Self::SterilisationCycleRecorded => "sterilisation_cycle.recorded",
+            Self::ToothNoteAdded => "tooth_note.added",
             Self::RecurringExpenseChanged => "recurring_expense.changed",
             Self::RecurringExpenseRecorded => "recurring_expense.recorded",
             Self::WalkInRegistered => "walk_in.registered",

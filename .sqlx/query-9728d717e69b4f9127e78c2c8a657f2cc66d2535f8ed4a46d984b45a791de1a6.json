@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select distinct on (tooth) tooth as \"tooth!\", left(body, 120) as \"latest_note!\"\n           from aarogyam.tooth_notes\n           where patient_id = $1\n           order by tooth, created_at desc, id desc",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tooth!",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "aarogyam.tooth_notes",
+            "name": "tooth"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "latest_note!",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "9728d717e69b4f9127e78c2c8a657f2cc66d2535f8ed4a46d984b45a791de1a6"
+}

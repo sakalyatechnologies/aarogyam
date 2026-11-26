@@ -45,6 +45,8 @@ import {
   createdClinic,
   createdInvitation,
   dentalChart,
+  toothNote,
+  toothNoteList,
   toothStatus,
   toothCondition,
   toothEruption,
@@ -721,6 +723,16 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         body: input,
         signal: opts?.signal,
       }),
+    addToothNote: (id, tooth, body, opts) =>
+      call({
+        method: "POST",
+        path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/notes`,
+        schema: toothNote,
+        body: { body, ...(opts?.clientId === undefined ? {} : { client_id: opts.clientId }) },
+        signal: opts?.signal,
+      }),
+    toothNotes: (id, tooth, opts) =>
+      call({ method: "GET", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/notes`, schema: toothNoteList, signal: opts?.signal }),
     clearToothStatus: (id, tooth, opts) =>
       call({ method: "DELETE", path: `/api/v1/patients/${encodeURIComponent(id)}/dental-chart/teeth/${String(tooth)}/status`, schema: voidResponse, signal: opts?.signal }),
     setToothCondition: (id, tooth, input, opts) =>

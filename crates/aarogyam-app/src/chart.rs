@@ -263,6 +263,8 @@ pub struct DentalChart {
     pub conditions: Vec<ToothConditionView>,
     /// The current eruption of each permanent tooth that has one, by tooth.
     pub eruptions: Vec<ToothEruptionView>,
+    /// The newest note of each tooth that has notes, by tooth.
+    pub tooth_notes: Vec<crate::tooth_notes::LatestNoteView>,
 }
 
 async fn load(
@@ -300,6 +302,7 @@ async fn load(
         .chain(own.into_iter().filter(|t| !t.retired))
         .collect();
     let (conditions, eruptions) = tooth_details::current(tx, patient_id).await?;
+    let tooth_notes = crate::tooth_notes::latest(tx, patient_id).await?;
     Ok(DentalChart {
         current,
         history,
@@ -307,6 +310,7 @@ async fn load(
         statuses,
         conditions,
         eruptions,
+        tooth_notes,
     })
 }
 

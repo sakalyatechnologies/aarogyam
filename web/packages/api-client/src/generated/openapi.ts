@@ -3797,6 +3797,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A tooth's notes, newest first (at most 50). */
+        get: operations["listToothNotes"];
+        put?: never;
+        /**
+         * Adds a free-text note to a tooth. It joins the open visit when there is one; no visit,
+         *     treatment or health status is needed. Notes are never edited: to fix one, add another.
+         */
+        post: operations["addToothNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/status": {
         parameters: {
             query?: never;
@@ -9465,6 +9486,11 @@ export interface components {
              *     Filter it as the clinician types; it changes only when someone adds a term.
              */
             terms: components["schemas"]["DentalTerm"][];
+            /**
+             * @description The start of the newest note of each tooth that has notes, by tooth, so the chart can
+             *     mark them. Left out when none.
+             */
+            tooth_notes?: components["schemas"]["ToothNoteMark"][];
         };
         /** @description A procedure or material: seeded (`zirconia`) or added by the clinic (a UUID id). */
         DentalTerm: {
@@ -12976,6 +13002,17 @@ export interface components {
             angulation?: string | null;
             /** @description `erupted`, `partial`, `impacted` or `unerupted`. */
             eruption: string;
+        };
+        /** @description A note to add. */
+        NewToothNote: {
+            /** @description The note, 1 to 2000 characters. An empty note is a `400` naming `body`. */
+            body: string;
+            /**
+             * @description An id the client made for this request, any UUID. A retry with the same `client_id` and
+             *     body returns the note it added; the same `client_id` for anything else is `id_conflict`
+             *     (`409`).
+             */
+            client_id?: string | null;
         };
         /** @description A tooth's health status to set. */
         NewToothStatus: {
@@ -17887,6 +17924,41 @@ export interface components {
          * @enum {string}
          */
         ToothHealth: "healthy" | "watch" | "needs_treatment";
+        /** @description A free-text note on a tooth. */
+        ToothNote: {
+            /** @description The text. */
+            body: string;
+            /** @description Identifier. */
+            id: string;
+            /** @description When it was written (RFC 3339). */
+            recorded_at: string;
+            /** @description The member who wrote it. */
+            recorded_by?: string | null;
+            /** @description Their name, when known. */
+            recorded_by_name?: string | null;
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth: number;
+            /** @description The visit it joined, when one was open. */
+            visit_id?: string | null;
+        };
+        /** @description A tooth's notes, newest first (at most 50). */
+        ToothNoteList: {
+            /** @description The notes. */
+            items: components["schemas"]["ToothNote"][];
+        };
+        /** @description A tooth that has notes, with the start of its newest one. */
+        ToothNoteMark: {
+            /** @description The newest note's first 120 characters. */
+            latest_note: string;
+            /**
+             * Format: int32
+             * @description FDI tooth number.
+             */
+            tooth: number;
+        };
         /**
          * @description A doctor's judgement of a tooth. It overrides the health the chart's findings suggest
          *     (sound or finished work: healthy; `watch`: watch; caries or fractured: needs treatment).
@@ -30338,6 +30410,121 @@ export interface operations {
             };
             /** @description No such patient in this clinic, or no eruption on the tooth */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listToothNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToothNoteList"];
+                };
+            };
+            /** @description Not an FDI tooth number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.read */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    addToothNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The patient */
+                id: string;
+                /** @description FDI tooth number */
+                tooth: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewToothNote"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToothNote"];
+                };
+            };
+            /** @description A bad tooth or body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The role lacks clinical.write */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such patient in this clinic */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `id_conflict`: the client_id made something else */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

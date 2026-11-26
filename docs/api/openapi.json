@@ -11841,6 +11841,133 @@
         ]
       }
     },
+    "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/notes": {
+      "get": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "A tooth's notes, newest first (at most 50).",
+        "operationId": "listToothNotes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToothNoteList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not an FDI tooth number"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.read"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "clinical"
+        ],
+        "summary": "Adds a free-text note to a tooth. It joins the open visit when there is one; no visit,\ntreatment or health status is needed. Notes are never edited: to fix one, add another.",
+        "operationId": "addToothNote",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The patient",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tooth",
+            "in": "path",
+            "description": "FDI tooth number",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewToothNote"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToothNote"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A bad tooth or body"
+          },
+          "401": {
+            "description": "Not signed in"
+          },
+          "403": {
+            "description": "The role lacks clinical.write"
+          },
+          "404": {
+            "description": "No such patient in this clinic"
+          },
+          "409": {
+            "description": "`id_conflict`: the client_id made something else"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/patients/{id}/dental-chart/teeth/{tooth}/status": {
       "put": {
         "tags": [
@@ -28156,6 +28283,13 @@
               "$ref": "#/components/schemas/DentalTerm"
             },
             "description": "The procedures and materials to offer: the seeded vocabulary, then the clinic's own.\nFilter it as the clinician types; it changes only when someone adds a term."
+          },
+          "tooth_notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToothNoteMark"
+            },
+            "description": "The start of the newest note of each tooth that has notes, by tooth, so the chart can\nmark them. Left out when none."
           }
         }
       },
@@ -36698,6 +36832,26 @@
           "eruption": {
             "type": "string",
             "description": "`erupted`, `partial`, `impacted` or `unerupted`."
+          }
+        }
+      },
+      "NewToothNote": {
+        "type": "object",
+        "description": "A note to add.",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The note, 1 to 2000 characters. An empty note is a `400` naming `body`."
+          },
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "An id the client made for this request, any UUID. A retry with the same `client_id` and\nbody returns the note it added; the same `client_id` for anything else is `id_conflict`\n(`409`)."
           }
         }
       },
@@ -48559,6 +48713,93 @@
           "watch",
           "needs_treatment"
         ]
+      },
+      "ToothNote": {
+        "type": "object",
+        "description": "A free-text note on a tooth.",
+        "required": [
+          "id",
+          "tooth",
+          "body",
+          "recorded_at"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "The text."
+          },
+          "id": {
+            "type": "string",
+            "description": "Identifier."
+          },
+          "recorded_at": {
+            "type": "string",
+            "description": "When it was written (RFC 3339)."
+          },
+          "recorded_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The member who wrote it."
+          },
+          "recorded_by_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Their name, when known."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          },
+          "visit_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The visit it joined, when one was open."
+          }
+        }
+      },
+      "ToothNoteList": {
+        "type": "object",
+        "description": "A tooth's notes, newest first (at most 50).",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ToothNote"
+            },
+            "description": "The notes."
+          }
+        }
+      },
+      "ToothNoteMark": {
+        "type": "object",
+        "description": "A tooth that has notes, with the start of its newest one.",
+        "required": [
+          "tooth",
+          "latest_note"
+        ],
+        "properties": {
+          "latest_note": {
+            "type": "string",
+            "description": "The newest note's first 120 characters."
+          },
+          "tooth": {
+            "type": "integer",
+            "format": "int32",
+            "description": "FDI tooth number.",
+            "minimum": 0
+          }
+        }
       },
       "ToothStatus": {
         "type": "object",

@@ -109,6 +109,7 @@ pub mod time_off;
 pub mod today;
 pub mod tokens;
 pub mod tooth_details;
+pub mod tooth_notes;
 pub mod treatment;
 pub mod ui_prefs;
 pub mod visit_summary;

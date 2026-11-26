@@ -94,6 +94,7 @@ pub(crate) mod telemetry;
 pub(crate) mod time_off;
 pub(crate) mod today;
 pub(crate) mod tooth_details;
+pub(crate) mod tooth_notes;
 pub(crate) mod treatment;
 pub(crate) mod ui_prefs;
 pub(crate) mod visit_summary;
@@ -514,6 +515,10 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
         .route(
             "/patients/{id}/dental-chart/teeth/{tooth}/status",
             put(chart::set_status).delete(chart::clear_status),
+        )
+        .route(
+            "/patients/{id}/dental-chart/teeth/{tooth}/notes",
+            get(tooth_notes::list).post(tooth_notes::add),
         )
         .route(
             "/patients/{id}/dental-chart/teeth/{tooth}/condition",

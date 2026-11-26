@@ -2301,6 +2301,25 @@ export const toothEruption = z.object({
 }) satisfies z.ZodType<C.ToothEruption>;
 export type ToothEruption = z.output<typeof toothEruption>;
 
+/** A free-text note on a tooth. */
+export const toothNote = z.object({
+  id: z.string(),
+  tooth: count,
+  body: z.string(),
+  visit_id: z.string().exactOptional(),
+  recorded_by: z.string().exactOptional(),
+  recorded_by_name: z.string().exactOptional(),
+  recorded_at: timestamp,
+}) satisfies z.ZodType<C.ToothNote>;
+export type ToothNote = z.output<typeof toothNote>;
+
+export const toothNoteList = z.object({ items: z.array(toothNote) }) satisfies z.ZodType<C.ToothNoteList>;
+export type ToothNoteList = z.output<typeof toothNoteList>;
+
+/** A tooth that has notes, with the start of its newest one. */
+export const toothNoteMark = z.object({ tooth: count, latest_note: z.string() }) satisfies z.ZodType<C.ToothNoteMark>;
+export type ToothNoteMark = z.output<typeof toothNoteMark>;
+
 export const dentalChart = z.object({
   current: z.array(chartEntry),
   history: z.array(chartEntry),
@@ -2311,6 +2330,8 @@ export const dentalChart = z.object({
   conditions: z.array(toothCondition).exactOptional(),
   /** Each permanent tooth's current eruption; absent when none (and from older servers). */
   eruptions: z.array(toothEruption).exactOptional(),
+  /** The newest note of each tooth that has notes; absent when none (and from older servers). */
+  tooth_notes: z.array(toothNoteMark).exactOptional(),
 }) satisfies z.ZodType<C.DentalChart>;
 export type DentalChart = z.output<typeof dentalChart>;
 

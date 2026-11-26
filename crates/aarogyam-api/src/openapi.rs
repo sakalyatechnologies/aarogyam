@@ -186,6 +186,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
         crate::v1::chart::record,
         crate::v1::chart::set_status,
         crate::v1::chart::clear_status,
+        crate::v1::tooth_notes::add,
+        crate::v1::tooth_notes::list,
         crate::v1::tooth_details::set_condition,
         crate::v1::tooth_details::condition_in_error,
         crate::v1::tooth_details::set_eruption,

@@ -60,8 +60,6 @@
     <string name="p9_followups_dismiss_confirm">Dismiss this follow-up? It leaves the follow-up list.</string>
     <string name="p9_followups_due">Due %1$s</string>
     <string name="p9_history_none">No visits yet. Start treatment to record the first one.</string>
-    <string name="p9_last_visit">Last visit</string>
-    <string name="p9_last_visit_a11y">Last visit, %1$s, %2$s, %3$s</string>
     <string name="p9_media">X-rays and photos</string>
     <string name="p9_media_photo">Photo</string>
     <string name="p9_media_xray">X-ray</string>
@@ -100,10 +98,6 @@
     <string name="p9_photo_xray">X-ray</string>
     <string name="p9_preview">Preview: needs server support</string>
     <string name="p9_start_treatment">Start treatment</string>
-    <string name="p9_status_done">Done</string>
-    <string name="p9_status_in_progress">In progress</string>
-    <string name="p9_status_planned">Planned</string>
-    <string name="p9_status_watch">Watch</string>
     <string name="p9_tab_consent">Consent</string>
     <string name="p9_tab_history">History</string>
     <string name="p9_tab_history_n">History · %1$d</string>
@@ -119,10 +113,6 @@
     <string name="p9_title_walkin">Walk-in visit</string>
     <string name="p9_today">Today</string>
     <string name="p9_tooth_n">Tooth %1$d</string>
-    <string name="p9_treatment_a11y">Tooth %1$d, %2$s, %3$s</string>
-    <string name="p9_treatments">Treatments</string>
-    <string name="p9_treatments_count">%1$d items · Teeth: %2$d</string>
-    <string name="p9_treatments_none">No treatments yet.</string>
     <string name="p9_unit_capsule">capsule</string>
     <string name="p9_unit_capsules">capsules</string>
     <string name="p9_unit_tablet">tablet</string>

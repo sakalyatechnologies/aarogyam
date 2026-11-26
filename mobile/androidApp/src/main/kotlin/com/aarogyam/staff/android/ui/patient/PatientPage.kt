@@ -261,7 +261,7 @@ private fun TabBody(
             if (overview !=
                 null
             ) {
-                OverviewTab(graph, clinic, overview, chart, recalls, onOpenVisit)
+                OverviewTab(graph, clinic, overview, chart, recalls)
             }
         }
 

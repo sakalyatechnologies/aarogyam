@@ -196,8 +196,7 @@ struct Patient360Screen: View {
         case .overview:
             if let overview {
                 V9OverviewTab(
-                    holder: overview.holder, state: overview.value, chart: chart, followUps: followUps, graph: graph, clinic: clinic,
-                    onOpenVisit: { detail = VisitDetailRoute(visitId: $0) }
+                    holder: overview.holder, state: overview.value, chart: chart, followUps: followUps, graph: graph, clinic: clinic
                 )
             }
         case .history:

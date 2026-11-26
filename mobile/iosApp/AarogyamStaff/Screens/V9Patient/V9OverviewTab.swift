@@ -21,7 +21,7 @@ extension TxStatus {
     }
 }
 
-/// The Overview tab: the jaw, health alerts, treatments, the last visit and the X-ray and photo tiles.
+/// The Overview tab: the jaw, health alerts, follow-ups and the X-ray and photo tiles.
 struct V9OverviewTab: View {
     let holder: PatientOverviewStateHolder
     let state: OverviewState
@@ -30,7 +30,6 @@ struct V9OverviewTab: View {
     var followUps: ScreenModel<RecallsStateHolder, RecallsState>?
     let graph: AppGraph
     let clinic: ClinicContext
-    let onOpenVisit: (String) -> Void
     @State private var sheetOpen = false
     /// A long press on this tooth: its sheet opens with the note being dictated (the tap that ends the press opens it too).
     @State private var dictating: Int32?
@@ -52,8 +51,6 @@ struct V9OverviewTab: View {
             if let error = loaded.error { V9ErrorLine(error: error) }
             jawCard
             alertsCard(loaded.alerts)
-            treatmentsCard(loaded.treatments)
-            if let last = loaded.lastVisit { lastVisitCard(last) }
             if let followUps {
                 V9FollowUpsCard(holder: followUps.holder, state: followUps.value, canDismiss: clinic.permissions.contains("patients.write"))
                     .id("p9.followups")
@@ -159,62 +156,6 @@ struct V9OverviewTab: View {
         }
         return alerts.allergies.enumerated().map { ("a\($0.offset)", $0.element.substance, $0.element.severity == .severe) }
             + alerts.conditions.enumerated().map { ("c\($0.offset)", $0.element, false) }
-    }
-
-    private func treatmentsCard(_ rows: [TreatmentRow]) -> some View {
-        let r = theme.roles
-        let teeth = Set(rows.map(\.tooth)).count
-        return V7Card {
-            VStack(alignment: .leading, spacing: 6) {
-                V9SectionHead(title: p9("p9.treatments"), note: rows.isEmpty ? nil : p9f("p9.treatments.count", rows.count, teeth))
-                if rows.isEmpty {
-                    V7Muted(p9("p9.treatments.none"))
-                } else {
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        Button { pick(row.tooth) } label: {
-                            HStack(spacing: 12) {
-                                V9Round(text: String(row.tooth))
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(row.procedure ?? row.finding.label).v7Text(14, .bold).foregroundStyle(r.onSurface.color)
-                                    Text(ClinicFormat.date(iso: row.date.date.isoText)).v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                V7Pill(text: row.status.title, kind: row.status.kind)
-                            }
-                            .frame(minHeight: 44)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.skPressable)
-                        .disabled(chart == nil)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(p9f("p9.treatment.a11y", Int(row.tooth), row.procedure ?? row.finding.label, row.status.title))
-                        .accessibilityHint(p9("p9.treatment.hint"))
-                    }
-                }
-            }
-        }
-    }
-
-    private func lastVisitCard(_ last: LastVisitView) -> some View {
-        let r = theme.roles
-        return Button { onOpenVisit(last.id) } label: {
-            V7Card {
-                HStack(spacing: 8) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        V9SectionHead(title: p9("p9.last_visit"), note: nil)
-                        Text(ClinicFormat.date(iso: last.at.date.isoText) + " · " + last.clinician)
-                            .v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
-                        Text(last.reason ?? last.number).v7Text(14, .semibold).foregroundStyle(r.onSurface.color)
-                    }
-                    Spacer(minLength: 4)
-                    V7Icon(name: "chev", size: 18, tint: r.onSurfaceVariant.color)
-                }
-            }
-        }
-        .buttonStyle(.skPressable)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(p9f("p9.last_visit.a11y", ClinicFormat.date(iso: last.at.date.isoText), last.clinician, last.reason ?? last.number))
-        .accessibilityAddTraits(.isButton)
     }
 
     @ViewBuilder private func mediaCard(_ media: [MediaView]) -> some View {

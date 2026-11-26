@@ -60,8 +60,6 @@
     <string name="p9_followups_dismiss_confirm">यह फ़ॉलो-अप हटाएँ? यह फ़ॉलो-अप सूची से हट जाएगा।</string>
     <string name="p9_followups_due">नियत %1$s</string>
     <string name="p9_history_none">अभी कोई विज़िट नहीं। पहली विज़िट दर्ज करने के लिए इलाज शुरू करें।</string>
-    <string name="p9_last_visit">पिछली विज़िट</string>
-    <string name="p9_last_visit_a11y">पिछली विज़िट, %1$s, %2$s, %3$s</string>
     <string name="p9_media">एक्स-रे और फ़ोटो</string>
     <string name="p9_media_photo">फ़ोटो</string>
     <string name="p9_media_xray">एक्स-रे</string>
@@ -100,10 +98,6 @@
     <string name="p9_photo_xray">एक्स-रे</string>
     <string name="p9_preview">प्रीव्यू: सर्वर सपोर्ट चाहिए</string>
     <string name="p9_start_treatment">इलाज शुरू करें</string>
-    <string name="p9_status_done">पूरा</string>
-    <string name="p9_status_in_progress">जारी</string>
-    <string name="p9_status_planned">योजना</string>
-    <string name="p9_status_watch">निगरानी</string>
     <string name="p9_tab_consent">सहमति</string>
     <string name="p9_tab_history">इतिहास</string>
     <string name="p9_tab_history_n">इतिहास · %1$d</string>
@@ -119,10 +113,6 @@
     <string name="p9_title_walkin">वॉक-इन विज़िट</string>
     <string name="p9_today">आज</string>
     <string name="p9_tooth_n">दाँत %1$d</string>
-    <string name="p9_treatment_a11y">दाँत %1$d, %2$s, %3$s</string>
-    <string name="p9_treatments">इलाज</string>
-    <string name="p9_treatments_count">%1$d प्रविष्टियाँ · दाँत: %2$d</string>
-    <string name="p9_treatments_none">अभी कोई इलाज नहीं।</string>
     <string name="p9_unit_capsule">कैप्सूल</string>
     <string name="p9_unit_capsules">कैप्सूल</string>
     <string name="p9_unit_tablet">गोली</string>

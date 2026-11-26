@@ -52,25 +52,7 @@ import com.sakalya.mobile.designcompose.SkSegmented
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
 
-@Composable
-private fun TxStatus.title(): String =
-    stringResource(
-        when (this) {
-            TxStatus.Done -> R.string.p9_status_done
-            TxStatus.InProgress -> R.string.p9_status_in_progress
-            TxStatus.Planned -> R.string.p9_status_planned
-            TxStatus.Watch -> R.string.p9_status_watch
-        },
-    )
-
-private fun TxStatus.kind(): PillKind =
-    when (this) {
-        TxStatus.Done -> PillKind.Done
-        TxStatus.InProgress, TxStatus.Watch -> PillKind.Warm
-        TxStatus.Planned -> PillKind.Neutral
-    }
-
-/** The Overview tab: the jaw, health alerts, treatments, the last visit, follow-ups and the X-ray and photo tiles. */
+/** The Overview tab: the jaw, health alerts, follow-ups and the X-ray and photo tiles. */
 @Composable
 internal fun OverviewTab(
     graph: AppGraph,
@@ -78,7 +60,6 @@ internal fun OverviewTab(
     holder: PatientOverviewStateHolder,
     chartHolder: ChartStateHolder?,
     followUps: RecallsStateHolder?,
-    onOpenVisit: (String) -> Unit,
 ) {
     val state by holder.state.collectAsStateWithLifecycle()
     val title = stringResource(R.string.p9_tab_overview)
@@ -86,7 +67,7 @@ internal fun OverviewTab(
         OverviewState.Loading -> SectionState(title, SectionKind.Loading)
         OverviewState.NotAllowed -> SectionState(title, SectionKind.NotAllowed)
         is OverviewState.Failed -> SectionState(title, SectionKind.Failed(current.error), holder::refresh)
-        is OverviewState.Loaded -> Loaded(graph, clinic, holder, current, chartHolder, followUps, onOpenVisit)
+        is OverviewState.Loaded -> Loaded(graph, clinic, holder, current, chartHolder, followUps)
     }
 }
 
@@ -98,7 +79,6 @@ private fun Loaded(
     loaded: OverviewState.Loaded,
     chartHolder: ChartStateHolder?,
     followUps: RecallsStateHolder?,
-    onOpenVisit: (String) -> Unit,
 ) {
     val chart = chartHolder?.state?.collectAsStateWithLifecycle()?.value
     var sheetOpen by remember { mutableStateOf(false) }
@@ -118,8 +98,6 @@ private fun Loaded(
         loaded.error?.let { ErrorLine(it) }
         JawCard(chart, chartHolder, pick, pickAndDictate)
         AlertsCard(loaded.alerts)
-        TreatmentsCard(loaded.treatments, chartHolder != null, pick)
-        loaded.lastVisit?.let { LastVisitCard(it) { onOpenVisit(it.id) } }
         if (followUps != null) {
             val recalls by followUps.state.collectAsStateWithLifecycle()
             FollowUpsCard(followUps, recalls, "patients.write" in clinic.permissions)
@@ -233,66 +211,6 @@ private fun alertTexts(alerts: FlagsView): List<Pair<String, Boolean>> =
         alerts.allergies.map { it.substance to (it.severity == Severity.Severe) } +
             alerts.conditions.map { it to false }
     }
-
-@Composable
-private fun TreatmentsCard(
-    rows: List<TreatmentRow>,
-    canPick: Boolean,
-    pick: (Int) -> Unit,
-) {
-    val p = SkTheme.palette
-    val teeth = rows.map { it.tooth }.toSet().size
-    V7Card {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            SectionHead(
-                stringResource(R.string.p9_treatments),
-                if (rows.isEmpty()) null else stringResource(R.string.p9_treatments_count, rows.size, teeth),
-            )
-            if (rows.isEmpty()) V7Muted(stringResource(R.string.p9_treatments_none))
-            rows.forEach { row ->
-                val name = row.procedure ?: stringResource(row.finding.label())
-                val status = row.status.title()
-                val description = stringResource(R.string.p9_treatment_a11y, row.tooth, name, status)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 44.dp)
-                        .clickable(enabled = canPick, role = Role.Button) { pick(row.tooth) }
-                        .clearAndSetSemantics { contentDescription = description },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Round(row.tooth.toString())
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(name, style = v7(14f, FontWeight.Bold), color = p.onSurface.color)
-                        Text(row.date.date.display(), style = v7(12f), color = p.onSurfaceVariant.color)
-                    }
-                    V7Pill(status, row.status.kind())
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun LastVisitCard(
-    last: LastVisitView,
-    onOpen: () -> Unit,
-) {
-    val p = SkTheme.palette
-    val reason = last.reason ?: last.number
-    val description = stringResource(R.string.p9_last_visit_a11y, last.at.date.display(), last.clinician, reason)
-    V7Card(Modifier.clearAndSetSemantics { contentDescription = description }, onClick = onOpen) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                SectionHead(stringResource(R.string.p9_last_visit))
-                Text(last.at.date.display() + " · " + last.clinician, style = v7(12f), color = p.onSurfaceVariant.color)
-                Text(reason, style = v7(14f, FontWeight.SemiBold), color = p.onSurface.color)
-            }
-            V7Icon("chev", p.onSurfaceVariant.color, 18.dp)
-        }
-    }
-}
 
 @Composable
 private fun MediaCard(media: List<MediaView>) {

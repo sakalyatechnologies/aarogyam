@@ -60,6 +60,8 @@ import com.aarogyam.staff.outbox.WriteQueue
 import com.aarogyam.staff.outbox.asConnectivity
 import com.aarogyam.staff.patients.AllergyView
 import com.aarogyam.staff.patients.Patient360StateHolder
+import com.aarogyam.staff.patients.PatientEditStateHolder
+import com.aarogyam.staff.patients.PatientView
 import com.aarogyam.staff.patients.PatientsStateHolder
 import com.aarogyam.staff.prescriptions.RxListStateHolder
 import com.aarogyam.staff.prescriptions.RxSheetStateHolder
@@ -295,6 +297,13 @@ class AppGraph private constructor(
         patientId: String,
         scope: CoroutineScope,
     ): Patient360StateHolder = Patient360StateHolder(clinic, patientId, scope, logger("aarogyam.patient360"))
+
+    /** "Edit details" on Patient 360, seeded from the loaded [view]. */
+    fun patientEdit(
+        clinic: ClinicContext,
+        view: PatientView,
+        scope: CoroutineScope,
+    ): PatientEditStateHolder = PatientEditStateHolder(clinic, view.id, view, scope, logger("aarogyam.patientedit"))
 
     fun visitHistory(
         clinic: ClinicContext,

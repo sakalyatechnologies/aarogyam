@@ -257,16 +257,8 @@ private fun SharePanel(
         }
 
         is ShareState.Ready -> {
-            Muted(stringResource(R.string.rx_pin_label))
-            Text(
-                share.link.pin,
-                style = SkTypography.largeTitle,
-                color = SkTheme.colors.text.color,
-                modifier = Modifier.padding(vertical = Spacing.S.dp),
-            )
-            Muted(stringResource(R.string.rx_pin_note))
             share.link.expiresAt?.let { Muted(stringResource(R.string.rx_link_expires, it.date.display())) }
-            // The text names only the clinic and the link; the PIN is told aloud, never sent with it.
+            // The text names only the clinic and the link.
             val text = stringResource(R.string.rx_share_text, state.issued?.clinicName.orEmpty(), share.link.url)
             val chooser = stringResource(R.string.rx_share_chooser)
             SkButton(

@@ -94,13 +94,6 @@ private fun Ready(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    V7Label(stringResource(R.string.pv_share_pin))
-    Text(
-        ready.pin,
-        style = v7(34f, FontWeight.ExtraBold).copy(fontFamily = FontFamily.Monospace, letterSpacing = 4.sp),
-        color = SkTheme.palette.onSurface.color,
-    )
-    V7Muted(stringResource(R.string.pv_share_pin_note))
     ready.expiresOn?.let { V7Muted(stringResource(R.string.pv_share_expires_on, it.display())) }
     val text = stringResource(R.string.pv_share_text, clinicName) + " " + ready.url
     SkPillButton(

@@ -85,12 +85,10 @@
     <string name="rx_issuing">जारी हो रहा है</string>
     <string name="rx_issued_title">पर्चा जारी हुआ</string>
     <string name="rx_link_creating">मरीज़ के लिए लिंक बन रहा है</string>
-    <string name="rx_pin_label">यह PIN मरीज़ को बताएं</string>
-    <string name="rx_pin_note">लिंक खोलने के लिए मरीज़ को इसकी ज़रूरत होगी. यह सिर्फ़ अभी दिखता है.</string>
     <string name="rx_link_expires">लिंक %1$s तक चलेगा</string>
     <string name="rx_share">लिंक शेयर करें</string>
     <string name="rx_share_retry">लिंक फिर से बनाकर देखें</string>
-    <string name="rx_share_text">%1$s से पर्चा. मैं जो PIN बताऊं उससे इसे यहां खोलें: %2$s</string>
+    <string name="rx_share_text">%1$s से पर्चा. इसे यहां खोलें: %2$s</string>
     <string name="rx_share_chooser">पर्चे का लिंक शेयर करें</string>
     <string name="done">हो गया</string>
     <string name="calendar_title">कैलेंडर</string>

@@ -8,6 +8,7 @@ import com.aarogyam.staff.api.model.AcceptBody
 import com.aarogyam.staff.api.model.Arrival
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.patients.sexOf
+import com.aarogyam.staff.walkin.DoctorOption
 import com.aarogyam.staff.walkin.PhoneMatchRow
 import com.sakalya.mobile.core.ApiError
 import com.sakalya.mobile.core.Logger
@@ -44,6 +45,7 @@ class ArrivalsHolder(
     fun refresh() {
         if (!canRead) return
         scope.launch {
+            if (canAccept && (mutable.value as? ArrivalsState.Shown)?.doctors.isNullOrEmpty()) loadDoctors()
             when (val result = clinic.api.arrivals()) {
                 is Outcome.Success -> {
                     mutable.update { state ->
@@ -59,6 +61,22 @@ class ArrivalsHolder(
         }
     }
 
+    private suspend fun loadDoctors() {
+        val list =
+            (clinic.reference.practitioners() as? Outcome.Success)
+                ?.value
+                ?.filter { it.active }
+                ?.map { DoctorOption(it.id, it.displayName) }
+                .orEmpty()
+        mutable.update { shown(it).copy(doctors = list) }
+    }
+
+    /** Chooses [doctorId] for [id]; null means any doctor. */
+    fun chooseDoctor(
+        id: String,
+        doctorId: String?,
+    ) = editRow(id) { it.copy(chosenDoctorId = doctorId) }
+
     /** Chooses a registered match for [id], or "New patient" when [patientId] is null. */
     fun choose(
         id: String,
@@ -73,7 +91,13 @@ class ArrivalsHolder(
         val row = (mutable.value as? ArrivalsState.Shown)?.rows?.firstOrNull { it.id == id } ?: return
         if (!canAccept || !markBusy(id)) return
         scope.launch {
-            val body = AcceptBody(checkIn = true, patientId = row.chosenPatientId, practitionerId = practitionerId)
+            val body =
+                AcceptBody(
+                    checkIn = true,
+                    patientId = row.chosenPatientId,
+                    practitionerId =
+                        practitionerId ?: row.chosenDoctorId,
+                )
             when (val result = clinic.api.acceptArrival(id, body)) {
                 is Outcome.Success -> {
                     log.info("arrival.accepted") { id("arrival_id", id) }
@@ -182,6 +206,7 @@ class ArrivalsHolder(
 /** The row for this arrival; the desk's earlier choice and busy flag survive a refresh while the match is still there. */
 internal fun Arrival.toRow(before: List<ArrivalRow>): ArrivalRow {
     val found = matches.items.map { PhoneMatchRow(it.id, it.fullName, it.number, it.ageYears, sexOf(it.sex)) }
+    val kin = matches.familyGroup.map { ArrivalRelative(it.id, it.fullName, it.number, it.relation) }
     val earlier = before.firstOrNull { it.id == id }
     return ArrivalRow(
         id = id,
@@ -191,7 +216,13 @@ internal fun Arrival.toRow(before: List<ArrivalRow>): ArrivalRow {
         sex = sexOf(sex.orEmpty()),
         reasons = reasonLabels,
         matches = found,
-        chosenPatientId = earlier?.chosenPatientId?.takeIf { pick -> found.any { it.id == pick } },
+        relatives = kin,
+        chosenPatientId =
+            earlier?.chosenPatientId?.takeIf { pick ->
+                found.any { it.id == pick } ||
+                    kin.any { it.id == pick }
+            },
+        chosenDoctorId = earlier?.chosenDoctorId,
         busy = earlier?.busy == true,
     )
 }

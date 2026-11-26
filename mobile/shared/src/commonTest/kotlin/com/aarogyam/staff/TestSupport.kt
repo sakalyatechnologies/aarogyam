@@ -180,7 +180,7 @@ fun todayBody(
     """{"date":"2026-10-05","as_of":"$asOf","appointments":${appointments.joinToString(",", "[", "]")},
        "counts":{"total":3,"booked":1,"arrived":1,"in_chair":0,"done":1,"no_shows":0,"cancelled":1,"waiting":2,"called":0,"ready_to_bill":0},
        "by_hour":[{"hour":9,"booked":1,"completed":1}],"chairs":[{"room_id":"r1","name":"Chair 1","kind":"chair","status":"free","current":null,"next":null}],
-       "recent_patients":[],"team":[],"attention":[],"completed_visits":[]}"""
+       "recent_patients":[],"team":[],"attention":[],"completed_visits":[],"sterilisation_cycles_today":0}"""
 
 /** Opens the Sunrise clinic through the fake backend and returns its context. */
 suspend fun openClinic(

@@ -40,8 +40,6 @@ private struct V9ShareCard: View {
             case .ready(let ready):
                 V7Card {
                     VStack(alignment: .leading, spacing: SkSpacing.m) {
-                        Text("v9v.share.pin", tableName: "VisitV9").v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
-                        Text(ready.pin).font(.system(size: 34, weight: .heavy)).monospacedDigit().foregroundStyle(r.onSurface.color)
                         Text("v9v.share.note", tableName: "VisitV9").v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
                         SkPillButton(V9("v9v.share.whatsapp"), variant: .warm, icon: V7Icon.path("wa"), wide: true) { send(ready) }
                         if cannotOpen { Text("v9v.share.cannot", tableName: "VisitV9").v7Text(12.5, .semibold).foregroundStyle(r.error.color) }
@@ -52,7 +50,7 @@ private struct V9ShareCard: View {
     }
 
     private func send(_ ready: VisitShareStateReady) {
-        let text = V9f("v9v.share.message", ready.url, ready.pin)
+        let text = V9f("v9v.share.message", ready.url)
         guard let url = ClinicalFormat.whatsAppURL(phone: phone, text: text) else { cannotOpen = true; return }
         openURL(url) { accepted in cannotOpen = !accepted }
     }

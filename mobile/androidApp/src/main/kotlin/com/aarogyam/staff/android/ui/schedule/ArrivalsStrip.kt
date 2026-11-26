@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,19 +25,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.desk.relationTitle
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.patient.v7
 import com.aarogyam.staff.android.ui.walkin.MatchRow
+import com.aarogyam.staff.android.ui.walkin.PickChip
 import com.aarogyam.staff.android.ui.walkin.SomeoneNewRow
 import com.aarogyam.staff.queue.ArrivalRow
 import com.aarogyam.staff.queue.ArrivalsHolder
 import com.aarogyam.staff.queue.ArrivalsState
+import com.aarogyam.staff.walkin.DoctorOption
+import com.sakalya.mobile.designcompose.SkAvatar
 import com.sakalya.mobile.designcompose.SkCard
+import com.sakalya.mobile.designcompose.SkChip
 import com.sakalya.mobile.designcompose.SkDivider
+import com.sakalya.mobile.designcompose.SkListRow
 import com.sakalya.mobile.designcompose.SkModalSheet
 import com.sakalya.mobile.designcompose.SkPillButton
 import com.sakalya.mobile.designcompose.SkPillVariant
 import com.sakalya.mobile.designcompose.SkTheme
+import com.sakalya.mobile.designcompose.SkTone
 import com.sakalya.mobile.designcompose.color
 
 /** "N checked in by QR" on the desk queue; a tap opens the sheet where each arrival is accepted or dismissed. */
@@ -71,15 +80,17 @@ fun ArrivalsStrip(holder: ArrivalsHolder) {
             if (shown.rows.isEmpty()) {
                 Text(stringResource(R.string.checkin_empty), style = v7(14f), color = p.onSurfaceVariant.color)
             }
-            shown.rows.forEach { ArrivalCard(it, shown.canAccept, holder) }
+            shown.rows.forEach { ArrivalCard(it, shown.canAccept, shown.doctors, holder) }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ArrivalCard(
     row: ArrivalRow,
     canAccept: Boolean,
+    doctors: List<DoctorOption>,
     holder: ArrivalsHolder,
 ) {
     val p = SkTheme.palette
@@ -102,11 +113,50 @@ private fun ArrivalCard(
                     )
                     SkDivider()
                 }
+                if (row.relatives.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.checkin_relatives),
+                        style = v7(12.5f),
+                        color = p.onSurfaceVariant.color,
+                    )
+                    row.relatives.forEach { kin ->
+                        SkListRow(
+                            title = kin.name,
+                            subtitle = kin.number + " · " + relationTitle(kin.relation),
+                            onClick = { holder.choose(row.id, kin.id) },
+                            leading = { SkAvatar(kin.name) },
+                            trailing =
+                                if (row.chosenPatientId == kin.id) {
+                                    { SkChip(stringResource(R.string.walk_in_selected), tone = SkTone.Success) }
+                                } else {
+                                    null
+                                },
+                        )
+                        SkDivider()
+                    }
+                }
                 SomeoneNewRow(
                     stringResource(R.string.checkin_new_patient),
                     chosen = row.chosenPatientId == null,
                     onClick = { holder.choose(row.id, null) },
                 )
+                if (doctors.isNotEmpty()) {
+                    Text(stringResource(R.string.walk_in_doctor), style = v7(12.5f), color = p.onSurfaceVariant.color)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PickChip(
+                            stringResource(R.string.walk_in_doctor_any),
+                            selected = row.chosenDoctorId == null,
+                            onClick = { holder.chooseDoctor(row.id, null) },
+                        )
+                        doctors.forEach { doctor ->
+                            PickChip(
+                                doctor.name,
+                                selected = row.chosenDoctorId == doctor.id,
+                                onClick = { holder.chooseDoctor(row.id, doctor.id) },
+                            )
+                        }
+                    }
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (canAccept) {

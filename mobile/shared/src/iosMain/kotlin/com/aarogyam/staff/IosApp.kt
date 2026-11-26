@@ -126,6 +126,13 @@ fun AppGraph.patient360(
     screen: ScreenScope,
 ): Patient360StateHolder = patient360(clinic, patientId, screen.scope)
 
+/** The "Edit details" form for the loaded patient [view], living as long as [screen]. */
+fun AppGraph.patientEdit(
+    clinic: ClinicContext,
+    view: com.aarogyam.staff.patients.PatientView,
+    screen: ScreenScope,
+): com.aarogyam.staff.patients.PatientEditStateHolder = patientEdit(clinic, view, screen.scope)
+
 /** The dental chart state holder for [patientId], living as long as [screen]. */
 fun AppGraph.chart(
     clinic: ClinicContext,

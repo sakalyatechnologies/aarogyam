@@ -4121,52 +4121,6 @@
         }
       }
     },
-    "rx.pin.label": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Read this PIN to the patient"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "यह PIN मरीज़ को बताएं"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "हा PIN रुग्णाला सांगा"
-          }
-        }
-      }
-    },
-    "rx.pin.note": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The patient needs it to open the link. It is shown only now."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "लिंक खोलने के लिए मरीज़ को इसकी ज़रूरत होगी. यह सिर्फ़ अभी दिखता है."
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "लिंक उघडण्यासाठी रुग्णाला हा लागेल. तो फक्त आताच दिसतो."
-          }
-        }
-      }
-    },
     "rx.quick": {
       "extractionState": "manual",
       "localizations": {
@@ -4357,19 +4311,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Prescription from %@. Open it with the PIN I will tell you."
+            "value": "Prescription from %@. Open it here."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ से पर्चा. मैं जो PIN बताऊं उससे खोलें."
+            "value": "%@ से पर्चा। इसे यहां खोलें।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%@ कडून प्रिस्क्रिप्शन. मी सांगतो तो PIN वापरून उघडा."
+            "value": "%@ कडून प्रिस्क्रिप्शन. इथे उघडा."
           }
         }
       }
@@ -9407,6 +9361,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "सर्व 6 अंक लिहा"
+          }
+        }
+      }
+    },
+    "checkin.relatives": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or a relative of theirs"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या उनके परिवार का कोई सदस्य"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किंवा त्यांचे नातेवाईक"
           }
         }
       }

@@ -3136,42 +3136,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "An expiring link with a PIN. The patient can open it without an app."
+            "value": "An expiring link. The patient can open it without an app."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN वाला समय-सीमित लिंक। मरीज़ इसे बिना ऐप के खोल सकता है।"
+            "value": "समय-सीमित लिंक। मरीज़ इसे बिना ऐप के खोल सकता है।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "PIN असलेली मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो."
-          }
-        }
-      }
-    },
-    "pv.share.pin": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN, read it out to the patient"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN, मरीज़ को बोलकर बताएँ"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN, रुग्णाला सांगा"
+            "value": "मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो."
           }
         }
       }
@@ -4822,29 +4799,6 @@
         }
       }
     },
-    "pv.share.pin_note": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The PIN is shown once. Send it separately from the link."
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN एक बार दिखता है। इसे लिंक से अलग भेजें।"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN एकदाच दिसतो. तो लिंकपासून वेगळा पाठवा."
-          }
-        }
-      }
-    },
     "pv.share.active": {
       "extractionState": "manual",
       "localizations": {
@@ -5025,6 +4979,420 @@
           "stringUnit": {
             "state": "translated",
             "value": "आणखी एक लिंक बनवा"
+          }
+        }
+      }
+    },
+    "pv.edit.action": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit details"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विवरण बदलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तपशील बदला"
+          }
+        }
+      }
+    },
+    "pv.edit.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit details"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विवरण बदलें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तपशील बदला"
+          }
+        }
+      }
+    },
+    "pv.edit.name": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full name"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पूरा नाम"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पूर्ण नाव"
+          }
+        }
+      }
+    },
+    "pv.edit.phone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mobile number"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मोबाइल नंबर"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मोबाइल नंबर"
+          }
+        }
+      }
+    },
+    "pv.edit.phone_locked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only roles that can see contact details may change the number."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपर्क विवरण देख सकने वाली भूमिकाएँ ही नंबर बदल सकती हैं।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "संपर्क तपशील पाहू शकणाऱ्या भूमिकाच नंबर बदलू शकतात."
+          }
+        }
+      }
+    },
+    "pv.edit.sex": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sex"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंग"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंग"
+          }
+        }
+      }
+    },
+    "pv.edit.birth": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Date of birth (YYYY-MM-DD)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जन्म तिथि (YYYY-MM-DD)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जन्मतारीख (YYYY-MM-DD)"
+          }
+        }
+      }
+    },
+    "pv.edit.age": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Age (years)"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उम्र (साल)"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वय (वर्षे)"
+          }
+        }
+      }
+    },
+    "pv.edit.age_hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Or age in years, if the date is not known"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "या उम्र साल में, अगर तिथि पता न हो"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "किंवा वय वर्षांत, तारीख माहीत नसल्यास"
+          }
+        }
+      }
+    },
+    "pv.edit.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जतन करा"
+          }
+        }
+      }
+    },
+    "pv.edit.name_required": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the patient's name."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मरीज़ का नाम लिखें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्णाचे नाव लिहा."
+          }
+        }
+      }
+    },
+    "pv.edit.birth_invalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the date as YYYY-MM-DD."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तिथि YYYY-MM-DD रूप में लिखें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तारीख YYYY-MM-DD स्वरूपात लिहा."
+          }
+        }
+      }
+    },
+    "pv.edit.age_invalid": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter an age between 0 and 130."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 से 130 के बीच उम्र लिखें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "० ते १३० दरम्यान वय लिहा."
+          }
+        }
+      }
+    },
+    "pv.edit.changed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This record changed since you opened it. Close this and open it again."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "खोलने के बाद यह रिकॉर्ड बदल गया है। इसे बंद करके फिर खोलें।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उघडल्यानंतर हा रेकॉर्ड बदलला आहे. बंद करून पुन्हा उघडा."
+          }
+        }
+      }
+    },
+    "pv.details.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विवरण"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तपशील"
+          }
+        }
+      }
+    },
+    "pv.details.age_sex": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Age and sex"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "उम्र और लिंग"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "वय आणि लिंग"
+          }
+        }
+      }
+    },
+    "pv.details.address": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पता"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पत्ता"
+          }
+        }
+      }
+    },
+    "pv.details.phone": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mobile number"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मोबाइल नंबर"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "मोबाइल नंबर"
           }
         }
       }

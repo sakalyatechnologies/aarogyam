@@ -60,8 +60,6 @@
     <string name="p9_followups_dismiss_confirm">हा फॉलो-अप काढायचा? तो फॉलो-अप यादीतून जाईल.</string>
     <string name="p9_followups_due">देय %1$s</string>
     <string name="p9_history_none">अजून भेटी नाहीत. पहिली भेट नोंदवण्यासाठी उपचार सुरू करा.</string>
-    <string name="p9_last_visit">मागील भेट</string>
-    <string name="p9_last_visit_a11y">मागील भेट, %1$s, %2$s, %3$s</string>
     <string name="p9_media">एक्स-रे आणि फोटो</string>
     <string name="p9_media_photo">फोटो</string>
     <string name="p9_media_xray">एक्स-रे</string>
@@ -100,10 +98,6 @@
     <string name="p9_photo_xray">एक्स-रे</string>
     <string name="p9_preview">प्रिव्ह्यू: सर्व्हर सपोर्ट हवा</string>
     <string name="p9_start_treatment">उपचार सुरू करा</string>
-    <string name="p9_status_done">पूर्ण</string>
-    <string name="p9_status_in_progress">सुरू</string>
-    <string name="p9_status_planned">नियोजित</string>
-    <string name="p9_status_watch">निरीक्षण</string>
     <string name="p9_tab_consent">संमती</string>
     <string name="p9_tab_history">इतिहास</string>
     <string name="p9_tab_history_n">इतिहास · %1$d</string>
@@ -119,10 +113,6 @@
     <string name="p9_title_walkin">वॉक-इन भेट</string>
     <string name="p9_today">आज</string>
     <string name="p9_tooth_n">दात %1$d</string>
-    <string name="p9_treatment_a11y">दात %1$d, %2$s, %3$s</string>
-    <string name="p9_treatments">उपचार</string>
-    <string name="p9_treatments_count">%1$d नोंदी · दात: %2$d</string>
-    <string name="p9_treatments_none">अजून उपचार नाहीत.</string>
     <string name="p9_unit_capsule">कॅप्सूल</string>
     <string name="p9_unit_capsules">कॅप्सूल</string>
     <string name="p9_unit_tablet">गोळी</string>
@@ -218,9 +208,7 @@
     <string name="pv_share_expires_on">लिंक %1$s पर्यंत चालेल</string>
     <string name="pv_share_failed">लिंक तयार झाली नाही. पुन्हा प्रयत्न करा.</string>
     <string name="pv_share_hour">1 तास</string>
-    <string name="pv_share_message">PIN असलेली मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो.</string>
-    <string name="pv_share_pin">PIN, रुग्णाला सांगा</string>
-    <string name="pv_share_pin_note">PIN एकदाच दिसतो. तो लिंकपासून वेगळा पाठवा.</string>
+    <string name="pv_share_message">मुदतीची लिंक. रुग्ण ती ॲपशिवाय उघडू शकतो.</string>
     <string name="pv_share_active">सुरू असलेल्या लिंक</string>
     <string name="pv_share_none">अजून कोणतीही लिंक नाही.</string>
     <string name="pv_share_usable">%1$s पर्यंत चालेल</string>
@@ -303,4 +291,18 @@
     <string name="p9_work_in_progress">चालू</string>
     <string name="p9_work_elsewhere">इतरत्र झाले</string>
     <string name="p9_work_found">आढळले</string>
+    <string name="pv_edit_action">तपशील बदला</string>
+    <string name="pv_edit_title">तपशील बदला</string>
+    <string name="pv_edit_phone">मोबाइल नंबर</string>
+    <string name="pv_edit_phone_locked">संपर्क तपशील पाहू शकणाऱ्या भूमिकाच नंबर बदलू शकतात.</string>
+    <string name="pv_edit_birth">जन्मतारीख (YYYY-MM-DD)</string>
+    <string name="pv_edit_age_hint">किंवा वय वर्षांत, तारीख माहीत नसल्यास</string>
+    <string name="pv_edit_save">जतन करा</string>
+    <string name="pv_edit_name_required">रुग्णाचे नाव लिहा.</string>
+    <string name="pv_edit_birth_invalid">तारीख YYYY-MM-DD स्वरूपात लिहा.</string>
+    <string name="pv_edit_age_invalid">० ते १३० दरम्यान वय लिहा.</string>
+    <string name="pv_edit_changed">उघडल्यानंतर हा रेकॉर्ड बदलला आहे. बंद करून पुन्हा उघडा.</string>
+    <string name="pv_details_title">तपशील</string>
+    <string name="pv_details_age_sex">वय आणि लिंग</string>
+    <string name="pv_details_address">पत्ता</string>
 </resources>

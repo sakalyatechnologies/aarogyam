@@ -54,7 +54,7 @@ import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.SkTopBar
 import com.sakalya.mobile.designcompose.color
 
-private enum class PatientSheet { Book, Share, Photo, Family }
+private enum class PatientSheet { Book, Share, Photo, Family, Edit }
 
 /**
  * The patient page: the tonal header (flags, quick actions, the money strip for roles with money),
@@ -112,6 +112,11 @@ fun PatientPage(
             navigation = { BarAction(stringResource(R.string.back), SkTheme.colors.onBrandDark.color, onBack) },
             actions = {
                 val showVisit = showPatientVisit(loaded?.view?.visits).takeIf { "clinical.read" in clinic.permissions }
+                if (loaded != null && "patients.write" in clinic.permissions) {
+                    BarAction(stringResource(R.string.pv_edit_action), SkTheme.colors.onBrandDark.color, {
+                        sheet = PatientSheet.Edit
+                    })
+                }
                 if (loaded != null && "patients.read" in clinic.permissions && ServerCaps.family) {
                     BarAction(stringResource(R.string.dk_d9_family_section), SkTheme.colors.onBrandDark.color, {
                         sheet = PatientSheet.Family
@@ -167,6 +172,7 @@ fun PatientPage(
                                     modifier = Modifier.padding(Spacing.L.dp),
                                 )
                             }
+                            PatientDetailsCard(loaded.view)
                             if ("clinical.write" in can) {
                                 SkPillButton(
                                     stringResource(R.string.p9_start_treatment),
@@ -227,6 +233,10 @@ fun PatientPage(
             DeskFamilySheet(family, loaded?.view?.name.orEmpty(), patientId) { sheet = null }
         }
 
+        PatientSheet.Edit -> {
+            loaded?.view?.let { EditPatientSheet(graph, clinic, it, onSaved = holder::refresh) { sheet = null } }
+        }
+
         null -> {}
     }
     presenting?.let { visitId ->
@@ -251,7 +261,7 @@ private fun TabBody(
             if (overview !=
                 null
             ) {
-                OverviewTab(graph, clinic, overview, chart, recalls, onOpenVisit)
+                OverviewTab(graph, clinic, overview, chart, recalls)
             }
         }
 

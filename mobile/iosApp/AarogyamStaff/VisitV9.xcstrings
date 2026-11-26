@@ -2256,48 +2256,25 @@
         }
       }
     },
-    "v9v.share.pin": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "PIN for the patient"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "मरीज़ के लिए पिन"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "रुग्णासाठी पिन"
-          }
-        }
-      }
-    },
     "v9v.share.note": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Shown once. The link works for 7 days. The message carries the link and PIN only."
+            "value": "Shown once. The link works for 7 days. The message carries the link only."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "एक बार दिखता है। लिंक 7 दिन चलता है। संदेश में केवल लिंक और पिन होते हैं।"
+            "value": "एक बार दिखता है। लिंक 7 दिन चलता है। संदेश में केवल लिंक होती है।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "एकदाच दिसतो. लिंक ७ दिवस चालते. संदेशात फक्त लिंक आणि पिन असतो."
+            "value": "एकदाच दिसतो. लिंक ७ दिवस चालते. संदेशात फक्त लिंक असते."
           }
         }
       }
@@ -2354,19 +2331,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your visit summary: %1$@ . PIN: %2$@"
+            "value": "Your visit summary: %1$@"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "आपकी विज़िट का सारांश: %1$@ . पिन: %2$@"
+            "value": "आपकी विज़िट का सारांश: %1$@"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "तुमच्या भेटीचा सारांश: %1$@ . पिन: %2$@"
+            "value": "तुमच्या भेटीचा सारांश: %1$@"
           }
         }
       }

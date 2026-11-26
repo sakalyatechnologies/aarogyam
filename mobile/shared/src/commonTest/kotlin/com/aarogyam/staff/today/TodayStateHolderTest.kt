@@ -211,7 +211,7 @@ class TodayStateHolderTest {
 
     private val money =
         """{"date":"2026-10-05","collected_paise":4820000,"payments_today":9,"invoiced_paise":5100000,"invoices_today":8,
-           "collected_this_month_paise":90000000,"upi_share_bps":6800,"pending_dues_paise":1250000,"pending_dues_patients":4,
+           "collected_this_month_paise":90000000,"month_collected_paise":90000000,"upi_share_bps":6800,"pending_dues_paise":1250000,"pending_dues_patients":4,
            "revenue_mix":[{"category":"Consultation","amount_paise":30000000,"share_bps":3300},
              {"category":"Treatment","amount_paise":60000000,"share_bps":6700}],"pending":[]}"""
 

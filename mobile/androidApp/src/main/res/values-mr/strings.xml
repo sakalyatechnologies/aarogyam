@@ -85,12 +85,10 @@
     <string name="rx_issuing">देत आहे</string>
     <string name="rx_issued_title">प्रिस्क्रिप्शन दिले</string>
     <string name="rx_link_creating">रुग्णासाठी लिंक तयार होत आहे</string>
-    <string name="rx_pin_label">हा PIN रुग्णाला सांगा</string>
-    <string name="rx_pin_note">लिंक उघडण्यासाठी रुग्णाला हा लागेल. तो फक्त आताच दिसतो.</string>
     <string name="rx_link_expires">लिंक %1$s पर्यंत चालेल</string>
     <string name="rx_share">लिंक शेअर करा</string>
     <string name="rx_share_retry">लिंक पुन्हा तयार करून पाहा</string>
-    <string name="rx_share_text">%1$s कडून प्रिस्क्रिप्शन. मी सांगतो तो PIN वापरून इथे उघडा: %2$s</string>
+    <string name="rx_share_text">%1$s कडून प्रिस्क्रिप्शन. इथे उघडा: %2$s</string>
     <string name="rx_share_chooser">प्रिस्क्रिप्शनची लिंक शेअर करा</string>
     <string name="done">झाले</string>
     <string name="calendar_title">कॅलेंडर</string>

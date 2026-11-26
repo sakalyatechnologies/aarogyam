@@ -4,7 +4,7 @@ import SwiftUI
 
 /// What a Patient 360 sheet is open on.
 enum PatientSheet: String, Identifiable {
-    case book, share, photo, family
+    case book, share, photo, family, edit
     var id: String { rawValue }
 }
 
@@ -62,6 +62,12 @@ struct Patient360Screen: View {
         .refreshable { await refresh() }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                if loaded != nil, clinic.permissions.contains("patients.write") {
+                    Button { sheet = .edit } label: { Label { Text(pv("pv.edit.action")) } icon: { Image(systemName: "pencil") } }
+                        .accessibilityIdentifier("patient.edit")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 if loaded != nil, clinic.permissions.contains("patients.read"), ServerCaps.shared.family {
                     Button { sheet = .family } label: { Label { Text("d9.family.section", tableName: "DeskV9") } icon: { Image(systemName: "person.2") } }
@@ -166,6 +172,7 @@ struct Patient360Screen: View {
             }
         }
         if let error { Text(error.message).v7Text(12.5).foregroundStyle(theme.roles.error.color).padding(SkSpacing.l) }
+        PatientDetailsCard(view: view)
         if can.treat {
             SkPillButton(CL("c.visit.start"), variant: .warm, icon: V7Icon.path("tooth"), wide: true) { visit = VisitRoute(patientId: patientId) }
                 .padding(.horizontal, SkSpacing.l).padding(.top, 12)
@@ -189,8 +196,7 @@ struct Patient360Screen: View {
         case .overview:
             if let overview {
                 V9OverviewTab(
-                    holder: overview.holder, state: overview.value, chart: chart, followUps: followUps, graph: graph, clinic: clinic,
-                    onOpenVisit: { detail = VisitDetailRoute(visitId: $0) }
+                    holder: overview.holder, state: overview.value, chart: chart, followUps: followUps, graph: graph, clinic: clinic
                 )
             }
         case .history:
@@ -213,6 +219,8 @@ struct Patient360Screen: View {
             DeskFamilySheet(graph: graph, clinic: clinic, target: DeskPayTarget(patientId: patientId, name: loaded?.view.name ?? ""))
         case .share:
             PatientShareSheet(graph: graph, clinic: clinic, patientId: patientId)
+        case .edit:
+            if let view = loaded?.view { EditPatientSheet(graph: graph, clinic: clinic, view: view) { holder.refresh() } }
         }
     }
 

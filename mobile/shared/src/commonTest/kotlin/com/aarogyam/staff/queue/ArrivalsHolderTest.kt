@@ -7,6 +7,7 @@ import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.testGraph
 import com.aarogyam.staff.walkin.walkInJson
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -14,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ArrivalsHolderTest {
     private val arrivals = "$SUNRISE/api/v1/arrivals"
@@ -26,8 +28,14 @@ class ArrivalsHolderTest {
         backend: FakeBackend,
         permissions: List<String> =
             listOf("appointments.read", "patients.read", "patients.write", "appointments.write", "intake.write"),
+        withRelative: Boolean = false,
     ): QueueStateHolder {
-        backend.on(arrivals, { json(list) })
+        val withKin =
+            list.replace(
+                """"family_group":[]""",
+                """"family_group":[{"of_patient_id":"p9","id":"p10","number":"SD-2","full_name":"Rohan Shah","relation":"child"}]""",
+            )
+        backend.on(arrivals, { json(if (withRelative) withKin else list) })
         backend.on("$SUNRISE/api/v1/queue", { json("""{"date":"2026-10-08","items":[]}""") })
         val graph = testGraph(backend, backgroundScope)
         return graph.queue(openClinic(backend, graph, this, permissions), backgroundScope)
@@ -89,5 +97,43 @@ class ArrivalsHolderTest {
             val queue = holder(backend, permissions = listOf("appointments.read"))
             assertEquals(ArrivalsState.Hidden, queue.arrivals.state.value)
             assertEquals(0, backend.count(arrivals))
+        }
+
+    @Test
+    fun relatives_and_the_chosen_doctor_reach_the_accept_request() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(
+                "$SUNRISE/api/v1/practitioners",
+                {
+                    json(
+                        """{"items":[{"id":"d1","display_name":"Dr. Patil","calendar_color":"#0E7490","active":true}]}""",
+                    )
+                },
+            )
+            backend.on("$arrivals/a1/accept", { json(walkInJson(false), HttpStatusCode.Created) })
+            val queue = holder(backend, withRelative = true)
+            queue.shown()
+            val shown =
+                queue.arrivals.state.first {
+                    it is ArrivalsState.Shown && it.doctors.isNotEmpty()
+                } as ArrivalsState.Shown
+            assertEquals(listOf("d1"), shown.doctors.map { it.id })
+            val row = shown.rows.single()
+            assertEquals("p10", row.relatives.single().id)
+            assertEquals("child", row.relatives.single().relation)
+            queue.arrivals.choose("a1", "p10")
+            queue.arrivals.chooseDoctor("a1", "d1")
+            backend.on(arrivals, { json("""{"items":[]}""") })
+            queue.arrivals.accept("a1")
+            queue.arrivals.state.first { it is ArrivalsState.Shown && it.count == 0 }
+            val body =
+                backend.requests
+                    .single { it.url.encodedPath.endsWith("/arrivals/a1/accept") }
+                    .body
+                    .toByteArray()
+                    .decodeToString()
+            assertTrue("\"patient_id\":\"p10\"" in body, body)
+            assertTrue("\"practitioner_id\":\"d1\"" in body, body)
         }
 }

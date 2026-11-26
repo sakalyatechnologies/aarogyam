@@ -82,9 +82,8 @@
     <string name="vv_v9v_share_action">विज़िट सारांश साझा करें</string>
     <string name="vv_v9v_share_cannot">व्हाट्सऐप नहीं खुल सका।</string>
     <string name="vv_v9v_share_creating">लिंक बन रहा है…</string>
-    <string name="vv_v9v_share_message">आपकी विज़िट का सारांश: %1$s . पिन: %2$s</string>
-    <string name="vv_v9v_share_note">एक बार दिखता है। लिंक 7 दिन चलता है। संदेश में केवल लिंक और पिन होते हैं।</string>
-    <string name="vv_v9v_share_pin">मरीज़ के लिए पिन</string>
+    <string name="vv_v9v_share_message">आपकी विज़िट का सारांश: %1$s</string>
+    <string name="vv_v9v_share_note">एक बार दिखता है। लिंक 7 दिन चलता है। संदेश में केवल लिंक होती है।</string>
     <string name="vv_v9v_share_whatsapp">व्हाट्सऐप पर भेजें</string>
     <string name="vv_v9v_started">शुरू: %1$s</string>
     <string name="vv_v9v_sum_back">%1$s पर वापस</string>
@@ -129,7 +128,7 @@
     <string name="vv_dv10_done_rx">Rx भेजा गया</string>
     <string name="vv_dv10_done_visit">विज़िट बंद</string>
     <string name="vv_wa_title">मरीज़ के लिए विज़िट का सारांश</string>
-    <string name="vv_wa_hint">वे क्यों आए, आपने क्या किया, आगे की योजना, घर पर देखभाल और दवाइयाँ, PIN वाले लिंक के साथ।</string>
+    <string name="vv_wa_hint">वे क्यों आए, आपने क्या किया, आगे की योजना, घर पर देखभाल और दवाइयाँ, सारांश के लिंक के साथ।</string>
     <string name="vv_wa_send">WhatsApp पर भेजें</string>
     <string name="vv_wa_prepare">WhatsApp सारांश तैयार करें</string>
     <string name="vv_wa_preparing">तैयार हो रहा है…</string>
@@ -153,7 +152,7 @@
     <string name="vv_wa_tick_offer">ऑफ़र</string>
     <string name="vv_wa_preview_more">पूरा संदेश देखें</string>
     <string name="vv_wa_preview_less">कम दिखाएँ</string>
-    <string name="vv_wa_stand_in">असली लिंक और PIN भेजते समय बनते हैं।</string>
+    <string name="vv_wa_stand_in">असली लिंक भेजते समय बनती है।</string>
     <string name="vv_present_open">मरीज़ को दिखाएँ</string>
     <string name="vv_present_failed">मुँह का दृश्य लोड नहीं हुआ। कनेक्शन देखकर फिर कोशिश करें।</string>
     <string name="vv_present_unsupported">ऐप का यह संस्करण मुँह का दृश्य नहीं दिखा सकता। ऐप अपडेट करें।</string>
@@ -206,7 +205,7 @@
     <string name="vv_c_rx_send_sms">SMS</string>
     <string name="vv_c_rx_send_to">%1$s को</string>
     <string name="vv_c_rx_send_whatsapp">WhatsApp</string>
-    <string name="vv_c_rx_sent_message">लिंक भेज दी गई है। पिन मरीज़ को बोलकर बताएँ।</string>
+    <string name="vv_c_rx_sent_message">लिंक भेज दी गई है।</string>
     <string name="vv_c_rx_sent_title">भेज दिया</string>
     <string name="vv_outbox_badge" tools:ignore="PluralsCandidate">सहेजा गया, भेजा जाएगा · %1$d</string>
 </resources>

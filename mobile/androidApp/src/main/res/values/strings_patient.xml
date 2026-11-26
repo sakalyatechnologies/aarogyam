@@ -60,8 +60,6 @@
     <string name="p9_followups_dismiss_confirm">Dismiss this follow-up? It leaves the follow-up list.</string>
     <string name="p9_followups_due">Due %1$s</string>
     <string name="p9_history_none">No visits yet. Start treatment to record the first one.</string>
-    <string name="p9_last_visit">Last visit</string>
-    <string name="p9_last_visit_a11y">Last visit, %1$s, %2$s, %3$s</string>
     <string name="p9_media">X-rays and photos</string>
     <string name="p9_media_photo">Photo</string>
     <string name="p9_media_xray">X-ray</string>
@@ -100,10 +98,6 @@
     <string name="p9_photo_xray">X-ray</string>
     <string name="p9_preview">Preview: needs server support</string>
     <string name="p9_start_treatment">Start treatment</string>
-    <string name="p9_status_done">Done</string>
-    <string name="p9_status_in_progress">In progress</string>
-    <string name="p9_status_planned">Planned</string>
-    <string name="p9_status_watch">Watch</string>
     <string name="p9_tab_consent">Consent</string>
     <string name="p9_tab_history">History</string>
     <string name="p9_tab_history_n">History · %1$d</string>
@@ -119,10 +113,6 @@
     <string name="p9_title_walkin">Walk-in visit</string>
     <string name="p9_today">Today</string>
     <string name="p9_tooth_n">Tooth %1$d</string>
-    <string name="p9_treatment_a11y">Tooth %1$d, %2$s, %3$s</string>
-    <string name="p9_treatments">Treatments</string>
-    <string name="p9_treatments_count">%1$d items · Teeth: %2$d</string>
-    <string name="p9_treatments_none">No treatments yet.</string>
     <string name="p9_unit_capsule">capsule</string>
     <string name="p9_unit_capsules">capsules</string>
     <string name="p9_unit_tablet">tablet</string>
@@ -218,9 +208,7 @@
     <string name="pv_share_expires_on">Link works until %1$s</string>
     <string name="pv_share_failed">Could not create the link. Try again.</string>
     <string name="pv_share_hour">1 hour</string>
-    <string name="pv_share_message">An expiring link with a PIN. The patient can open it without an app.</string>
-    <string name="pv_share_pin">PIN, read it out to the patient</string>
-    <string name="pv_share_pin_note">The PIN is shown once. Send it separately from the link.</string>
+    <string name="pv_share_message">An expiring link. The patient can open it without an app.</string>
     <string name="pv_share_active">Active links</string>
     <string name="pv_share_none">No links yet.</string>
     <string name="pv_share_usable">Works until %1$s</string>
@@ -303,4 +291,18 @@
     <string name="p9_work_in_progress">in progress</string>
     <string name="p9_work_elsewhere">done elsewhere</string>
     <string name="p9_work_found">found</string>
+    <string name="pv_edit_action">Edit details</string>
+    <string name="pv_edit_title">Edit details</string>
+    <string name="pv_edit_phone">Mobile number</string>
+    <string name="pv_edit_phone_locked">Only roles that can see contact details may change the number.</string>
+    <string name="pv_edit_birth">Date of birth (YYYY-MM-DD)</string>
+    <string name="pv_edit_age_hint">Or age in years, if the date is not known</string>
+    <string name="pv_edit_save">Save</string>
+    <string name="pv_edit_name_required">Enter the patient\'s name.</string>
+    <string name="pv_edit_birth_invalid">Enter the date as YYYY-MM-DD.</string>
+    <string name="pv_edit_age_invalid">Enter an age between 0 and 130.</string>
+    <string name="pv_edit_changed">This record changed since you opened it. Close this and open it again.</string>
+    <string name="pv_details_title">Details</string>
+    <string name="pv_details_age_sex">Age and sex</string>
+    <string name="pv_details_address">Address</string>
 </resources>

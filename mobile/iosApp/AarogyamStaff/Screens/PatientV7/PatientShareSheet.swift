@@ -93,9 +93,6 @@ private struct ShareBody: View {
 
     @ViewBuilder private func readyView(_ ready: SharePhaseReady) -> some View {
         let r = theme.roles
-        V7Label(text: pv("pv.share.pin"))
-        Text(ready.pin).font(.system(size: 34, weight: .heavy, design: .monospaced)).foregroundStyle(r.onSurface.color).kerning(4)
-        V7Muted(pv("pv.share.pin_note"))
         if let expires = ready.expiresOn { V7Muted(pvf("pv.share.expires_on", ClinicFormat.date(iso: expires.isoText))) }
         if let url = URL(string: ready.url) {
             ShareLink(item: url, subject: Text(pv("pv.share.title")), message: Text(pvf("pv.share.text", clinicName))) {

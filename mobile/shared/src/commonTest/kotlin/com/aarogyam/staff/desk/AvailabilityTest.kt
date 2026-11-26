@@ -44,7 +44,7 @@ private fun todayJson(
 ) = """{"date":"2026-10-05","as_of":"2026-10-05T04:15:00Z","appointments":[],
     "counts":{"total":0,"booked":0,"arrived":0,"in_chair":0,"done":0,"no_shows":0,"cancelled":0,"waiting":0,"called":0,"ready_to_bill":0},
     "by_hour":[],"chairs":${chairs.joinToString(",", "[", "]")},"recent_patients":[],
-    "team":${team.joinToString(",", "[", "]")},"attention":[],"completed_visits":[]}"""
+    "team":${team.joinToString(",", "[", "]")},"attention":[],"completed_visits":[],"sterilisation_cycles_today":0}"""
 
 private fun token(
     id: String,

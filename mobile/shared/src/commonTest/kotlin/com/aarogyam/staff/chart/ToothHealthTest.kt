@@ -4,8 +4,6 @@ import com.aarogyam.staff.FakeBackend
 import com.aarogyam.staff.SUNRISE
 import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.apiError
-import com.aarogyam.staff.device.DictationLanguage
-import com.aarogyam.staff.device.FakeDictation
 import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.testGraph
@@ -14,8 +12,6 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -125,86 +121,6 @@ class ToothHealthTest {
             assertFalse("treat_within_months" in refused, "healthy takes no months: $refused")
             assertEquals(HealthLevel.NeedsTreatment, chart.statusOf(36)?.level, "the refusal put the last status back")
             assertEquals(ScreenError.NotAllowed, sheet.health.value.error)
-        }
-
-    @Test
-    fun a_dictated_note_saves_with_the_suggested_health_when_listening_stops() =
-        runTest {
-            val backend = FakeBackend()
-            backend.on(route, { json(chart(listOf(entry("e1", 36, "caries", "O")))) })
-            backend.on(
-                "$route/teeth/36/status",
-                {
-                    json(
-                        """{"tooth":36,"health":"needs_treatment","note":"deep caries distal","recorded_at":"2026-11-18T04:30:00Z"}""",
-                    )
-                },
-            )
-            val graph = testGraph(backend, backgroundScope)
-            val clinic = openClinic(backend, graph, this, readWrite)
-            val chart = graph.chart(clinic, "p1", backgroundScope)
-            chart.state.first { it is ChartState.Loaded }
-            val dictation = FakeDictation()
-            val sheet = ToothSheetStateHolder(clinic, chart, null, backgroundScope, dictation = dictation)
-            sheet.openTooth(36)
-            sheet.dictateHealthNote(36, DictationLanguage.Hindi)
-            runCurrent()
-            assertEquals(DictationLanguage.Hindi, dictation.listening)
-            assertEquals(DictationLanguage.Hindi, sheet.health.value.listening)
-            dictation.say("deep", "deep caries")
-            runCurrent()
-            dictation.say("distal")
-            runCurrent()
-            assertEquals("distal", sheet.health.value.live)
-            sheet.stopHealthDictation()
-            runCurrent()
-            sheet.health.first { it.listening == null && !it.saving }
-            val sent =
-                (
-                    backend.requests
-                        .last {
-                            it.url.encodedPath.endsWith(
-                                "/teeth/36/status",
-                            )
-                        }.body as TextContent
-                ).text
-            assertTrue(""""note":"deep caries distal"""" in sent && """"health":"needs_treatment"""" in sent, sent)
-            assertEquals("deep caries distal", chart.statusOf(36)?.note)
-        }
-
-    @Test
-    fun a_typed_note_saves_itself_as_healthy_after_a_pause_and_shows_again_on_reselecting() =
-        runTest {
-            val backend = FakeBackend()
-            backend.on(route, { json(chart(listOf(entry("e1", 36, "caries", "O")))) })
-            backend.on(
-                "$route/teeth/11/status",
-                {
-                    json(
-                        """{"tooth":11,"health":"healthy","note":"Chipped edge","recorded_at":"2026-11-18T04:30:00Z"}""",
-                    )
-                },
-            )
-            val graph = testGraph(backend, backgroundScope)
-            val clinic = openClinic(backend, graph, this, readWrite)
-            val chart = graph.chart(clinic, "p1", backgroundScope)
-            chart.state.first { it is ChartState.Loaded }
-            val sheet = ToothSheetStateHolder(clinic, chart, null, backgroundScope)
-            sheet.openTooth(11)
-            sheet.editHealthNote(11, "Chip")
-            advanceTimeBy(500)
-            sheet.editHealthNote(11, "Chipped edge")
-            advanceTimeBy(700)
-            assertTrue(backend.requests.none { it.url.encodedPath.endsWith("/teeth/11/status") }, "still typing")
-            advanceTimeBy(200)
-            sheet.health.first { it.noteSaved }
-            val puts = backend.requests.filter { it.url.encodedPath.endsWith("/teeth/11/status") }
-            assertEquals(1, puts.size)
-            val sent = (puts.single().body as TextContent).text
-            assertTrue(""""health":"healthy"""" in sent && """"note":"Chipped edge"""" in sent, sent)
-            sheet.openTooth(36)
-            sheet.openTooth(11)
-            assertEquals("Chipped edge", sheet.health.value.note)
         }
 
     @Test

@@ -239,7 +239,6 @@
     <string name="pv_tooth_health_unassessed">अजून तपासले नाही</string>
     <string name="pv_tooth_health_within">इतक्या कालावधीत उपचार</string>
     <string name="pv_tooth_health_note">टीप</string>
-    <string name="pv_tooth_health_note_saved">सेव्ह झाले</string>
     <string name="pv_tooth_health_reset">चार्टची सूचना वापरा</string>
     <string name="pv_tooth_health_failed">दाताचे आरोग्य सेव्ह झाले नाही. पुन्हा प्रयत्न करा.</string>
     <string name="pv_detail_title">तपशील</string>

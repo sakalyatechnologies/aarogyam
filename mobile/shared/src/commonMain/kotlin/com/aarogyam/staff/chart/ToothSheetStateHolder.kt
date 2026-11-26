@@ -69,6 +69,7 @@ class ToothSheetStateHolder(
     val health: StateFlow<HealthSaveState> = editor.state
     private val details = ToothDetailEditor(clinic, chart, scope, log)
     private val treatments = ToothTreatments(clinic, chart, scope, log)
+    private val notes = ToothNotes(clinic, chart, scope, log)
 
     /** The tooth's planned and done treatments, with the one being marked done ([ToothTreatments]). */
     val treatmentRows: StateFlow<ToothTreatmentsState> = treatments.state
@@ -200,19 +201,36 @@ class ToothSheetStateHolder(
 
     fun dismissHealthError() = editor.dismissError()
 
-    fun openTooth(tooth: Int) = editor.open(tooth)
+    /** The sheet opened on [tooth]: an empty note box, and the tooth's past notes. */
+    fun openTooth(tooth: Int) {
+        editor.open()
+        notes.open(tooth)
+    }
 
-    fun editHealthNote(
-        tooth: Int,
-        text: String,
-    ) = editor.editNote(tooth, text)
+    /** The tooth's past notes, newest first, and the last save that failed ([ToothNotes]). */
+    val toothNotes: StateFlow<ToothNotesState> = notes.state
 
-    fun saveHealthNote(tooth: Int) = editor.saveNote(tooth)
+    fun editHealthNote(text: String) = editor.editNote(text)
 
-    fun dictateHealthNote(
-        tooth: Int,
-        language: DictationLanguage,
-    ) = editor.dictate(tooth, language)
+    /** The sheet closed: the note written is saved as a tooth note, once; empty is skipped. */
+    fun saveNote(tooth: Int) {
+        val text = editor.takeNote()
+        notes.save(tooth, text)
+    }
+
+    /** Add treatment: the note moves into the form, to be saved with the treatment. */
+    fun beginTreatment() {
+        reset()
+        setNote(editor.takeNote())
+    }
+
+    /** Back from Add treatment: the note returns to the tooth note box. */
+    fun endTreatment() {
+        if (mutableForm.value.editing == null) editor.editNote(mutableForm.value.note)
+        reset()
+    }
+
+    fun dictateHealthNote(language: DictationLanguage) = editor.dictate(language)
 
     fun stopHealthDictation() = editor.stopDictation()
 

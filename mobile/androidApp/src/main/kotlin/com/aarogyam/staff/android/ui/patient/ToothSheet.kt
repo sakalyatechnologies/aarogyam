@@ -83,7 +83,11 @@ internal fun ToothSheet(
                 stringResource(R.string.pv_tooth_title, tooth.number)
             },
         subtitle = if (isGroup) group.joinToString(", ") else toothName(tooth),
-        onDismiss = onDismiss,
+        onDismiss = {
+            // The note written saves itself when the sheet closes (nothing when it is empty).
+            sheet.saveNote(tooth.number)
+            onDismiss()
+        },
     ) {
         if (adding || isGroup) {
             AddTreatmentForm(chartHolder, chart, sheet, form, tooth) {
@@ -91,15 +95,14 @@ internal fun ToothSheet(
                     onDismiss()
                 } else {
                     adding = false
-                    sheet.reset()
+                    sheet.endTreatment()
                 }
             }
         } else {
             ToothHealthCard(sheet, tooth, selection.status, chart.canRecord, graph.voiceLanguage(), dictate)
             if (chart.canRecord) {
                 SkPillButton(stringResource(R.string.pv_tooth_add), {
-                    sheet.reset()
-                    sheet.setNote(sheet.health.value.note)
+                    sheet.beginTreatment()
                     adding = true
                 }, wide = true)
             }

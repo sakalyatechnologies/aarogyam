@@ -63,7 +63,7 @@ struct IntakeV10Form: View {
                 .padding(16)
             }
         }
-        .scrollDismissesKeyboard(.interactively)
+        .scrollDismissesKeyboard(.immediately)
         .safeAreaInset(edge: .bottom) {
             if form.done == nil { endButtons }
         }

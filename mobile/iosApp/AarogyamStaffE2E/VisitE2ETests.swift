@@ -36,6 +36,8 @@ final class VisitE2ETests: XCTestCase {
             type(wait(app.textFields["Full name"]), "E2E Test Patient")
             tap(app.buttons["Age"])
             type(wait(app.textFields["Age"]), "34")
+            // The number pad has no Return key; scrolling the form puts it away so later taps aren't hidden.
+            if app.keyboards.count > 0 { app.scrollViews.firstMatch.swipeUp(velocity: .slow) }
             tap(scrolledTo(app.buttons["Female"]))
             tap(scrolledTo(app.buttons["None known"]))
             let notice = scrolledTo(app.switches.matching(NSPredicate(format: "label BEGINSWITH 'Notice read'")).firstMatch)

@@ -12,9 +12,11 @@ struct ToothSheet: View {
     let clinic: ClinicContext
     /// Opened with a long press: dictate into the tooth note at once.
     var dictate = false
+    /// The open visit the treatments belong to, when the sheet opens from Start treatment.
+    var visitId: String?
 
     var body: some View {
-        ScreenHost(make: { graph.toothSheet(clinic: clinic, chart: holder, visitId: nil, screen: $0) }, state: { $0.form }) { sheet, form in
+        ScreenHost(make: { graph.toothSheet(clinic: clinic, chart: holder, visitId: visitId, screen: $0) }, state: { $0.form }) { sheet, form in
             ToothSheetBody(holder: holder, chart: chart, selection: selection, sheet: sheet, form: form, voice: graph.voiceLanguage(), dictate: dictate)
         }
     }

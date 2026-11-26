@@ -56,10 +56,12 @@ internal fun ToothSheet(
     selection: ToothSelection,
     /** Opened with a long press: dictate into the tooth note at once. */
     dictate: Boolean = false,
+    /** The open visit the treatments belong to, when opened from Start treatment. */
+    visitId: String? = null,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val sheet = remember { graph.toothSheet(clinic, chartHolder, null, scope) }
+    val sheet = remember { graph.toothSheet(clinic, chartHolder, visitId, scope) }
     val form by sheet.form.collectAsStateWithLifecycle()
     val group = if (chart.several) chart.group else emptyList()
     val isGroup = group.size > 1

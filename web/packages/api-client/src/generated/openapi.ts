@@ -4440,7 +4440,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Makes a link for the patient to open the prescription with a PIN. The body is optional: the
+         * Makes a link for the patient to open the prescription. The body is optional: the
          *     lifetime (24 to 720 hours, seven days by default) and how it is handed over.
          */
         post: operations["createPrescriptionShare"];
@@ -5616,7 +5616,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Public, no sign-in: opens the prescription with the PIN. Five wrong PINs lock the link.
+         * Public, no sign-in: opens the prescription. No PIN and no body (an older client's body is ignored).
          *     Every open is written to the access record.
          */
         post: operations["openSharedPrescription"];
@@ -5657,7 +5657,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.
+         * Public, no sign-in: opens a link to records. No PIN and no body (an older client's body is ignored).
          *     Every open is written to the access record.
          */
         post: operations["openSharedRecords"];
@@ -13534,16 +13534,6 @@ export interface components {
              */
             slot_minutes?: number | null;
         };
-        /** @description The PIN. */
-        OpenRecords: {
-            /** @description The six digits the clinic gave. */
-            pin: string;
-        };
-        /** @description The PIN. */
-        OpenRequest: {
-            /** @description The six digits printed on the paper. */
-            pin: string;
-        };
         /** @description A stretch of the week the clinic is open. */
         OpeningShift: {
             /** @description The branch. */
@@ -16213,7 +16203,7 @@ export interface components {
              */
             tooth?: number | null;
         };
-        /** @description What a link shows before its PIN: no patient data. */
+        /** @description What a link shows before it opens: no patient data. */
         SharedPreview: {
             /** @description The clinic's name. */
             clinic_name: string;
@@ -36681,11 +36671,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OpenRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -36695,13 +36681,6 @@ export interface operations {
                     "application/json": components["schemas"]["Prescription"];
                 };
             };
-            /** @description Wrong PIN; the message says how many tries are left */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
             /** @description No such link */
             404: {
                 headers: {
@@ -36709,14 +36688,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Expired */
+            /** @description Expired or revoked */
             410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong PINs */
+            /** @description An old link locked after too many wrong PINs */
             423: {
                 headers: {
                     [name: string]: unknown;
@@ -36789,11 +36768,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OpenRecords"];
-            };
-        };
+        requestBody?: never;
         responses: {
             200: {
                 headers: {
@@ -36803,13 +36778,6 @@ export interface operations {
                     "application/json": components["schemas"]["SharedRecords"];
                 };
             };
-            /** @description Wrong PIN; the message says how many tries are left */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
             /** @description No such link, or not a link to records */
             404: {
                 headers: {
@@ -36817,14 +36785,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Expired */
+            /** @description Expired or revoked */
             410: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Locked after too many wrong PINs */
+            /** @description An old link locked after too many wrong PINs */
             423: {
                 headers: {
                     [name: string]: unknown;

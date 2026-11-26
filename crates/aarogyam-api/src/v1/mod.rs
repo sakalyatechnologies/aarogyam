@@ -943,7 +943,7 @@ pub(crate) fn routes(local_dev: bool) -> Router<AppState> {
             "/prescriptions/{id}/share",
             post(prescriptions::create_share),
         )
-        // Public, no sign-in: on the clinic's host, limited by the link's token (prescription and record links add a PIN; visit links do not).
+        // Public, no sign-in: on the clinic's host, limited by the link's token (no PIN on any of them).
         .route("/shared/{token}", get(prescriptions::shared_preview))
         .route("/shared/{token}/open", post(prescriptions::shared_open))
         .route("/shared/{token}/records", post(record_shares::open))

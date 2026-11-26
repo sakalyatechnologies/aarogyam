@@ -1,6 +1,5 @@
-//! Patient links to a prescription, opened with the PIN sent a moment after the link (and printed
-//! on the paper), and the QR code's
-//! verification page. The public parts run in a clinic transaction with no user: the clinic
+//! Patient links to a prescription, opened with the link alone (no PIN; the long random token is
+//! the secret), and the QR code's verification page. The public parts run in a clinic transaction with no user: the clinic
 //! comes from the host name, the link from its token.
 
 use aarogyam_dal::access;
@@ -11,9 +10,7 @@ use aarogyam_domain::messaging::Channel;
 use aarogyam_domain::outbox::MessageKind;
 use aarogyam_domain::permission::Permission;
 use aarogyam_domain::prescription::RxStatus;
-use aarogyam_domain::share::{
-    LinkState, MAX_PIN_ATTEMPTS, Pin, ShareChannel, ShareError, link_lifetime,
-};
+use aarogyam_domain::share::{LinkState, ShareChannel, ShareError, link_lifetime};
 use aws_lc_rs::rand;
 use sakalya_db::{Db, ScopedTx};
 use serde_json::json;
@@ -22,7 +19,7 @@ use uuid::Uuid;
 
 use crate::clock::clinic_today;
 use crate::error::AppError;
-use crate::messaging::{PatientEmail, enqueue_patient_message, enqueue_patient_message_at};
+use crate::messaging::{PatientEmail, enqueue_patient_message};
 use crate::prescriptions::{NotSent, RxView, load};
 use crate::scope::{PATIENT, public_scope, staff_scope};
 use crate::tokens::{hash_token, new_token};
@@ -177,7 +174,6 @@ pub(crate) async fn share_in(
                 PatientId::from_uuid(patient_id),
                 &doctor,
                 &link,
-                now,
             )
             .await?,
         )
@@ -199,7 +195,6 @@ async fn queue_for_phone(
     patient_id: PatientId,
     doctor_name: &str,
     link: &NewLink,
-    now: OffsetDateTime,
 ) -> Result<Result<(), NotSent>, AppError> {
     let patient = aarogyam_dal::patients::get(tx.conn(), patient_id.uuid(), None)
         .await?
@@ -218,24 +213,14 @@ async fn queue_for_phone(
         doctor_name,
         &host,
         link,
-        now,
     )
     .await?;
     Ok(Ok(()))
 }
 
-/// How long after the link its PIN is due, so the two arrive in that order.
-pub(crate) const PIN_DELAY: Duration = Duration::seconds(30);
-
-/// Queues the "your prescription is ready" message for a link on `channel`, then its PIN as a
-/// second message on the same channel [`PIN_DELAY`] later (docs/decisions.md, "PIN apart from
-/// the link"). The payloads name the clinic, the doctor (link only), the portal and the expiry
-/// day, never the patient or the medicines; the token and the PIN travel in each message's
-/// one-time secret.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "one link and its PIN in the caller's transaction"
-)]
+/// Queues the "your prescription is ready" message for a link on `channel`, with no PIN message.
+/// The payload names the clinic, the doctor (link only), the portal and the expiry day, never
+/// the patient or the medicines; the token travels in the message's one-time secret.
 pub(crate) async fn queue_link_message(
     tx: &mut ScopedTx,
     channel: Channel,
@@ -244,7 +229,6 @@ pub(crate) async fn queue_link_message(
     doctor_name: &str,
     portal_host: &str,
     link: &NewLink,
-    now: OffsetDateTime,
 ) -> Result<(), AppError> {
     let profile = aarogyam_dal::clinic::profile(tx.conn())
         .await?
@@ -276,20 +260,6 @@ pub(crate) async fn queue_link_message(
             appointment_id: None,
             dedupe_key: None,
         },
-    )
-    .await?;
-    enqueue_patient_message_at(
-        tx,
-        channel,
-        &PatientEmail {
-            kind: MessageKind::PrescriptionSharedPin,
-            patient_id,
-            payload: json!({ "expires_on": expires_on }),
-            secret: Some(&link.pin),
-            appointment_id: None,
-            dedupe_key: None,
-        },
-        Some(now + PIN_DELAY),
     )
     .await?;
     Ok(())
@@ -405,18 +375,16 @@ pub async fn preview(
 /// What opening a link did.
 #[derive(Debug, Clone)]
 pub enum OpenOutcome {
-    /// The PIN was right: the prescription.
+    /// The link is live: the prescription.
     Opened(Box<RxView>),
-    /// The PIN was wrong; this many tries are left.
-    WrongPin(i32),
-    /// Too many wrong PINs; the clinic must send a new link.
+    /// An old link locked by too many wrong PINs; the clinic must send a new link.
     Locked,
     /// Past its expiry, or revoked.
     Expired,
 }
 
-/// Opens a link with the PIN. A wrong PIN counts; the fifth locks the link for good. A right
-/// one returns the prescription and writes the access record (the patient, through this link).
+/// Opens a link: returns the prescription and writes the access record (the patient, through
+/// this link). No PIN.
 ///
 /// # Errors
 /// [`AppError::NotFound`] for an unknown token.
@@ -425,7 +393,6 @@ pub async fn open(
     clinic_id: ClinicId,
     request_id: Option<Uuid>,
     token: &str,
-    pin: &str,
     now: OffsetDateTime,
 ) -> Result<OpenOutcome, AppError> {
     db.scoped(&public_scope(clinic_id, request_id), async |tx| {
@@ -441,18 +408,6 @@ pub async fn open(
             LinkState::Locked => return Ok(OpenOutcome::Locked),
             LinkState::Expired => return Ok(OpenOutcome::Expired),
             LinkState::Usable => {}
-        }
-        let right =
-            Pin::parse(pin).is_some_and(|pin| pin_hash(token, pin.as_str()) == link.pin_hash);
-        if !right {
-            let attempts = link.failed_attempts + 1;
-            let locked = attempts >= MAX_PIN_ATTEMPTS;
-            dal::share_link_failed(tx.conn(), link.id, attempts, locked.then_some(now)).await?;
-            return Ok(if locked {
-                OpenOutcome::Locked
-            } else {
-                OpenOutcome::WrongPin(MAX_PIN_ATTEMPTS - attempts)
-            });
         }
         let prescription_id = link
             .prescription_id

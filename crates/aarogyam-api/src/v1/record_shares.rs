@@ -1,5 +1,5 @@
 //! Links to a patient's records: the clinic makes one for the chart, X-rays and bills with a
-//! chosen lifetime; the patient opens it on the clinic's host with the PIN.
+//! chosen lifetime; the patient opens it on the clinic's host, with no PIN.
 
 use aarogyam_app::record_share::{self as app, OpenOutcome, XrayRefusal};
 use aarogyam_domain::event::Event;
@@ -174,13 +174,6 @@ pub(crate) async fn list(
     }))
 }
 
-/// The PIN.
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct OpenRecords {
-    /// The six digits the clinic gave.
-    pub pin: String,
-}
-
 /// One tooth finding on the chart.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct SharedChartEntry {
@@ -306,7 +299,7 @@ fn shared(token: &str, records: app::Records) -> SharedRecords {
     }
 }
 
-/// Public, no sign-in: opens a link to records with the PIN. Five wrong PINs lock the link.
+/// Public, no sign-in: opens a link to records. No PIN and no body (an older client's body is ignored).
 /// Every open is written to the access record.
 #[utoipa::path(
     post,
@@ -314,20 +307,17 @@ fn shared(token: &str, records: app::Records) -> SharedRecords {
     operation_id = "openSharedRecords",
     tag = "public",
     params(("token" = String, Path, description = "The link's token")),
-    request_body = OpenRecords,
     responses(
         (status = 200, body = SharedRecords),
-        (status = 403, description = "Wrong PIN; the message says how many tries are left"),
         (status = 404, description = "No such link, or not a link to records"),
-        (status = 410, description = "Expired"),
-        (status = 423, description = "Locked after too many wrong PINs")
+        (status = 410, description = "Expired or revoked"),
+        (status = 423, description = "An old link locked after too many wrong PINs")
     )
 )]
 pub(crate) async fn open(
     State(state): State<AppState>,
     public: ClinicHost,
     ApiPath(token): ApiPath<String>,
-    ApiJson(body): ApiJson<OpenRecords>,
 ) -> Result<Response, ApiFailure> {
     let outcome = app::open(
         state.db(),
@@ -335,7 +325,6 @@ pub(crate) async fn open(
         public.clinic_id,
         public.request_id,
         &token,
-        &body.pin,
         OffsetDateTime::now_utc(),
     )
     .await?;
@@ -351,17 +340,12 @@ pub(crate) async fn open(
             tracing::info!(event = Event::ShareLinkOpened.as_str(), "share link opened");
             Json(shared(&token, *records)).into_response()
         }
-        OpenOutcome::WrongPin(left) => refuse(
-            StatusCode::FORBIDDEN,
-            "wrong_pin",
-            format!("The PIN is wrong. {left} tries left."),
-        ),
         OpenOutcome::Locked => {
             tracing::info!(event = Event::ShareLinkLocked.as_str(), "share link locked");
             refuse(
                 StatusCode::LOCKED,
                 "locked",
-                "Too many wrong PINs. Ask the clinic for a new link.".into(),
+                "This link is locked. Ask the clinic for a new link.".into(),
             )
         }
         OpenOutcome::Expired => refuse(

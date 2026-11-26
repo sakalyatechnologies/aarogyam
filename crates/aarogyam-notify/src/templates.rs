@@ -58,7 +58,7 @@ impl PortalLinks {
         format!("{}/learn", self.pattern.replace("{host}", host))
     }
 
-    /// The page where a patient opens a shared prescription with its PIN.
+    /// The page where a patient opens a shared prescription.
     #[must_use]
     pub fn shared(&self, host: &str, token: &str) -> String {
         format!("{}/shared/{token}", self.pattern.replace("{host}", host))
@@ -383,15 +383,13 @@ fn render_prescription_share(
         "{clinic}\n\n\
          Your prescription from {doctor} is ready.\n\n\
          Open it: {link}\n\n\
-         Your PIN comes in a separate message right after this one; it is also on your \
-         printed prescription. The link expires on {expires}."
+         The link expires on {expires}."
     );
     let html = format!(
         "<p><strong>{clinic}</strong></p>\
          <p>Your prescription from {doctor} is ready.</p>\
          <p><a href=\"{link}\">Open your prescription</a></p>\
-         <p>Your PIN comes in a separate message right after this one; it is also on your \
-         printed prescription. The link expires on {expires}.</p>",
+         <p>The link expires on {expires}.</p>",
         clinic = escape(clinic),
         doctor = escape(&doctor),
         link = escape(&link),
@@ -482,8 +480,8 @@ mod tests {
                 .text
                 .contains("https://sunrise.localtest.me/shared/tok3n")
         );
-        assert!(email.text.contains("PIN comes in a separate message"));
-        assert!(email.html.contains("PIN comes in a separate message"));
+        assert!(!email.text.contains("PIN"));
+        assert!(!email.html.contains("PIN"));
         assert!(email.html.contains("10 October 2026"));
         // The link email never carries a PIN: no six digits in a row anywhere in it.
         for part in [&email.subject, &email.text, &email.html] {

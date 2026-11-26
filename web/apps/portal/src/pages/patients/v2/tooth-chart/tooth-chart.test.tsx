@@ -72,7 +72,7 @@ async function openTooth(user: ReturnType<typeof userEvent.setup>, n: number) {
 }
 
 describe("the chart", () => {
-  it("shows Rows or the 3D arch, Adult or Child, and remembers the choice per person", async () => {
+  it("shows Rows or the 3D arch, Adult or Child, and remembers the look per person (not the dentition)", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
     renderPortal(path, { as: PEOPLE.asha, backend });
@@ -86,13 +86,14 @@ describe("the chart", () => {
 
     await user.click(screen.getByRole("radio", { name: "3D arch" }));
     expect(document.querySelector(".tc-arch")).not.toBeNull();
-    expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toEqual({ look: "arch", dentition: "child", view: "treatment" });
+    expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toEqual({ look: "arch", dentition: "adult", view: "treatment" });
 
     cleanup();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await ready();
     expect(screen.getByRole("radio", { name: "3D arch" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(20);
+    // The dentition belongs to the patient: an adult opens on all 32 teeth.
+    expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(32);
   });
 
   it("keeps the legend behind a Key button, and shows it on demand", async () => {

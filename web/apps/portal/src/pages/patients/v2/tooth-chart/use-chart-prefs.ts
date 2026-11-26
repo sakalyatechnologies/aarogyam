@@ -19,15 +19,17 @@ function read(userId: string): ChartPrefs {
     const parsed: unknown = JSON.parse(globalThis.localStorage.getItem(chartPrefsKey(userId)) ?? "null");
     if (typeof parsed !== "object" || parsed === null) return DEFAULTS;
     const look = "look" in parsed ? parsed.look : undefined;
-    const dentition = "dentition" in parsed ? parsed.dentition : undefined;
     const view = "view" in parsed ? parsed.view : undefined;
-    return { look: look === "arch" || look === "classic" ? look : "rows", dentition: dentition === "child" ? "child" : "adult", view: view === "health" ? "health" : "treatment" };
+    return { look: look === "arch" || look === "classic" ? look : "rows", dentition: "adult", view: view === "health" ? "health" : "treatment" };
   } catch {
     return DEFAULTS;
   }
 }
 
-/** The look (Rows, 3D arch or Classic), dentition (adult 32 or child 20) and view (Treatment or Health) this person last chose, remembered in this browser. */
+/**
+ * The look (Rows, 3D arch or Classic) and view (Treatment or Health) this person last chose, remembered in this browser. The
+ * dentition is not remembered: it belongs to the patient (see the chart block), so one child never hides the next adult's 32 teeth.
+ */
 export function useChartPrefs(userId: string): [ChartPrefs, (patch: Partial<ChartPrefs>) => void] {
   const [prefs, setPrefs] = useState<ChartPrefs>(() => read(userId));
   const update = useCallback(

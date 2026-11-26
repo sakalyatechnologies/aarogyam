@@ -194,10 +194,10 @@ function ArriveForm({
           <Field label="Email" {...(problems.email === undefined ? {} : { error: problems.email })}>
             <TextInput className="h-12 text-base" type="email" autoComplete="email" value={values.email} onChange={(event) => { set({ email: event.currentTarget.value }); }} />
           </Field>
+          <PinCodeFields large compact value={values.pin} onChange={(pin) => { set({ pin }); }} lookup={lookup} {...(problems.pincode === undefined ? {} : { pinError: problems.pincode })} />
           <Field label="Address">
             <TextInput className="h-12 text-base" autoComplete="street-address" placeholder="House, building and street" value={values.line1} onChange={(event) => { set({ line1: event.currentTarget.value }); }} />
           </Field>
-          <PinCodeFields large value={values.pin} onChange={(pin) => { set({ pin }); }} lookup={lookup} {...(problems.pincode === undefined ? {} : { pinError: problems.pincode })} />
           <IntakeSections
             large
             value={values.intake}

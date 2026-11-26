@@ -86,7 +86,7 @@ describe("Booking: a new patient in the same dialog", () => {
     if (!(name instanceof HTMLInputElement)) throw new Error("expected an input");
     expect(name.value).toBe(NAME);
     expect(within(group).getByRole("radiogroup", { name: /^Sex/ })).toBeTruthy();
-    expect(within(group).getByLabelText(/^Date of birth/, { selector: "input[type=date]" })).toBeTruthy();
+    expect(within(group).getByLabelText(/^Date of birth/, { selector: "input[placeholder=\"dd/mm/yyyy\"]" })).toBeTruthy();
     expect(within(group).getByLabelText(/^Mobile/)).toBeTruthy();
     expect(within(group).getByLabelText(/^Email/)).toBeTruthy();
     // No separate Register step: the dialog's own button saves the patient and the appointment.

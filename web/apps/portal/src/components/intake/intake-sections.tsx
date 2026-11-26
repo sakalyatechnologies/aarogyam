@@ -18,9 +18,9 @@ export function Chip({ label, on, onToggle, large }: { label: string; on: boolea
   );
 }
 
-function Section({ title, large, children }: { title: string; large: boolean; children: ReactNode }) {
+function Section({ title, large, open = false, children }: { title: string; large: boolean; open?: boolean; children: ReactNode }) {
   return (
-    <details className="rounded-xl border border-border px-4 py-3">
+    <details open={open} className="rounded-xl border border-border px-4 py-3">
       <summary className={`${large ? "min-h-10 text-base" : "text-sm"} cursor-pointer font-medium text-text`}>{title}</summary>
       <div className="mt-3 flex flex-col gap-4">{children}</div>
     </details>
@@ -53,6 +53,7 @@ export function IntakeSections({
   large = false,
   showHealth = true,
   problems = {},
+  contactExtra,
 }: {
   value: IntakeValues;
   onChange: (next: IntakeValues) => void;
@@ -63,6 +64,8 @@ export function IntakeSections({
   large?: boolean;
   showHealth?: boolean;
   problems?: IntakeProblems;
+  /** Extra fields at the top of Contact (the desk's preferred language). */
+  contactExtra?: ReactNode;
 }) {
   const set = (patch: Partial<IntakeValues>) => {
     onChange({ ...value, ...patch });
@@ -118,6 +121,7 @@ export function IntakeSections({
       </Section>
 
       <Section title="Contact" large={large}>
+        {contactExtra}
         {phone("Mobile 2 / WhatsApp", "altPhone")}
         {isMasked(value.altPhone) ? null : (
           <Checkbox
@@ -161,7 +165,7 @@ export function IntakeSections({
         {value.heardVia === "other" ? text("Tell us how", "heardViaText") : null}
       </Section>
 
-      <Section title="Medical history" large={large}>
+      <Section title="Medical history" large={large} open>
         {showHealth && choices.health_flags.length > 0 ? (
           <Chips label="Any of these?">
             {choices.health_flags.map((flag) => (

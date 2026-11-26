@@ -78,7 +78,8 @@ describe("/arrive (public, no sign-in)", () => {
     renderPortal(`/arrive?k=${key}&clinic=${SUNRISE}`, { backend });
     await user.click(await screen.findByText("A few more details (optional)"));
     await user.type(screen.getByLabelText("PIN code"), "411001");
-    expect(await screen.findByDisplayValue("Pune")).toBeTruthy();
+    expect((await screen.findByTestId("pin-filled")).textContent).toContain("Pune, Maharashtra");
+    await user.click(screen.getByRole("button", { name: "Change" }));
     expect(screen.getByLabelText("State")).toHaveProperty("value", "Maharashtra");
   });
 

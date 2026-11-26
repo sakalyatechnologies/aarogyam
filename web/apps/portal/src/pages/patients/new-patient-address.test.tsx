@@ -15,9 +15,11 @@ describe("New patient: address with PIN autofill", () => {
     await user.click(screen.getByLabelText("Female"));
     await user.click(screen.getByLabelText(/Age only/));
     await user.type(await screen.findByLabelText(/^Age in years/), "30");
-    await user.type(screen.getByLabelText("Address"), "5 Hill Road");
     await user.type(screen.getByLabelText("PIN code"), "411001");
-    expect(await screen.findByDisplayValue("Pune")).toBeTruthy();
+    // City and state show as text with a Change link, and the house line comes after the PIN.
+    expect((await screen.findByTestId("pin-filled")).textContent).toContain("Pune, Maharashtra");
+    expect(screen.queryByLabelText("State")).toBeNull();
+    await user.type(screen.getByLabelText("Address"), "5 Hill Road");
     await user.click(screen.getByRole("button", { name: "Register patient" }));
     await screen.findByText(/^Registered/);
     const desk = backend.client({ host: "sunrise.localtest.me", getToken: () => fakeTokenFor({ id: PEOPLE.farah }), now: () => NOW });

@@ -15,7 +15,7 @@ import { IntakeSections } from "../../components/intake/intake-sections.js";
 import { useIntakeOptions } from "../../intake-queries.js";
 import { useCreatePatient } from "../../queries.js";
 import { PhoneMatchCard, type FamilyPick } from "./phone-match-card.js";
-import { PatientFields, patientErrorOf, toNewPatient, usePatientForm } from "./patient-form.js";
+import { LanguageField, PatientFields, patientErrorOf, toNewPatient, usePatientForm } from "./patient-form.js";
 
 export function NewPatientPage() {
   const { session, can } = useClinic();
@@ -75,7 +75,7 @@ function NewPatientForm() {
       <MkCard className="max-w-2xl">
         <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-5">
           <PatientFields form={form} address={{ ...place, onChange: setPlace }} />
-          {options.data === undefined ? null : <IntakeSections value={intake} onChange={setIntake} choices={options.data} female={sex === "female"} mobile={mobile} problems={problems} />}
+          {options.data === undefined ? null : <IntakeSections value={intake} onChange={setIntake} choices={options.data} female={sex === "female"} mobile={mobile} problems={problems} contactExtra={<LanguageField form={form} />} />}
           {errors.root?.message === undefined ? null : (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
               {errors.root.message}

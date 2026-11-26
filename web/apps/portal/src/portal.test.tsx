@@ -51,7 +51,7 @@ describe("New patient", () => {
     const { router } = renderPortal("/patients/new", { as: PEOPLE.farah });
     await user.type(await screen.findByLabelText(/full name/i), "Asha Rane");
     await user.click(screen.getByRole("radio", { name: "Female" }));
-    await user.type(screen.getByLabelText(/date of birth/i, { selector: "input[type=date]" }), "1992-04-12");
+    await user.type(screen.getByPlaceholderText("dd/mm/yyyy"), "12/04/1992");
     await user.click(screen.getByRole("button", { name: "Register patient" }));
 
     expect(await screen.findByRole("heading", { name: "Asha Rane" })).toBeTruthy();

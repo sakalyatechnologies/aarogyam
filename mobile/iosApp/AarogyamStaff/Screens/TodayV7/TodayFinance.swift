@@ -2,7 +2,7 @@ import AarogyamShared
 import SakalyaUI
 import SwiftUI
 
-/// Today for a finance-only role: the me card (month target is a preview), the collected and
+/// Today for a finance-only role: the me card (with the month target), the collected and
 /// expenses cards with the UPI share, this month's revenue mix, and the parts the server cannot fill.
 struct FinanceToday: View {
     let graph: AppGraph
@@ -34,12 +34,17 @@ struct FinanceToday: View {
             String(format: String(localized: "t7.fin.collected", table: "TodayV7"), ClinicFormat.rupees(paise: money.collectedPaise)),
             String(format: String(localized: "t7.money.dues", table: "TodayV7"), ClinicFormat.rupees(paise: money.pendingDuesPaise)),
         ] + (spent.map { [String(format: String(localized: "t7.fin.expenses", table: "TodayV7"), $0)] } ?? [])
+        let month = ClinicFormat.rupees(paise: money.collectedThisMonthPaise)
+        let target = money.monthTargetPaise?.int64Value
+        let value = target.map { String(format: String(localized: "t7.me.target_value", table: "TodayV7"), month, ClinicFormat.rupees(paise: $0)) }
+            ?? String(format: String(localized: "t7.fin.month", table: "TodayV7"), month)
+        let fraction = target.flatMap { $0 > 0 ? min(1, Double(money.collectedThisMonthPaise) / Double($0)) : nil }
         return MeCardModel(
             role: clinic.roleName, name: clinic.session.user.displayName, chips: chips,
             progress: .init(
                 label: String(localized: "t7.fin.month_target", table: "TodayV7"),
-                value: String(format: String(localized: "t7.fin.month", table: "TodayV7"), ClinicFormat.rupees(paise: money.collectedThisMonthPaise)),
-                fraction: nil, isPreview: true
+                value: value,
+                fraction: fraction
             )
         )
     }

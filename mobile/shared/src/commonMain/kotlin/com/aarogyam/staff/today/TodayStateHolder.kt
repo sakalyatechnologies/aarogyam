@@ -62,6 +62,9 @@ class TodayStateHolder(
     /** The current screen state. */
     val state: StateFlow<TodayState> = mutableState.asStateFlow()
 
+    /** The sterilisation cycles sheet; logging one refreshes the count on the Me card. */
+    val cycles = CycleLogHolder(clinic, scope, log) { refresh() }
+
     init {
         if (APPOINTMENTS_READ in clinic.permissions || FINANCE_VIEW in clinic.permissions) {
             refresh()
@@ -113,7 +116,17 @@ class TodayStateHolder(
                                     clinic.timeZone,
                                     clinic.session.membership.id,
                                     clinic.session.membership.roleKey,
-                                ).let { v -> v.copy(money = money, me = v.me?.copy(stats = stats)) },
+                                ).let { v ->
+                                    v.copy(
+                                        money = money,
+                                        me =
+                                            v.me?.copy(
+                                                stats = stats,
+                                                monthTargetPaise = money?.monthTargetPaise,
+                                                monthCollectedPaise = money?.collectedThisMonthPaise,
+                                            ),
+                                    )
+                                },
                         )
                     }
 

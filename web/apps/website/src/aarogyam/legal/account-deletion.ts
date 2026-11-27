@@ -14,7 +14,7 @@ export const accountDeletion: LegalDoc = {
       blocks: [
         { kind: "ol", items: [
           `Open the ${PRODUCT} app and sign in.`,
-          "Go to Profile, then Account, then Delete account.",
+          "Go to More, then Delete account.",
           "Confirm. You are signed out on every device straight away.",
         ] },
         { kind: "note", text: "If you are the only owner of a clinic, make another member an owner first (Settings, Team & roles). The app tells you which clinics need this." },
@@ -24,7 +24,7 @@ export const accountDeletion: LegalDoc = {
       id: "by-request",
       title: "Ask us to delete it",
       blocks: [
-        { kind: "p", text: `If you can't use the app, email ${SUPPORT.email} from the address you sign in with, with the subject "Delete my ${PRODUCT} account". We check that the request comes from you, then delete the account within [number] days and email you when it is done.` },
+        { kind: "p", text: `If you can't use the app, email ${SUPPORT.email} from the address you sign in with, with the subject "Delete my ${PRODUCT} account". We check that the request comes from you, then delete the account within 30 days and email you when it is done.` },
       ],
     },
     {

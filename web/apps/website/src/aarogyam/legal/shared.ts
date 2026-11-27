@@ -12,7 +12,7 @@ export const GRIEVANCE_OFFICER = {
 } as const;
 /** How people reach Sakalya for help with the app or their account. */
 export const SUPPORT = {
-  email: "[Support email address]",
+  email: "sakalyatechnologies@gmail.com",
   whatsapp: "[Support WhatsApp number]",
   hours: "[Days and hours support answers]",
 } as const;

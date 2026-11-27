@@ -10,7 +10,7 @@ use aarogyam_app::visits::{
 };
 use aarogyam_domain::event::Event;
 use aarogyam_domain::ids::{ClinicalNoteId, EncounterId, PatientId, PrescriptionId};
-use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite};
+use aarogyam_domain::permission::require::{ClinicalRead, ClinicalWrite, PatientsRead};
 use axum::Json;
 use axum::body::Bytes;
 use axum::extract::State;
@@ -315,6 +315,9 @@ pub(crate) async fn start(
 }
 
 /// A patient's visits, newest first.
+///
+/// Needs `patients.read`; without `clinical.read` (the front desk) the chief complaint is left
+/// out and the rest is dates, status, doctor and chair.
 #[utoipa::path(
     get,
     path = "/api/v1/patients/{id}/visits",
@@ -325,13 +328,13 @@ pub(crate) async fn start(
     responses(
         (status = 200, body = VisitList),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks clinical.read"),
+        (status = 403, description = "The role lacks patients.read"),
         (status = 404, description = "No such patient in this clinic")
     )
 )]
 pub(crate) async fn list(
     State(state): State<AppState>,
-    Require { request, .. }: Require<ClinicalRead>,
+    Require { request, .. }: Require<PatientsRead>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<Json<VisitList>, ApiFailure> {
     let rows = app::list(

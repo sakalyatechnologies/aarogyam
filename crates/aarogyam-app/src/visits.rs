@@ -428,15 +428,27 @@ pub async fn list(
     request_id: Option<Uuid>,
     patient_id: PatientId,
 ) -> Result<Vec<VisitView>, AppError> {
-    actor.require(Permission::ClinicalRead)?;
+    actor.require(Permission::PatientsRead)?;
+    // Without clinical.read (the front desk) the list is dates, status, doctor and chair only.
+    let clinical = actor.require(Permission::ClinicalRead).is_ok();
     db.scoped(&scope(actor, request_id), async |tx| {
-        let reach = actor.reach(Permission::ClinicalRead);
+        let reach = actor.reach(if clinical {
+            Permission::ClinicalRead
+        } else {
+            Permission::PatientsRead
+        });
         let patient = require_patient(tx, patient_id, reach).await?;
         let rows =
             visits::list_encounters(tx.conn(), patient.id, MAX_VISITS, reach.member()).await?;
         let names = Names::load(tx, rows.iter().map(|r| r.clinician_id)).await?;
         rows.into_iter()
-            .map(|row| visit_view(row, &names))
+            .map(|row| {
+                let mut view = visit_view(row, &names)?;
+                if !clinical {
+                    view.chief_complaint = None;
+                }
+                Ok(view)
+            })
             .collect()
     })
     .await

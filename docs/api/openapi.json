@@ -13774,6 +13774,7 @@
           "clinical"
         ],
         "summary": "A patient's visits, newest first.",
+        "description": "Needs `patients.read`; without `clinical.read` (the front desk) the chief complaint is left\nout and the rest is dates, status, doctor and chair.",
         "operationId": "listVisits",
         "parameters": [
           {
@@ -13800,7 +13801,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks clinical.read"
+            "description": "The role lacks patients.read"
           },
           "404": {
             "description": "No such patient in this clinic"

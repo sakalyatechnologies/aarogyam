@@ -160,7 +160,10 @@ private fun Picker(
         }
     }
     if (needTooth) ErrorLine(stringResource(R.string.vv_v9v_proc_pick_tooth))
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Spacing.SM.dp)) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.SM.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.SM.dp),
+    ) {
         matchTerms(chart.terms, TermKind.Procedure, "").forEach { term ->
             WellChip("+ ${term.label}", stringResource(R.string.vv_v9v_proc_add_a11y, term.label), enabled = !locked) {
                 onAdd(term)

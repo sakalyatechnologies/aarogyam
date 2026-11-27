@@ -65,25 +65,21 @@ struct V9Procedures: View {
             Text("v9v.proc.pick_tooth", tableName: "VisitV9").v7Text(12.5, .semibold).foregroundStyle(r.error.color)
         }
         let procedures = ChartModelKt.matchTerms(terms: chart.terms, kind: .procedure, text: "")
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: SkSpacing.sm) {
-                ForEach(procedures, id: \.id) { term in
-                    Button { add(term) } label: {
-                        HStack(spacing: 6) {
-                            V7Icon(name: "plus", size: 14, tint: r.onSurface.color)
-                            Text(term.label).v7Text(14).lineLimit(1)
-                        }
-                        .foregroundStyle(r.onSurface.color)
-                        .padding(.horizontal, 12).frame(minHeight: 44).background(r.surface3.color, in: Capsule())
+        ChipFlow(spacing: SkSpacing.sm) {
+            ForEach(procedures, id: \.id) { term in
+                Button { add(term) } label: {
+                    HStack(spacing: 6) {
+                        V7Icon(name: "plus", size: 14, tint: r.onSurface.color)
+                        Text(term.label).v7Text(14).lineLimit(1)
                     }
-                    .buttonStyle(.skPressable)
-                    .disabled(locked)
-                    .accessibilityLabel(V9f("v9v.proc.add.a11y", term.label))
+                    .foregroundStyle(r.onSurface.color)
+                    .padding(.horizontal, 12).frame(minHeight: 44).background(r.surface3.color, in: Capsule())
                 }
+                .buttonStyle(.skPressable)
+                .disabled(locked)
+                .accessibilityLabel(V9f("v9v.proc.add.a11y", term.label))
             }
-            .padding(.horizontal, 16)
         }
-        .padding(.horizontal, -16)
     }
 
     private func lines(_ chart: ChartStateLoaded?) -> some View {

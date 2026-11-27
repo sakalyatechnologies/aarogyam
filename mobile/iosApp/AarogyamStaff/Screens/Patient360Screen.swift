@@ -61,6 +61,9 @@ struct Patient360Screen: View {
         .background(theme.roles.background.color)
         .refreshable { await refresh() }
         .navigationBarTitleDisplayMode(.inline)
+        // An opaque bar, so scrolled content passes under it instead of showing beside the buttons.
+        .toolbarBackground(theme.roles.background.color, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if loaded != nil, clinic.permissions.contains("patients.write") {

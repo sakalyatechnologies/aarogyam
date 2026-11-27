@@ -168,7 +168,7 @@
     <string name="vv_dv10_wrap_desk">Send to desk</string>
     <string name="vv_dv10_wrap_bill_later">Bill later</string>
     <string name="vv_dv10_wrap_fee">Fee (₹)</string>
-    <string name="vv_dv10_wrap_fee_hint">Amount in rupees, leave empty for no bill</string>
+    <string name="vv_dv10_wrap_fee_hint">Fee (optional)</string>
     <string name="vv_dv10_wrap_finishing">Closing the visit</string>
     <string name="vv_dv10_wrap_followup">Follow-up</string>
     <string name="vv_dv10_wrap_offline">No connection. Connect to issue the prescription.</string>

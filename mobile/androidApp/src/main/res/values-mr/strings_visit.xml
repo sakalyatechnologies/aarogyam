@@ -168,7 +168,7 @@
     <string name="vv_dv10_wrap_desk">डेस्कला पाठवा</string>
     <string name="vv_dv10_wrap_bill_later">नंतर बिल करा</string>
     <string name="vv_dv10_wrap_fee">फी (₹)</string>
-    <string name="vv_dv10_wrap_fee_hint">रुपयांत रक्कम, बिल नसल्यास रिकामे सोडा</string>
+    <string name="vv_dv10_wrap_fee_hint">शुल्क (ऐच्छिक)</string>
     <string name="vv_dv10_wrap_finishing">भेट बंद होत आहे</string>
     <string name="vv_dv10_wrap_followup">पाठपुरावा</string>
     <string name="vv_dv10_wrap_offline">कनेक्शन नाही. प्रिस्क्रिप्शन देण्यासाठी जोडा.</string>

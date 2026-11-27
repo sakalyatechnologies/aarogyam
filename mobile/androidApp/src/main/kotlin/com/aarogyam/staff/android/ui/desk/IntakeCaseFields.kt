@@ -20,6 +20,7 @@ import com.aarogyam.staff.walkin.IntakeForm
 import com.aarogyam.staff.walkin.IntakeFormHolder
 import com.aarogyam.staff.walkin.LookupState
 import com.aarogyam.staff.walkin.PhoneMatchRow
+import com.aarogyam.staff.walkin.medicalChecklist
 import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkButton
 import com.sakalya.mobile.designcompose.SkButtonVariant
@@ -45,6 +46,7 @@ internal fun IntakeCaseSections(
         }
 
         DeskLabel(stringResource(R.string.dk_iv_sec_contact))
+        IntakeEmailField(holder, form)
         DetailText(
             form,
             holder,
@@ -107,7 +109,7 @@ internal fun IntakeCaseSections(
 
         DeskLabel(stringResource(R.string.dk_iv_sec_medical))
         DeskWrap {
-            options?.healthFlags.orEmpty().filter { it.code != HEALTH_NONE }.forEach {
+            medicalChecklist(options?.healthFlags).forEach {
                 PickChip(it.label, it.code in d.health, onClick = { holder.toggleHealth(it.code) })
             }
             PickChip(

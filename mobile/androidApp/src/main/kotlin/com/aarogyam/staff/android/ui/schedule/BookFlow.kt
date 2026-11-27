@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.PinnedSheet
 import com.aarogyam.staff.android.ui.dayLabel
 import com.aarogyam.staff.android.ui.display
 import com.aarogyam.staff.android.ui.label
@@ -178,10 +179,11 @@ private fun BookingSheet(
     val today = remember { Clock.System.todayIn(clinic.timeZone) }
     val holder = remember { graph.booking(clinic, patientId, today, scope) }
     val state by holder.state.collectAsStateWithLifecycle()
-    SkModalSheet(
+    PinnedSheet(
         title = stringResource(R.string.sh_s_book_title),
         subtitle = state.date.dayLabel(),
         onDismiss = onDismiss,
+        footer = if (state.allowed && state.booked == null) ({ BookFooter(holder, state) }) else null,
     ) {
         when {
             !state.allowed -> {
@@ -289,6 +291,14 @@ private fun Form(
     V7Label(stringResource(R.string.sh_s_book_time))
     Slots(holder, state)
     SkField(stringResource(R.string.sh_s_book_reason), state.reason, holder::setReason)
+}
+
+/** Pinned under the form: why booking failed, and Book. */
+@Composable
+private fun BookFooter(
+    holder: BookingStateHolder,
+    state: BookingState,
+) {
     state.error?.let { Text(stringResource(it.message()), style = v7(12f), color = SkTheme.palette.error.color) }
     SkPillButton(
         stringResource(R.string.sh_s_book_book),

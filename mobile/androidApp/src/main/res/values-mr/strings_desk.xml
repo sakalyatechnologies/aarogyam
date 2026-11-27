@@ -72,7 +72,7 @@
     <string name="dk_d9_pay_attach">पुरावा जोडा</string>
     <string name="dk_d9_pay_bill">बिल</string>
     <string name="dk_d9_pay_camera">फोटो काढा</string>
-    <string name="dk_d9_pay_draft_note">हे बिल अजून मसुदा आहे. पेमेंट नोंदवताच ते जारी केले जाईल.</string>
+    <string name="dk_d9_pay_draft_note">ड्राफ्ट बिल. पेमेंट नोंदवताच जारी होईल.</string>
     <string name="dk_d9_pay_draft_tag">मसुदा</string>
     <string name="dk_d9_pay_due">बाकी %s</string>
     <string name="dk_d9_pay_library">फोटो निवडा</string>

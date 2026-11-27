@@ -192,16 +192,23 @@ private fun IntakeDetails(
                 stringResource(R.string.dk_iv_dob_hint),
             )
         }
-        Field(
-            form,
-            IntakeField.Email,
-            stringResource(R.string.dk_iv_email),
-            form.email,
-            holder::setEmail,
-            KeyboardType.Email,
-        )
+        // With the case paper the email sits in its Contact section.
+        if (!form.showDetails) IntakeEmailField(holder, form)
     }
 }
+
+@Composable
+internal fun IntakeEmailField(
+    holder: IntakeFormHolder,
+    form: IntakeForm,
+) = Field(
+    form,
+    IntakeField.Email,
+    stringResource(R.string.dk_iv_email),
+    form.email,
+    holder::setEmail,
+    KeyboardType.Email,
+)
 
 @Composable
 private fun Field(

@@ -1319,19 +1319,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This bill is still a draft. It is issued when you record the payment."
+            "value": "Draft bill. Issued when you record payment."
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "यह बिल अभी ड्राफ़्ट है। भुगतान दर्ज करते ही इसे जारी किया जाएगा।"
+            "value": "ड्राफ़्ट बिल। भुगतान दर्ज करते ही जारी होगा।"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "हे बिल अजून मसुदा आहे. पेमेंट नोंदवताच ते जारी केले जाईल."
+            "value": "ड्राफ्ट बिल. पेमेंट नोंदवताच जारी होईल."
           }
         }
       }

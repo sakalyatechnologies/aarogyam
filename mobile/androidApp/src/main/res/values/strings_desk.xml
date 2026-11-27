@@ -74,7 +74,7 @@
     <string name="dk_d9_pay_attach">Attach proof</string>
     <string name="dk_d9_pay_bill">Bill</string>
     <string name="dk_d9_pay_camera">Take photo</string>
-    <string name="dk_d9_pay_draft_note">This bill is still a draft. It is issued when you record the payment.</string>
+    <string name="dk_d9_pay_draft_note">Draft bill. Issued when you record payment.</string>
     <string name="dk_d9_pay_draft_tag">draft</string>
     <string name="dk_d9_pay_due">Due %s</string>
     <string name="dk_d9_pay_library">Choose photo</string>

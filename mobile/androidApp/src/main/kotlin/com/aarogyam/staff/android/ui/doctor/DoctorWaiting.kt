@@ -33,9 +33,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.WaitingPatient
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.desk.waitString
 import com.aarogyam.staff.android.ui.patient.V7Icon
 import com.aarogyam.staff.android.ui.rememberHolder
 import com.aarogyam.staff.clinic.ClinicContext
+import com.aarogyam.staff.desk.WaitFormat
 import com.aarogyam.staff.doctorWaiting
 import com.aarogyam.staff.nav.Home
 import com.sakalya.mobile.design.Spacing
@@ -255,7 +257,7 @@ private fun WaitingRow(
                 if (row.called) {
                     stringResource(R.string.sh_dv10_called)
                 } else {
-                    stringResource(R.string.sh_dv10_wait, row.waitMinutes.toString())
+                    waitString(WaitFormat.ofMinutes(row.waitMinutes))
                 },
                 style = SkTypography.caption,
                 color = if (row.called) p.primary.color else p.onSurfaceVariant.color,

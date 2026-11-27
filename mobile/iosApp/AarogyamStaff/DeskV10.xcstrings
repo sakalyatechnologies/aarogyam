@@ -990,6 +990,52 @@
         }
       }
     },
+    "dx.wait.h_min": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d h %2$d min"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d घं. %2$d मिनट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d तास %2$d मिनिटे"
+          }
+        }
+      }
+    },
+    "dx.wait.just_arrived": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just arrived"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अभी आए"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आत्ताच आले"
+          }
+        }
+      }
+    },
     "dx.wait.line": {
       "extractionState": "manual",
       "localizations": {
@@ -1032,6 +1078,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "प्रतीक्षा · %@"
+          }
+        }
+      }
+    },
+    "dx.wait.min": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d min"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d मिनट"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d मिनिटे"
           }
         }
       }

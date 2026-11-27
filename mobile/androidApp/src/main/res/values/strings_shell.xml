@@ -23,7 +23,6 @@
     <string name="sh_dv10_sex_other">Other</string>
     <string name="sh_dv10_start">Start visit</string>
     <string name="sh_dv10_token">Token %1$s</string>
-    <string name="sh_dv10_wait">%1$s min</string>
     <string name="sh_dv10_waiting_empty">No one is waiting</string>
     <string name="sh_dv10_waiting_offline">Could not refresh the list</string>
     <string name="sh_dv10_waiting_row_a11y">Token %1$s, %2$s, waiting %3$s minutes. %4$s</string>

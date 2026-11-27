@@ -31,6 +31,7 @@ import com.aarogyam.staff.desk.DeskBoardState
 import com.aarogyam.staff.desk.DeskBoardStateHolder
 import com.aarogyam.staff.desk.PatientState
 import com.aarogyam.staff.desk.REMIND_AGAIN_AFTER_SECONDS
+import com.aarogyam.staff.desk.WaitFormat
 import com.aarogyam.staff.desk.WelcomeNote
 import com.sakalya.mobile.design.Radii
 import com.sakalya.mobile.design.Spacing
@@ -200,7 +201,7 @@ private fun Ticket(
         if (wait != null && seconds != null) {
             waitingLine(wait.doctor, seconds)
         } else {
-            stringResource(R.string.dk_d9_board_wait, row.waitMinutes.toInt())
+            waitString(WaitFormat.ofMinutes(row.waitMinutes))
         }
     val collecting =
         row.state == PatientState.ReadyToBill && DeskCollect.mayBeCollecting(ctx.feed.endedAt[row.id], now)
@@ -219,7 +220,7 @@ private fun waitingLine(
     doctor: String?,
     seconds: Long,
 ): String {
-    val clock = "${seconds / SECONDS}:${(seconds % SECONDS).toString().padStart(2, '0')}"
+    val clock = waitString(WaitFormat.ofSeconds(seconds))
     return if (doctor.isNullOrBlank()) {
         stringResource(R.string.dk_dx_wait_line_nodoc, clock)
     } else {
@@ -340,5 +341,4 @@ private fun TicketAction(
     }
 }
 
-private const val SECONDS = 60L
 private const val BORDER = 2

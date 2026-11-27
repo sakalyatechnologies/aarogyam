@@ -19,7 +19,6 @@
     <string name="dk_d9_board_send_in">Send in</string>
     <string name="dk_d9_board_send_in_a11y">Send %s in</string>
     <string name="dk_d9_board_title">Waiting room</string>
-    <string name="dk_d9_board_wait">%d min</string>
     <string name="dk_d9_done">Done</string>
     <string name="dk_d9_family_link">Link existing patient</string>
     <string name="dk_d9_family_link_already">Already linked.</string>
@@ -260,4 +259,7 @@
     <string name="dk_iv_add_family">Add family member on this number</string>
     <string name="dk_iv_family_relation">Relation to %1$s</string>
     <string name="dk_iv_sec_found">How they found us</string>
+    <string name="dk_wait_just_arrived">Just arrived</string>
+    <string name="dk_wait_min">%1$d min</string>
+    <string name="dk_wait_h_min">%1$d h %2$d min</string>
 </resources>

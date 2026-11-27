@@ -23,7 +23,6 @@
     <string name="sh_dv10_sex_other">इतर</string>
     <string name="sh_dv10_start">तपासणी सुरू करा</string>
     <string name="sh_dv10_token">टोकन %1$s</string>
-    <string name="sh_dv10_wait">%1$s मिनिटे</string>
     <string name="sh_dv10_waiting_empty">कोणी वाट पाहत नाही</string>
     <string name="sh_dv10_waiting_offline">यादी रिफ्रेश करता आली नाही</string>
     <string name="sh_dv10_waiting_row_a11y">टोकन %1$s, %2$s, %3$s मिनिटे वाट पाहत आहे. %4$s</string>

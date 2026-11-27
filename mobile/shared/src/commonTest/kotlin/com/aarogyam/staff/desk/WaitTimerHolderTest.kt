@@ -49,13 +49,13 @@ class WaitTimerHolderTest {
             val holder = timer(backend)
             val fresh = holder.entries().single()
             assertEquals(WaitState.Fresh, fresh.state)
-            assertEquals("0:59", fresh.clock)
+            assertEquals(WaitKind.JustArrived, fresh.text.kind)
             assertEquals(null, fresh.checkWithKey)
             now = issued + 60.seconds
             holder.tick()
             val late = holder.entries().single()
             assertEquals(WaitState.NoReply, late.state)
-            assertEquals("1:00", late.clock)
+            assertEquals(WaitText(WaitKind.Minutes, 0, 1), late.text)
             assertEquals(CHECK_WITH_DOCTOR_KEY, late.checkWithKey)
             assertEquals("Dr. Patil", late.doctor)
         }

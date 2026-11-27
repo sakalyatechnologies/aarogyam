@@ -46,8 +46,8 @@ data class WaitEntry(
     val state: WaitState,
     val canRemind: Boolean = false,
 ) {
-    /** "0:42"; minutes are not capped ("75:03"). */
-    val clock: String get() = "${elapsedSeconds / 60}:${(elapsedSeconds % 60).toString().padStart(2, '0')}"
+    /** The wait as "Just arrived", "N min" or "H h M min" (see [WaitFormat]). */
+    val text: WaitText get() = WaitFormat.ofSeconds(elapsedSeconds)
 
     /** The string key to show when [state] is [WaitState.NoReply], else null. */
     val checkWithKey: String? get() = if (state == WaitState.NoReply) CHECK_WITH_DOCTOR_KEY else null

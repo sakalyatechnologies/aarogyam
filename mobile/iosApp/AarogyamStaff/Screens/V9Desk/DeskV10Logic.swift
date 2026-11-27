@@ -25,19 +25,26 @@ enum DeskV10Wait {
     /// A waiting token with no reply turns amber at this many seconds.
     static let noReplyAfter = 60
 
-    /// `0:42`; minutes are not capped (`75:03`).
-    static func clock(seconds: Int) -> String {
-        let s = max(0, seconds)
-        return "\(s / 60):" + String(format: "%02d", s % 60)
+    /// "Just arrived", "12 min" or "3 h 2 min": the shared formatter, so every wait on screen agrees.
+    static func duration(_ text: WaitText) -> String {
+        switch text.kind {
+        case .justArrived: dx("dx.wait.just_arrived")
+        case .minutes: dxf("dx.wait.min", Int(text.minutes))
+        case .hoursMinutes: dxf("dx.wait.h_min", Int(text.hours), Int(text.minutes))
+        }
     }
+
+    static func duration(seconds: Int) -> String { duration(WaitFormat.shared.ofSeconds(seconds: Int64(seconds))) }
+
+    static func duration(minutes: Int) -> String { duration(WaitFormat.shared.ofMinutes(minutes: Int64(minutes))) }
 
     static func isNoReply(seconds: Int) -> Bool { seconds >= noReplyAfter }
 
     static func elapsed(since issued: Date, now: Date) -> Int { max(0, Int(now.timeIntervalSince(issued))) }
 
     static func waitingLine(doctor: String?, seconds: Int) -> String {
-        guard let doctor, !doctor.isEmpty else { return dxf("dx.wait.line.nodoc", clock(seconds: seconds)) }
-        return dxf("dx.wait.line", DeskV10Doctors.label(doctor), clock(seconds: seconds))
+        guard let doctor, !doctor.isEmpty else { return dxf("dx.wait.line.nodoc", duration(seconds: seconds)) }
+        return dxf("dx.wait.line", DeskV10Doctors.label(doctor), duration(seconds: seconds))
     }
 
     static func checkLine(doctor: String?) -> String {

@@ -142,7 +142,7 @@ struct DeskBoardScreen: View {
             let collecting = row.state == .readyToBill && (feed?.endedAt[row.id]).map {
                 DeskV10Collect.mayBeCollecting(status: "ready_to_bill", endedAt: $0, now: Date())
             } ?? false
-            card(row, loaded, badge: dvf("d9.board.wait", Int(row.waitMinutes)), note: collecting ? dx("dx.pay.may_collect") : nil)
+            card(row, loaded, badge: DeskV10Wait.duration(minutes: Int(row.waitMinutes)), note: collecting ? dx("dx.pay.may_collect") : nil)
             // A finished visit: its WhatsApp summary, as on the Done screen (shown only with both keys).
             if let graph, let visitId = row.summaryVisitId {
                 DoctorWhatsAppSummary(graph: graph, clinic: clinic, visitId: visitId, compact: true).padding(.horizontal, 6)

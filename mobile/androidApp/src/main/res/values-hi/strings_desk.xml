@@ -19,7 +19,6 @@
     <string name="dk_d9_board_send_in">अंदर भेजें</string>
     <string name="dk_d9_board_send_in_a11y">%s को अंदर भेजें</string>
     <string name="dk_d9_board_title">प्रतीक्षालय</string>
-    <string name="dk_d9_board_wait">%d मिनट</string>
     <string name="dk_d9_done">पूरा हुआ</string>
     <string name="dk_d9_family_link">मौजूदा मरीज़ को जोड़ें</string>
     <string name="dk_d9_family_link_already">पहले से जुड़ा है।</string>
@@ -265,4 +264,7 @@
     <string name="dk_iv_edit_save">विवरण सहेजें</string>
     <string name="dk_iv_edit_saved">सहेजा गया</string>
     <string name="dk_iv_edit_not_allowed">आप ये विवरण नहीं बदल सकते।</string>
+    <string name="dk_wait_just_arrived">अभी आए</string>
+    <string name="dk_wait_min">%1$d मिनट</string>
+    <string name="dk_wait_h_min">%1$d घं. %2$d मिनट</string>
 </resources>

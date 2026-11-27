@@ -160,7 +160,7 @@ private struct WaitingRow: View {
                 Text(dv10f("dv10.token", token)).v7Text(18, .heavy).foregroundStyle(r.onSurface.color)
                 if !who.isEmpty { Text(who).v7Text(13).foregroundStyle(r.onSurfaceVariant.color) }
                 if let reason = row.reason { Text(reason).v7Text(13, .semibold).foregroundStyle(r.onSurface.color).lineLimit(2) }
-                Text(row.called ? dv10("dv10.called") : dv10f("dv10.wait", String(row.waitMinutes)))
+                Text(row.called ? dv10("dv10.called") : DeskV10Wait.duration(minutes: Int(row.waitMinutes)))
                     .v7Text(12.5, .semibold).foregroundStyle(row.called ? r.primary.color : r.onSurfaceVariant.color)
             }
             .accessibilityElement(children: .ignore)

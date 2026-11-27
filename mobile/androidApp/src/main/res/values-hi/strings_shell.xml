@@ -23,7 +23,6 @@
     <string name="sh_dv10_sex_other">अन्य</string>
     <string name="sh_dv10_start">विज़िट शुरू करें</string>
     <string name="sh_dv10_token">टोकन %1$s</string>
-    <string name="sh_dv10_wait">%1$s मिनट</string>
     <string name="sh_dv10_waiting_empty">कोई प्रतीक्षा में नहीं</string>
     <string name="sh_dv10_waiting_offline">सूची ताज़ा नहीं हो सकी</string>
     <string name="sh_dv10_waiting_row_a11y">टोकन %1$s, %2$s, %3$s मिनट से प्रतीक्षा में। %4$s</string>

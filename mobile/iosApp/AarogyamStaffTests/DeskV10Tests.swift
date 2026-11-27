@@ -6,11 +6,12 @@ final class DeskV10Tests: XCTestCase {
     // MARK: wait timer
 
     func testClockFormat() {
-        XCTAssertEqual(DeskV10Wait.clock(seconds: 0), "0:00")
-        XCTAssertEqual(DeskV10Wait.clock(seconds: 42), "0:42")
-        XCTAssertEqual(DeskV10Wait.clock(seconds: 60), "1:00")
-        XCTAssertEqual(DeskV10Wait.clock(seconds: 4503), "75:03")
-        XCTAssertEqual(DeskV10Wait.clock(seconds: -5), "0:00")
+        XCTAssertEqual(DeskV10Wait.duration(seconds: 0), "Just arrived")
+        XCTAssertEqual(DeskV10Wait.duration(seconds: 42), "Just arrived")
+        XCTAssertEqual(DeskV10Wait.duration(seconds: 60), "1 min")
+        XCTAssertEqual(DeskV10Wait.duration(seconds: 4503), "1 h 15 min")
+        XCTAssertEqual(DeskV10Wait.duration(minutes: 182), "3 h 2 min")
+        XCTAssertEqual(DeskV10Wait.duration(seconds: -5), "Just arrived")
     }
 
     func testAmberStartsAtSixtySeconds() {
@@ -26,9 +27,9 @@ final class DeskV10Tests: XCTestCase {
     }
 
     func testWaitingAndCheckLines() {
-        XCTAssertEqual(DeskV10Wait.waitingLine(doctor: "Patil", seconds: 42), "Waiting for Dr Patil · 0:42")
-        XCTAssertEqual(DeskV10Wait.waitingLine(doctor: "Dr. Patil", seconds: 61), "Waiting for Dr. Patil · 1:01")
-        XCTAssertEqual(DeskV10Wait.waitingLine(doctor: nil, seconds: 5), "Waiting · 0:05")
+        XCTAssertEqual(DeskV10Wait.waitingLine(doctor: "Patil", seconds: 42), "Waiting for Dr Patil · Just arrived")
+        XCTAssertEqual(DeskV10Wait.waitingLine(doctor: "Dr. Patil", seconds: 61), "Waiting for Dr. Patil · 1 min")
+        XCTAssertEqual(DeskV10Wait.waitingLine(doctor: nil, seconds: 5), "Waiting · Just arrived")
         XCTAssertEqual(DeskV10Wait.checkLine(doctor: "Dr. Patil"), "Check with Dr. Patil")
         XCTAssertEqual(DeskV10Wait.checkLine(doctor: nil), "Check with the doctor")
     }

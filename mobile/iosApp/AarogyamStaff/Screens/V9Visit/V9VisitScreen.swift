@@ -23,6 +23,8 @@ struct V9VisitScreen: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        // The visit has its own Close visit bar; the tab bar would float over it.
+        .toolbar(.hidden, for: .tabBar)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 }

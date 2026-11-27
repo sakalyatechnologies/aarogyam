@@ -1204,19 +1204,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Amount in rupees, leave empty for no bill"
+            "value": "Fee (optional)"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "रुपये में राशि, बिल न हो तो खाली छोड़ें"
+            "value": "शुल्क (वैकल्पिक)"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "रुपयांत रक्कम, बिल नसल्यास रिकामे सोडा"
+            "value": "शुल्क (ऐच्छिक)"
           }
         }
       }

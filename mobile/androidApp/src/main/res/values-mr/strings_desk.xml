@@ -19,7 +19,6 @@
     <string name="dk_d9_board_send_in">आत पाठवा</string>
     <string name="dk_d9_board_send_in_a11y">%s ला आत पाठवा</string>
     <string name="dk_d9_board_title">प्रतीक्षालय</string>
-    <string name="dk_d9_board_wait">%d मि.</string>
     <string name="dk_d9_done">झाले</string>
     <string name="dk_d9_family_link">अस्तित्वातील रुग्णाला जोडा</string>
     <string name="dk_d9_family_link_already">आधीच जोडलेले आहे.</string>
@@ -265,4 +264,7 @@
     <string name="dk_iv_edit_save">तपशील जतन करा</string>
     <string name="dk_iv_edit_saved">जतन केले</string>
     <string name="dk_iv_edit_not_allowed">तुम्ही हा तपशील बदलू शकत नाही.</string>
+    <string name="dk_wait_just_arrived">आत्ताच आले</string>
+    <string name="dk_wait_min">%1$d मिनिटे</string>
+    <string name="dk_wait_h_min">%1$d तास %2$d मिनिटे</string>
 </resources>

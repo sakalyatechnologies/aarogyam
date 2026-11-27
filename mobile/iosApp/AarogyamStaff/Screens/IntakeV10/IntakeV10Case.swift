@@ -17,6 +17,9 @@ struct IntakeV10Case: View {
                 text(.occupation, iv("iv.occupation"), d.occupation)
 
                 GroupedHeader(iv("iv.sec.contact"))
+                SkField(iv("iv.email"), text: Binding(get: { form.email }, set: { holder.setEmail(text: $0) }),
+                        error: form.errors[.email].map { IntakeV10Logic.problemText(.email, $0) },
+                        contentType: .emailAddress, keyboard: .emailAddress)
                 text(.altPhone, iv("iv.alt.phone"), d.altPhone, keyboard: .phonePad, error: .altPhone)
                 text(.emergencyName, iv("iv.emergency.name"), d.emergencyName)
                 text(.emergencyPhone, iv("iv.emergency.phone"), d.emergencyPhone, keyboard: .phonePad, error: .emergencyPhone)
@@ -38,7 +41,7 @@ struct IntakeV10Case: View {
 
                 GroupedHeader(iv("iv.sec.medical"))
                 V7Flow(spacing: 8) {
-                    ForEach((form.options?.healthFlags ?? []).filter { $0.code != IntakeDetailsKt.HEALTH_NONE }, id: \.code) { flag in
+                    ForEach(IntakeDetailsKt.medicalChecklist(flags: form.options?.healthFlags), id: \.code) { flag in
                         GlassChip(text: flag.label, selected: d.health.contains(flag.code), check: true) { holder.toggleHealth(code: flag.code) }
                     }
                     GlassChip(text: iv("iv.health.none"), selected: d.health.contains(IntakeDetailsKt.HEALTH_NONE), check: true) {

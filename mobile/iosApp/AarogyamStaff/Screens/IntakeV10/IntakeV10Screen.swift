@@ -42,6 +42,27 @@ struct IntakeV10Form: View {
     @State private var photoPreview: UIImage?
 
     var body: some View {
+        // The action bar is a sibling below the scroll view, not an overlay, so the form always ends above it.
+        VStack(spacing: 0) {
+            scroll
+            if form.done == nil { endButtons.background(.bar) }
+        }
+        .onChange(of: form.done) { _, done in
+            // "Book appointment": the patient is saved; the booking sheet opens on them.
+            if let done, done.next == .book { ends.onBook?(done.patientId, form.name) }
+        }
+        .onAppear {
+            if let phone, form.phone.isEmpty { holder.prefillPhone(typed: phone) }
+        }
+        .onChange(of: library) { _, item in
+            Task {
+                if let data = try? await item?.loadTransferable(type: Data.self) { attach(data) }
+            }
+        }
+        .sheet(isPresented: $camera) { CameraPicker { attach($0) }.ignoresSafeArea() }
+    }
+
+    private var scroll: some View {
         ScrollView {
             if let done = form.done {
                 doneCard(done)
@@ -66,22 +87,6 @@ struct IntakeV10Form: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
-        .safeAreaInset(edge: .bottom) {
-            if form.done == nil { endButtons }
-        }
-        .onChange(of: form.done) { _, done in
-            // "Book appointment": the patient is saved; the booking sheet opens on them.
-            if let done, done.next == .book { ends.onBook?(done.patientId, form.name) }
-        }
-        .onAppear {
-            if let phone, form.phone.isEmpty { holder.prefillPhone(typed: phone) }
-        }
-        .onChange(of: library) { _, item in
-            Task {
-                if let data = try? await item?.loadTransferable(type: Data.self) { attach(data) }
-            }
-        }
-        .sheet(isPresented: $camera) { CameraPicker { attach($0) }.ignoresSafeArea() }
     }
 
     // MARK: sections
@@ -116,10 +121,15 @@ struct IntakeV10Form: View {
                     holder.setDateOfBirth(text: IntakeV10Logic.dobText($0))
                 }
             }
-            field(.email, label: iv("iv.email"), text: form.email, type: .emailAddress, keyboard: .emailAddress) { holder.setEmail(text: $0) }
+            // With the case paper the email sits in its Contact section.
+            if !form.showDetails { emailField }
             GroupedHeader(String(localized: "address.title"))
             AddressFields(address: form.address) { holder.setAddress(field: $0, text: $1) }
         }
+    }
+
+    var emailField: some View {
+        field(.email, label: iv("iv.email"), text: form.email, type: .emailAddress, keyboard: .emailAddress) { holder.setEmail(text: $0) }
     }
 
     private var allergies: some View {

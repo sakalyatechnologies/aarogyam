@@ -1,5 +1,6 @@
 package com.aarogyam.staff.walkin
 
+import com.aarogyam.staff.api.model.CheckInChoice
 import com.aarogyam.staff.api.model.PatientIntake
 import kotlinx.datetime.LocalDate
 
@@ -25,6 +26,13 @@ enum class DetailField {
 
 /** The health checklist code that stands alone. */
 const val HEALTH_NONE = "none"
+
+/** Checklist codes asked elsewhere: pregnancy and nursing in For women, drug allergies in Allergies. */
+val HEALTH_ASKED_ELSEWHERE: Set<String> = setOf("pregnant", "nursing", "drug_allergies")
+
+/** The Medical history chips: every checklist code except `none` (shown last) and those asked elsewhere. */
+fun medicalChecklist(flags: List<CheckInChoice>?): List<CheckInChoice> =
+    flags.orEmpty().filter { it.code != HEALTH_NONE && it.code !in HEALTH_ASKED_ELSEWHERE }
 
 /**
  * The optional case-paper fields as typed: Personal, Contact, Medical history and For women. Phones are digits

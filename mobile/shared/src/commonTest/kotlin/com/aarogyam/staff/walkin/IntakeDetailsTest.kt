@@ -1,5 +1,6 @@
 package com.aarogyam.staff.walkin
 
+import com.aarogyam.staff.api.model.CheckInChoice
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -102,5 +103,20 @@ class IntakeDetailsTest {
                 ).with(DetailField.DoctorAddress, "y".repeat(500))
         assertEquals(80, d.occupation.length)
         assertEquals(300, d.doctorAddress.length)
+    }
+
+    @Test
+    fun medical_chips_skip_what_is_asked_elsewhere() {
+        val flags =
+            listOf(
+                "asthma",
+                "drug_allergies",
+                "pregnant",
+                "nursing",
+                "none",
+                "tb",
+            ).map { CheckInChoice(it, it) }
+        assertEquals(listOf("asthma", "tb"), medicalChecklist(flags).map { it.code })
+        assertTrue(medicalChecklist(null).isEmpty())
     }
 }

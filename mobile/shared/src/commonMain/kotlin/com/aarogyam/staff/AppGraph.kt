@@ -92,6 +92,7 @@ import com.aarogyam.staff.visit.FinishVisitHolder
 import com.aarogyam.staff.visit.VisitStateHolder
 import com.aarogyam.staff.visit.createFinishVisit
 import com.aarogyam.staff.walkin.IntakeDeps
+import com.aarogyam.staff.walkin.IntakeEditHolder
 import com.aarogyam.staff.walkin.IntakeFormHolder
 import com.aarogyam.staff.walkin.WalkInStateHolder
 import com.aarogyam.staff.walkin.createIntakeForm
@@ -567,6 +568,14 @@ class AppGraph private constructor(
         clinic: ClinicContext,
         scope: CoroutineScope,
     ): AvailabilityHolder = createAvailability(clinic, scope)
+
+    /** "Case-paper details" of an existing patient: `GET` and `PUT /patients/{id}/intake`. */
+    fun intakeEdit(
+        clinic: ClinicContext,
+        patientId: String,
+        female: Boolean,
+        scope: CoroutineScope,
+    ): IntakeEditHolder = IntakeEditHolder(clinic, patientId, female, scope, logger("aarogyam.intakeedit"))
 
     fun intakeForm(
         clinic: ClinicContext,

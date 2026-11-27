@@ -99,24 +99,24 @@ struct IntakeV10Form: View {
 
     private var details: some View {
         VStack(alignment: .leading, spacing: 12) {
+            field(.name, label: iv("iv.name"), text: form.name, type: .name) { holder.setName(text: $0) }
             field(.phone, label: iv("iv.phone"), text: form.phone, type: .telephoneNumber, keyboard: .phonePad) { holder.setPhone(typed: $0) }
             IntakeV10Lookup(holder: holder, form: form, ends: ends)
-            field(.name, label: iv("iv.name"), text: form.name, type: .name) { holder.setName(text: $0) }
-            SkSegmented([iv("iv.dob"), iv("iv.age")], selectedIndex: useAge ? 1 : 0) { useAge = $0 == 1 }
-            if useAge {
-                field(.birth, label: iv("iv.age"), text: form.age, keyboard: .numberPad) { holder.setAge(text: $0) }
-            } else {
-                field(.birth, label: iv("iv.dob"), text: form.dateOfBirth, placeholder: iv("iv.dob.hint"), keyboard: .numberPad) {
-                    holder.setDateOfBirth(text: IntakeV10Logic.dateText($0))
-                }
-            }
-            field(.email, label: iv("iv.email"), text: form.email, type: .emailAddress, keyboard: .emailAddress) { holder.setEmail(text: $0) }
             GroupedHeader(iv("iv.sex"))
             HStack(spacing: 8) {
                 ForEach([Sex.female, Sex.male, Sex.other], id: \.self) { sex in
                     GlassChip(text: sex.label ?? "", selected: form.sex == sex, check: true) { holder.setSex(value: sex) }
                 }
             }
+            SkSegmented([iv("iv.dob"), iv("iv.age")], selectedIndex: useAge ? 1 : 0) { useAge = $0 == 1 }
+            if useAge {
+                field(.birth, label: iv("iv.age"), text: form.age, keyboard: .numberPad) { holder.setAge(text: $0) }
+            } else {
+                field(.birth, label: iv("iv.dob"), text: form.dobTyped, placeholder: iv("iv.dob.hint"), keyboard: .numberPad) {
+                    holder.setDateOfBirth(text: IntakeV10Logic.dobText($0))
+                }
+            }
+            field(.email, label: iv("iv.email"), text: form.email, type: .emailAddress, keyboard: .emailAddress) { holder.setEmail(text: $0) }
             GroupedHeader(String(localized: "address.title"))
             AddressFields(address: form.address) { holder.setAddress(field: $0, text: $1) }
         }

@@ -6,6 +6,7 @@ import kotlinx.datetime.LocalDate
 /** A field of the case-paper sections. */
 enum class DetailField {
     BloodGroup,
+    Language,
     AltPhone,
     EmergencyName,
     EmergencyPhone,
@@ -31,6 +32,8 @@ const val HEALTH_NONE = "none"
  */
 data class IntakeDetails(
     val bloodGroup: String = "",
+    /** A language tag such as `mr-IN`; empty is the default, English. */
+    val language: String = "",
     val altPhone: String = "",
     val emergencyName: String = "",
     val emergencyPhone: String = "",
@@ -56,6 +59,7 @@ data class IntakeDetails(
     ): IntakeDetails =
         when (field) {
             DetailField.BloodGroup -> copy(bloodGroup = toggled(bloodGroup, text))
+            DetailField.Language -> copy(language = toggled(language, text))
             DetailField.CallTime -> copy(callTime = toggled(callTime, text))
             DetailField.HeardVia -> copy(heardVia = toggled(heardVia, text), heardViaText = "")
             DetailField.AltPhone -> copy(altPhone = mobileDigits(text))
@@ -99,20 +103,23 @@ data class IntakeDetails(
     fun healthCodes(): List<String>? = health.toList().takeIf { it.isNotEmpty() }
 
     /** The case-paper fields to send; null when none was filled. The women's questions go only for [female]. */
-    fun toApi(female: Boolean): PatientIntake? {
+    fun toApi(
+        female: Boolean,
+        masked: Map<DetailField, String> = emptyMap(),
+    ): PatientIntake? {
         val intake =
             PatientIntake(
                 bloodGroup = bloodGroup.orNull(),
-                altPhone = altPhone.phoneOrNull(),
+                altPhone = masked[DetailField.AltPhone] ?: altPhone.phoneOrNull(),
                 emergencyContactName = emergencyName.orNull(),
-                emergencyContactPhone = emergencyPhone.phoneOrNull(),
+                emergencyContactPhone = masked[DetailField.EmergencyPhone] ?: emergencyPhone.phoneOrNull(),
                 referredBy = referredBy.orNull(),
                 callTime = callTime.orNull(),
                 occupation = occupation.orNull(),
                 heardVia = heardVia.orNull(),
                 heardViaText = heardViaText.takeIf { heardVia.isNotEmpty() }.orNull(),
                 familyDoctorName = doctorName.orNull(),
-                familyDoctorPhone = doctorPhone.phoneOrNull(),
+                familyDoctorPhone = masked[DetailField.DoctorPhone] ?: doctorPhone.phoneOrNull(),
                 familyDoctorAddress = doctorAddress.orNull(),
                 healthOther = healthOther.takeIf { HEALTH_NONE !in health }.orNull(),
                 pregnant = pregnant.takeIf { female },
@@ -150,3 +157,69 @@ private const val MAX_NAME = 120
 private const val MAX_OCCUPATION = 80
 private const val MAX_LONG = 300
 private const val DATE_LENGTH = 10
+
+/** Digits typed for a date of birth, shown as `dd/mm/yyyy` (at most eight digits). */
+internal fun dobDisplay(typed: String): String {
+    val digits = typed.filter { it.isDigit() }.take(DOB_DIGITS)
+    return buildString {
+        digits.forEachIndexed { i, c ->
+            if (i == DOB_DAY_END || i == DOB_MONTH_END) append('/')
+            append(c)
+        }
+    }
+}
+
+/** The ISO date of a complete valid `dd/mm/yyyy`; `""` for nothing typed; a marker that fails to parse while incomplete. */
+internal fun dobIso(display: String): String {
+    if (display.isEmpty()) return ""
+    val parts = display.split('/')
+    if (display.length != DOB_LENGTH || parts.size != 3) return INCOMPLETE_DOB
+    val iso = "${parts[2]}-${parts[1]}-${parts[0]}"
+    return if (runCatching { LocalDate.parse(iso) }.isSuccess) iso else INCOMPLETE_DOB
+}
+
+private const val INCOMPLETE_DOB = "??"
+private const val DOB_DIGITS = 8
+private const val DOB_LENGTH = 10
+private const val DOB_DAY_END = 2
+private const val DOB_MONTH_END = 4
+
+/** A phone the server masked (`+91******3210`) because the role lacks `patients.contact`. Never a number to validate. */
+fun isMaskedPhone(phone: String?): Boolean = phone != null && '*' in phone
+
+/** The form for an intake read from the server, and the masked phones it holds (sent back unchanged on save). */
+internal fun PatientIntake.toDetails(): Pair<IntakeDetails, Map<DetailField, String>> {
+    val masked = mutableMapOf<DetailField, String>()
+
+    fun phone(
+        field: DetailField,
+        value: String?,
+    ): String {
+        if (value == null) return ""
+        if (isMaskedPhone(value)) {
+            masked[field] = value
+            return ""
+        }
+        return mobileDigits(value)
+    }
+    val details =
+        IntakeDetails(
+            bloodGroup = bloodGroup.orEmpty(),
+            altPhone = phone(DetailField.AltPhone, altPhone),
+            emergencyName = emergencyContactName.orEmpty(),
+            emergencyPhone = phone(DetailField.EmergencyPhone, emergencyContactPhone),
+            referredBy = referredBy.orEmpty(),
+            callTime = callTime.orEmpty(),
+            occupation = occupation.orEmpty(),
+            heardVia = heardVia.orEmpty(),
+            heardViaText = heardViaText.orEmpty(),
+            doctorName = familyDoctorName.orEmpty(),
+            doctorPhone = phone(DetailField.DoctorPhone, familyDoctorPhone),
+            doctorAddress = familyDoctorAddress.orEmpty(),
+            healthOther = healthOther.orEmpty(),
+            pregnant = pregnant,
+            dueDate = dueDate.orEmpty(),
+            nursing = nursing,
+        )
+    return details to masked
+}

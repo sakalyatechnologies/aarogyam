@@ -69,6 +69,12 @@ internal fun IntakeCaseSections(
             d.callTime,
             R.string.dk_iv_call_time,
         ) { holder.setDetail(DetailField.CallTime, it) }
+        DeskLabel(stringResource(R.string.dk_iv_language))
+        DeskWrap {
+            listOf("" to "English", "hi-IN" to "हिन्दी", "mr-IN" to "मराठी").forEach { (code, name) ->
+                PickChip(name, d.language == code, onClick = { holder.setDetail(DetailField.Language, code) })
+            }
+        }
         DetailText(form, holder, DetailField.DoctorName, R.string.dk_iv_doctor_name, d.doctorName)
         DetailText(
             form,
@@ -125,7 +131,7 @@ internal fun IntakeCaseSections(
                     d.dueDate,
                     KeyboardType.Number,
                     IntakeField.DueDate,
-                    R.string.dk_iv_dob_hint,
+                    R.string.dk_iv_due_hint,
                 )
             }
             YesNo(R.string.dk_iv_nursing, d.nursing, holder::setNursing)

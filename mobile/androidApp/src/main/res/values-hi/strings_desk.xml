@@ -169,7 +169,7 @@
     <string name="dk_iv_allergies">एलर्जी</string>
     <string name="dk_iv_allergies_none">कोई ज्ञात नहीं</string>
     <string name="dk_iv_dob">जन्म तिथि</string>
-    <string name="dk_iv_dob_hint">YYYY-MM-DD</string>
+    <string name="dk_iv_dob_hint">dd/mm/yyyy</string>
     <string name="dk_iv_doctor">डॉक्टर</string>
     <string name="dk_iv_doctor_any">कोई भी डॉक्टर</string>
     <string name="dk_iv_done">टोकन %d · कतार में जोड़ा गया</string>
@@ -258,4 +258,11 @@
     <string name="dk_iv_add_family">इस नंबर पर परिवार का सदस्य जोड़ें</string>
     <string name="dk_iv_family_relation">%1$s से रिश्ता</string>
     <string name="dk_iv_sec_found">वे हमें कैसे मिले</string>
+    <string name="dk_iv_language">पसंदीदा भाषा</string>
+    <string name="dk_iv_due_hint">YYYY-MM-DD</string>
+    <string name="dk_iv_edit_title">केस पेपर विवरण</string>
+    <string name="dk_iv_edit_open">केस पेपर विवरण</string>
+    <string name="dk_iv_edit_save">विवरण सहेजें</string>
+    <string name="dk_iv_edit_saved">सहेजा गया</string>
+    <string name="dk_iv_edit_not_allowed">आप ये विवरण नहीं बदल सकते।</string>
 </resources>

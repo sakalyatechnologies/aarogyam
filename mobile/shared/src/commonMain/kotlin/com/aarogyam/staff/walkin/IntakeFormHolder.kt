@@ -249,12 +249,26 @@ internal class IntakeFormStateHolder(
 
     override fun setDateOfBirth(text: String) =
         edit {
-            copy(dateOfBirth = text.filter { it.isDigit() || it == '-' }.take(DATE_LENGTH), age = "")
-                .clear(IntakeField.Birth)
+            val changed =
+                if ('-' in text) {
+                    copy(
+                        dateOfBirth = text.filter { it.isDigit() || it == '-' }.take(DATE_LENGTH),
+                        dobTyped = "",
+                        age = "",
+                    )
+                } else {
+                    // Typed as dd/mm/yyyy; the form keeps the ISO date once it is complete and valid.
+                    val typed = dobDisplay(text)
+                    copy(dateOfBirth = dobIso(typed), dobTyped = typed, age = "")
+                }
+            changed.clear(IntakeField.Birth)
         }
 
     override fun setAge(text: String) =
-        edit { copy(age = text.filter { it.isDigit() }.take(AGE_DIGITS), dateOfBirth = "").clear(IntakeField.Birth) }
+        edit {
+            copy(age = text.filter { it.isDigit() }.take(AGE_DIGITS), dateOfBirth = "", dobTyped = "")
+                .clear(IntakeField.Birth)
+        }
 
     override fun setEmail(text: String) = edit { copy(email = text).clear(IntakeField.Email) }
 
@@ -447,6 +461,7 @@ internal class IntakeFormStateHolder(
                     dateOfBirth = form.dateOfBirth.takeIf { it.isNotEmpty() },
                     email = form.email.trim().takeIf { it.isNotEmpty() },
                     address = form.address.toApi(),
+                    preferredLanguage = form.details.language.takeIf { it.isNotEmpty() },
                     intake = if (form.showDetails) form.details.toApi(form.showWomen) else null,
                     health = if (form.showDetails) form.details.healthCodes() else null,
                     allergiesText =

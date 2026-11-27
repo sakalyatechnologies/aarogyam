@@ -48,6 +48,14 @@ enum IntakeV10Logic {
         return out
     }
 
+    /// Digits typed for a date of birth, shown as dd/mm/yyyy.
+    static func dobText(_ typed: String) -> String {
+        let d = String(typed.filter(\.isNumber).prefix(8))
+        var out = ""
+        for (i, c) in d.enumerated() { if i == 2 || i == 4 { out.append("/") }; out.append(c) }
+        return out
+    }
+
     static func problemText(_ field: IntakeField, _ problem: IntakeProblem) -> String {
         switch (field, problem) {
         case (.consent, _): iv("iv.err.consent")

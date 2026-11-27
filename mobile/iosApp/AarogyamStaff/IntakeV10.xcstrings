@@ -99,19 +99,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "YYYY-MM-DD"
+            "value": "dd/mm/yyyy"
           }
         },
         "hi": {
           "stringUnit": {
             "state": "translated",
-            "value": "YYYY-MM-DD"
+            "value": "dd/mm/yyyy"
           }
         },
         "mr": {
           "stringUnit": {
             "state": "translated",
-            "value": "YYYY-MM-DD"
+            "value": "dd/mm/yyyy"
           }
         }
       }
@@ -2113,6 +2113,167 @@
           "stringUnit": {
             "state": "translated",
             "value": "ते आम्हाला कसे भेटले"
+          }
+        }
+      }
+    },
+    "iv.language": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preferred language"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पसंदीदा भाषा"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पसंतीची भाषा"
+          }
+        }
+      }
+    },
+    "iv.due.hint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YYYY-MM-DD"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YYYY-MM-DD"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YYYY-MM-DD"
+          }
+        }
+      }
+    },
+    "iv.edit.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Case-paper details"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "केस पेपर विवरण"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "केस पेपर तपशील"
+          }
+        }
+      }
+    },
+    "iv.edit.open": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Case-paper details"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "केस पेपर विवरण"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "केस पेपर तपशील"
+          }
+        }
+      }
+    },
+    "iv.edit.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save details"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "विवरण सहेजें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तपशील जतन करा"
+          }
+        }
+      }
+    },
+    "iv.edit.saved": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "सहेजा गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "जतन केले"
+          }
+        }
+      }
+    },
+    "iv.edit.not.allowed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can't edit these details."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आप ये विवरण नहीं बदल सकते।"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "तुम्ही हा तपशील बदलू शकत नाही."
           }
         }
       }

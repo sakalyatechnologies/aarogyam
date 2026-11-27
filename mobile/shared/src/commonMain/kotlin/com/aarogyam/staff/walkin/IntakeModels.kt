@@ -67,6 +67,8 @@ data class IntakeForm(
     val name: String = "",
     /** `YYYY-MM-DD`, or empty when [age] is used. */
     val dateOfBirth: String = "",
+    /** The date of birth as typed and shown, `dd/mm/yyyy`; [dateOfBirth] is its ISO form (or a marker while incomplete). */
+    val dobTyped: String = "",
     val age: String = "",
     val phone: String = "",
     val email: String = "",

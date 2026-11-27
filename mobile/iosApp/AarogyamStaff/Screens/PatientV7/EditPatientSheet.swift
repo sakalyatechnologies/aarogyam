@@ -12,7 +12,7 @@ struct EditPatientSheet: View {
 
     var body: some View {
         ScreenHost(make: { graph.patientEdit(clinic: clinic, view: view, screen: $0) }, state: { $0.state }) { holder, form in
-            EditBody(holder: holder, form: form, number: view.number, onSaved: onSaved)
+            EditBody(holder: holder, form: form, number: view.number, onSaved: onSaved, graph: graph, clinic: clinic, view: view)
         }
     }
 }
@@ -22,6 +22,10 @@ private struct EditBody: View {
     let form: PatientEditForm
     let number: String
     let onSaved: () -> Void
+    let graph: AppGraph
+    let clinic: ClinicContext
+    let view: PatientView
+    @State private var intake = false
     @Environment(\.skTheme) private var theme
     @Environment(\.dismiss) private var dismiss
 
@@ -48,6 +52,9 @@ private struct EditBody: View {
                 }
                 GroupedHeader(String(localized: "address.title"))
                 AddressFields(address: form.address) { holder.setAddress(field: $0, text: $1) }
+                if clinic.permissions.contains("patients.write") {
+                    SkPillButton(iv("iv.edit.open"), variant: .tonal, wide: true) { intake = true }
+                }
                 if let problem = form.problem {
                     Text(message(problem)).font(.footnote.weight(.semibold)).foregroundStyle(r.error.color)
                 }
@@ -59,6 +66,9 @@ private struct EditBody: View {
             .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 30)
         }
         .skSheet()
+        .sheet(isPresented: $intake) {
+            IntakeEditSheet(graph: graph, clinic: clinic, patientId: view.id, female: view.sex == .female)
+        }
         .onChange(of: form.saved) { _, saved in
             if saved { onSaved(); dismiss() }
         }

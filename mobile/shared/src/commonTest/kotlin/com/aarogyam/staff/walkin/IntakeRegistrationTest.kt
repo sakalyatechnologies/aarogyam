@@ -227,4 +227,45 @@ class IntakeRegistrationTest {
             assertEquals(0, backend.count(LOOKUP))
             assertNotNull(holder.state.value)
         }
+
+    @Test
+    fun the_date_of_birth_is_typed_and_shown_as_dd_mm_yyyy_and_sent_as_iso() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(WALK_INS, { json(walkInJson(), HttpStatusCode.Created) })
+            val holder = holder(backend)
+            holder.fillValid()
+            holder.setDateOfBirth("0705")
+            assertEquals("07/05", holder.state.value.dobTyped)
+            holder.saveAndQueue()
+            assertEquals(IntakeProblem.Invalid, holder.state.value.errors[IntakeField.Birth], "incomplete")
+            holder.setDateOfBirth("07/05/1990")
+            assertEquals("07/05/1990", holder.state.value.dobTyped)
+            assertEquals("1990-05-07", holder.state.value.dateOfBirth)
+            holder.saveAndQueue()
+            holder.state.first { it.done != null }
+            assertTrue("\"date_of_birth\":\"1990-05-07\"" in backend.walkInBody())
+        }
+
+    @Test
+    fun an_impossible_date_is_invalid_and_the_age_clears_the_date() {
+        assertEquals("??", dobIso("31/02/1990"))
+        assertEquals("", dobIso(""))
+        assertEquals("07/05/1990", dobDisplay("07051990999"))
+    }
+
+    @Test
+    fun a_language_pick_is_sent_and_english_sends_nothing() =
+        runTest {
+            val backend = FakeBackend()
+            backend.on(WALK_INS, { json(walkInJson(), HttpStatusCode.Created) })
+            val holder = holder(backend)
+            holder.fillValid()
+            holder.setDetail(DetailField.Language, "mr-IN")
+            holder.setDetail(DetailField.Language, "")
+            holder.setDetail(DetailField.Language, "hi-IN")
+            holder.saveAndQueue()
+            holder.state.first { it.done != null }
+            assertTrue("\"preferred_language\":\"hi-IN\"" in backend.walkInBody())
+        }
 }

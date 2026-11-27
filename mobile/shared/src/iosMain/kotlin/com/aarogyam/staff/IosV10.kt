@@ -8,6 +8,7 @@ import com.aarogyam.staff.nav.HomeChoiceHolder
 import com.aarogyam.staff.tasks.MyTasksHolder
 import com.aarogyam.staff.timeoff.TimeOffHolder
 import com.aarogyam.staff.visit.FinishVisitHolder
+import com.aarogyam.staff.walkin.IntakeEditHolder
 import com.aarogyam.staff.walkin.IntakeFormHolder
 
 // The v10 holders for SwiftUI, each living as long as the screen that owns [screen].
@@ -29,6 +30,14 @@ fun AppGraph.intakeForm(
     clinic: ClinicContext,
     screen: ScreenScope,
 ): IntakeFormHolder = intakeForm(clinic, screen.scope)
+
+/** The case-paper details of an existing patient. */
+fun AppGraph.intakeEdit(
+    clinic: ClinicContext,
+    patientId: String,
+    female: Boolean,
+    screen: ScreenScope,
+): IntakeEditHolder = intakeEdit(clinic, patientId, female, screen.scope)
 
 /** How long each queued patient has waited for their doctor. */
 fun AppGraph.waitTimer(

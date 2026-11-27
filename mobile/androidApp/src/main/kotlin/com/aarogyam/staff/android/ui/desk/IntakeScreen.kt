@@ -97,8 +97,7 @@ private fun IntakeFields(
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.M.dp)) {
         Text(stringResource(R.string.dk_iv_title), style = SkTypography.title, color = SkTheme.colors.text.color)
         form.submitError?.let { DeskNotice(submitText(it)) }
-        IntakeDetails(holder, form)
-        IntakeLookupCard(holder, form, ends)
+        IntakeDetails(holder, form, ends)
         DeskLabel(stringResource(R.string.address_title))
         AddressSection(form.address, holder::setAddress)
         IntakeCaseSections(holder, form)
@@ -147,9 +146,11 @@ private fun IntakeFields(
 private fun IntakeDetails(
     holder: IntakeFormHolder,
     form: IntakeForm,
+    ends: IntakeEnds,
 ) {
     var useAge by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.SM.dp)) {
+        Field(form, IntakeField.Name, stringResource(R.string.dk_iv_name), form.name, holder::setName)
         Field(
             form,
             IntakeField.Phone,
@@ -158,7 +159,14 @@ private fun IntakeDetails(
             holder::setPhone,
             KeyboardType.Phone,
         )
-        Field(form, IntakeField.Name, stringResource(R.string.dk_iv_name), form.name, holder::setName)
+        IntakeLookupCard(holder, form, ends)
+        DeskLabel(stringResource(R.string.dk_iv_sex))
+        val sexes = listOf(Sex.Female, Sex.Male, Sex.Other)
+        SkSegmented(
+            sexes.map { sex -> sex.label()?.let { stringResource(it) }.orEmpty() },
+            sexes.indexOf(form.sex),
+            { holder.setSex(sexes[it]) },
+        )
         SkSegmented(
             listOf(stringResource(R.string.dk_iv_dob), stringResource(R.string.dk_iv_age)),
             if (useAge) 1 else 0,
@@ -178,8 +186,8 @@ private fun IntakeDetails(
                 form,
                 IntakeField.Birth,
                 stringResource(R.string.dk_iv_dob),
-                form.dateOfBirth,
-                { holder.setDateOfBirth(intakeDateText(it)) },
+                form.dobTyped,
+                holder::setDateOfBirth,
                 KeyboardType.Number,
                 stringResource(R.string.dk_iv_dob_hint),
             )
@@ -191,13 +199,6 @@ private fun IntakeDetails(
             form.email,
             holder::setEmail,
             KeyboardType.Email,
-        )
-        DeskLabel(stringResource(R.string.dk_iv_sex))
-        val sexes = listOf(Sex.Female, Sex.Male, Sex.Other)
-        SkSegmented(
-            sexes.map { sex -> sex.label()?.let { stringResource(it) }.orEmpty() },
-            sexes.indexOf(form.sex),
-            { holder.setSex(sexes[it]) },
         )
     }
 }

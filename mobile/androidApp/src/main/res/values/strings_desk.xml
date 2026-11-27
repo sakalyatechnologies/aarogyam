@@ -171,7 +171,7 @@
     <string name="dk_iv_allergies">Allergies</string>
     <string name="dk_iv_allergies_none">None known</string>
     <string name="dk_iv_dob">Date of birth</string>
-    <string name="dk_iv_dob_hint">YYYY-MM-DD</string>
+    <string name="dk_iv_dob_hint">dd/mm/yyyy</string>
     <string name="dk_iv_doctor">Doctor</string>
     <string name="dk_iv_doctor_any">Any doctor</string>
     <string name="dk_iv_done">Token %d · added to the queue</string>
@@ -260,4 +260,11 @@
     <string name="dk_iv_add_family">Add family member on this number</string>
     <string name="dk_iv_family_relation">Relation to %1$s</string>
     <string name="dk_iv_sec_found">How they found us</string>
+    <string name="dk_iv_language">Preferred language</string>
+    <string name="dk_iv_due_hint">YYYY-MM-DD</string>
+    <string name="dk_iv_edit_title">Case-paper details</string>
+    <string name="dk_iv_edit_open">Case-paper details</string>
+    <string name="dk_iv_edit_save">Save details</string>
+    <string name="dk_iv_edit_saved">Saved</string>
+    <string name="dk_iv_edit_not_allowed">You can\'t edit these details.</string>
 </resources>

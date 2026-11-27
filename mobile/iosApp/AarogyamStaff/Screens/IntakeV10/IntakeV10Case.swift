@@ -21,6 +21,12 @@ struct IntakeV10Case: View {
                 text(.emergencyName, iv("iv.emergency.name"), d.emergencyName)
                 text(.emergencyPhone, iv("iv.emergency.phone"), d.emergencyPhone, keyboard: .phonePad, error: .emergencyPhone)
                 picks(form.options?.callTimes ?? [], selected: d.callTime, title: iv("iv.call.time"), field: .callTime)
+                V7Label(text: iv("iv.language"))
+                V7Flow(spacing: 8) {
+                    ForEach([("", "English"), ("hi-IN", "हिन्दी"), ("mr-IN", "मराठी")], id: \.0) { code, name in
+                        GlassChip(text: name, selected: d.language == code, check: true) { holder.setDetail(field: .language, text: code) }
+                    }
+                }
                 text(.doctorName, iv("iv.doctor.name"), d.doctorName)
                 text(.doctorPhone, iv("iv.doctor.phone"), d.doctorPhone, keyboard: .phonePad, error: .doctorPhone)
                 text(.doctorAddress, iv("iv.doctor.address"), d.doctorAddress)
@@ -46,7 +52,7 @@ struct IntakeV10Case: View {
                     GroupedHeader(iv("iv.sec.women"))
                     yesNo(iv("iv.pregnant"), d.pregnant) { holder.setPregnant(value: $0) }
                     if d.pregnant?.boolValue == true {
-                        text(.dueDate, iv("iv.due.date"), d.dueDate, placeholder: iv("iv.dob.hint"), keyboard: .numberPad, error: .dueDate)
+                        text(.dueDate, iv("iv.due.date"), d.dueDate, placeholder: iv("iv.due.hint"), keyboard: .numberPad, error: .dueDate)
                     }
                     yesNo(iv("iv.nursing"), d.nursing) { holder.setNursing(value: $0) }
                 }

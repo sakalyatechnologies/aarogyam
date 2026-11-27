@@ -88,4 +88,5 @@
     <string name="checkin_in_health">वैद्यकीय इतिहास</string>
     <string name="checkin_in_emergency">आपत्कालीन संपर्क</string>
     <string name="checkin_in_line">%1$s: %2$s</string>
+    <string name="address_change">बदला</string>
 </resources>

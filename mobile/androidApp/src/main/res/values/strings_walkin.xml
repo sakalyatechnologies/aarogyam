@@ -87,4 +87,5 @@
     <string name="checkin_in_health">Medical history</string>
     <string name="checkin_in_emergency">Emergency contact</string>
     <string name="checkin_in_line">%1$s: %2$s</string>
+    <string name="address_change">Change</string>
 </resources>

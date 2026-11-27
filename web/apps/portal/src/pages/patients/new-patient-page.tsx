@@ -15,7 +15,7 @@ import { IntakeSections } from "../../components/intake/intake-sections.js";
 import { useIntakeOptions } from "../../intake-queries.js";
 import { useCreatePatient } from "../../queries.js";
 import { PhoneMatchCard, type FamilyPick } from "./phone-match-card.js";
-import { LanguageField, PatientFields, patientErrorOf, toNewPatient, usePatientForm } from "./patient-form.js";
+import { AddressFields, LanguageField, PatientFields, patientErrorOf, toNewPatient, usePatientForm } from "./patient-form.js";
 
 export function NewPatientPage() {
   const { session, can } = useClinic();
@@ -72,15 +72,23 @@ function NewPatientForm() {
     <>
       <PageHeader title="New patient" subtitle="The clinic number is given when you save." />
       <PhoneMatchCard mobile={mobile} family={family} onFamily={setFamily} />
-      <MkCard className="max-w-2xl">
+      <MkCard className="max-w-2xl min-[1100px]:max-w-5xl">
         <form noValidate onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-5">
-          <PatientFields form={form} address={{ ...place, onChange: setPlace }} />
-          {options.data === undefined ? null : <IntakeSections value={intake} onChange={setIntake} choices={options.data} female={sex === "female"} mobile={mobile} problems={problems} contactExtra={<LanguageField form={form} />} />}
+          <div className="grid grid-cols-1 gap-5 min-[1100px]:grid-cols-2 min-[1100px]:gap-8">
+            <div className="flex flex-col gap-5">
+              <PatientFields form={form} />
+            </div>
+            <div className="flex flex-col gap-5">
+              <AddressFields value={place} onChange={setPlace} />
+              {options.data === undefined ? null : <IntakeSections value={intake} onChange={setIntake} choices={options.data} female={sex === "female"} mobile={mobile} problems={problems} contactExtra={<LanguageField form={form} />} />}
+            </div>
+          </div>
           {errors.root?.message === undefined ? null : (
             <p role="alert" className="rounded-xl bg-danger-soft px-4 py-3 text-sm font-medium text-danger-text">
               {errors.root.message}
             </p>
           )}
+          <div data-testid="register-bar" className="sticky bottom-0 -mx-1 border-t border-border bg-surface px-1 py-3">
           <FormActions>
             <Button
               variant="secondary"
@@ -94,6 +102,7 @@ function NewPatientForm() {
               {isSubmitting ? "Saving…" : "Register patient"}
             </Button>
           </FormActions>
+          </div>
         </form>
       </MkCard>
     </>

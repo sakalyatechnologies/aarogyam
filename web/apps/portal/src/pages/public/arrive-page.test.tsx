@@ -71,6 +71,14 @@ describe("/arrive (public, no sign-in)", () => {
     expect(waiting.value.items[0]?.first_name).toBe("Asha");
   });
 
+  it("shows the clinic's initials tile and the Powered by Aarogyam footer", async () => {
+    const backend = fakeApi();
+    const key = await turnOn(backend);
+    renderPortal(`/arrive?k=${key}&clinic=${SUNRISE}`, { backend });
+    expect((await screen.findByTestId("powered-by")).textContent).toContain("Aarogyam");
+    expect(screen.getByTestId("clinic-badge")).toBeTruthy();
+  });
+
   it("fills city and state from the PIN code", async () => {
     const user = userEvent.setup();
     const backend = fakeApi();

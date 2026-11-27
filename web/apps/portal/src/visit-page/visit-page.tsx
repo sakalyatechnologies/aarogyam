@@ -9,6 +9,7 @@ import { useRef, useEffect, useState } from "react";
 
 import { brushHighlight, brushingBand } from "@aarogyam/app-kit/mouth-view";
 
+import { ClinicBadge, PoweredBy } from "../components/public-brand.js";
 import { answerPlan, openVisit, previewLink, type Failure, type PlanChoice, type Visit } from "./public-client.js";
 import { OffersSection } from "./offers-section.js";
 import { BrushingBlock, MouthHero, ToothRow, foundRows } from "./mouth-sections.js";
@@ -138,6 +139,7 @@ function VisitStory({ visit, token }: { visit: Visit; token: string }) {
   return (
     <main className={chart === undefined ? "vp" : "vp vp-has-chart"}>
       <header className="vp-hero vp-reveal">
+        <ClinicBadge name={visit.clinicName} />
         <p className="vp-eyebrow">{visit.clinicName}</p>
         <h1 className="vp-title">Hi {firstName(visit.patientName)}, here's your visit</h1>
         <p className="vp-muted">
@@ -310,6 +312,7 @@ function VisitStory({ visit, token }: { visit: Visit; token: string }) {
       <footer className="vp-foot">
         <p>This link works until {dayWords(visit.expiresAt)}. It opens your health record, so please don't forward it.</p>
       </footer>
+      <PoweredBy />
     </main>
   );
 }

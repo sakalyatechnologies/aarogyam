@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +7,14 @@ import { fakeTokenFor } from "@aarogyam/api-client/fake";
 import { NOW, PEOPLE, fakeApi, renderPortal } from "../../test/render.js";
 
 describe("New patient: address with PIN autofill", () => {
+  it("keeps the Register and Cancel bar at the bottom of the form", async () => {
+    renderPortal("/patients/new", { as: PEOPLE.farah, backend: fakeApi() });
+    const bar = await screen.findByTestId("register-bar");
+    expect(bar.className).toContain("sticky");
+    expect(within(bar).getByRole("button", { name: "Register patient" })).toBeTruthy();
+    expect(within(bar).getByRole("button", { name: "Cancel" })).toBeTruthy();
+  });
+
   it("registers with an address, which the profile then shows", async () => {
     const user = userEvent.setup();
     const backend = fakeApi();

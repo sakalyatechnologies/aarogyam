@@ -11197,7 +11197,7 @@ const QR_HEALTH: C.CheckInChoice[] = [
   { code: "asthma", label: "Asthma" },
   { code: "drug_allergies", label: "Drug allergies" },
   { code: "arthritis", label: "Arthritis" },
-  { code: "high_bp", label: "High BP" },
+  { code: "high_bp", label: "Hypertension (high BP)" },
   { code: "diabetes", label: "Diabetes" },
   { code: "anaemia", label: "Anaemia" },
   { code: "hepatitis", label: "Hepatitis" },

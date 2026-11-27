@@ -105,8 +105,7 @@ export function LanguageField({ form }: { form: PatientForm }) {
 }
 
 /** The registration fields: name, mobile, sex, date of birth or age, email and address (PIN first). */
-export function PatientFields({ form, address }: { form: PatientForm; address?: { line1: string; pin: PinValue; onChange: (next: { line1: string; pin: PinValue }) => void } }) {
-  const lookup = useClinicPinLookup();
+export function PatientFields({ form }: { form: PatientForm }) {
   const { errors } = form.formState;
   const birthMode = useWatch({ control: form.control, name: "birthMode" });
   return (
@@ -162,14 +161,24 @@ export function PatientFields({ form, address }: { form: PatientForm; address?: 
       <Field label="Email" error={errors.email?.message}>
         <TextInput type="email" autoComplete="off" {...form.register("email")} />
       </Field>
-      {address === undefined ? null : (
-        <>
-          <PinCodeFields compact value={address.pin} lookup={lookup} onChange={(pin) => { address.onChange({ line1: address.line1, pin }); }} />
-          <Field label="Address" hint="House, building and street.">
-            <TextInput autoComplete="off" value={address.line1} onChange={(event) => { address.onChange({ line1: event.currentTarget.value, pin: address.pin }); }} />
-          </Field>
-        </>
-      )}
+    </>
+  );
+}
+
+export interface AddressValue {
+  line1: string;
+  pin: PinValue;
+}
+
+/** The address group: PIN first (city and state fill from it), then house, building and street. */
+export function AddressFields({ value, onChange }: { value: AddressValue; onChange: (next: AddressValue) => void }) {
+  const lookup = useClinicPinLookup();
+  return (
+    <>
+      <PinCodeFields compact value={value.pin} lookup={lookup} onChange={(pin) => { onChange({ line1: value.line1, pin }); }} />
+      <Field label="Address" hint="House, building and street.">
+        <TextInput autoComplete="off" value={value.line1} onChange={(event) => { onChange({ line1: event.currentTarget.value, pin: value.pin }); }} />
+      </Field>
     </>
   );
 }

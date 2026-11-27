@@ -60,6 +60,8 @@ describe("Visit page (patient link)", () => {
     render(<VisitPage token={TOKEN} />);
     expect(screen.queryByLabelText("PIN")).toBeNull();
     expect(await screen.findByRole("heading", { name: "Hi Rahul, here's your visit" })).toBeTruthy();
+    expect(screen.getByTestId("powered-by").textContent).toContain("Powered by");
+    expect(screen.getByTestId("clinic-badge")).toBeTruthy();
     expect(screen.getByText("Pain on the lower right while chewing")).toBeTruthy();
     expect(screen.getAllByText(/Lower right first molar/)).toHaveLength(2);
     expect(screen.getByText("₹8,000")).toBeTruthy();

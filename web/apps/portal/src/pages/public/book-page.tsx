@@ -1,5 +1,6 @@
+import { ClinicBadge, PoweredBy } from "../../components/public-brand.js";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarCheck, CircleCheck, HeartPulse, Mail } from "lucide-react";
+import { CalendarCheck, CircleCheck, Mail } from "lucide-react";
 import { useState, type SubmitEvent } from "react";
 import { useSearchParams } from "react-router";
 
@@ -53,15 +54,14 @@ export function BookPage() {
       <div className="mk-app min-h-full">
         <main className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-4 py-8">
           <div className="flex items-center gap-3">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-primary text-on-primary">
-              <HeartPulse aria-hidden="true" className="size-6" />
-            </span>
+            <ClinicBadge name={options.data?.clinic_name ?? "Clinic"} />
             <div className="leading-tight">
               <h1 className="text-xl font-extrabold tracking-tight text-text">{options.data?.clinic_name ?? "Book an appointment"}</h1>
               <p className="text-xs text-muted">Book an appointment online</p>
             </div>
           </div>
           {body}
+          <PoweredBy />
         </main>
       </div>
     </ThemeScope>

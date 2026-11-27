@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, HeartPulse, QrCode } from "lucide-react";
+import { CircleCheck, QrCode } from "lucide-react";
 import { useState, type ReactNode, type SubmitEvent } from "react";
 import { useSearchParams } from "react-router";
 
@@ -10,6 +10,7 @@ import { Button, Checkbox, EmptyState, Field, PhoneInput, Skeleton, TextInput, T
 import { useServices } from "../../clinic.js";
 import { MOCKUP_BRAND, mockupTheme } from "../../layout/mockup-theme.js";
 import { Chip, IntakeSections } from "../../components/intake/intake-sections.js";
+import { ClinicBadge, PoweredBy } from "../../components/public-brand.js";
 import { PinCodeFields } from "../../components/pin-code-fields.js";
 import { arriveBody, arriveProblems, EMPTY_ARRIVE, type ArriveProblems, type ArriveValues } from "./arrive-form.js";
 
@@ -62,12 +63,11 @@ export function ArrivePageRoute() {
       <div className="mk-app min-h-full">
         <main className="mx-auto flex w-full max-w-xl flex-col gap-5 px-4 py-6">
           <div className="flex items-center gap-3">
-            <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-on-primary">
-              <HeartPulse aria-hidden="true" className="size-6" />
-            </span>
+            <ClinicBadge name={page.data?.clinic_name ?? "Clinic"} size={48} />
             <h1 className="text-xl leading-tight font-extrabold tracking-tight text-text">{page.data === undefined ? "Check in" : `Welcome to ${page.data.clinic_name}`}</h1>
           </div>
           {body}
+          <PoweredBy />
         </main>
       </div>
     </ThemeScope>

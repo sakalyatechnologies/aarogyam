@@ -128,6 +128,8 @@ val apiModels =
         "ApplyPromoCode",
         "NewPayment",
         "Payment",
+        "SendMessages",
+        "MessagesQueued",
         "Allocation",
         "TodayMoney",
         "SterilisationCycle",

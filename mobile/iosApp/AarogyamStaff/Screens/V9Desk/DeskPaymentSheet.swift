@@ -221,6 +221,7 @@ private struct DeskPaymentScreen: View {
             case .notSent: Text(dv("d9.pay.proof.not_sent")).v7Text(12.5, .semibold).foregroundStyle(theme.roles.error.color)
             default: EmptyView()
             }
+            DeskReceiptActions(receipt: done.receipt, patientName: target.name, email: holder.receiptEmail)
             SkPillButton(dv("d9.done"), wide: true) { dismiss() }
         }
         .frame(maxWidth: .infinity)

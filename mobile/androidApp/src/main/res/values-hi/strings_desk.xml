@@ -265,4 +265,19 @@
     <string name="dk_iv_edit_save">विवरण सहेजें</string>
     <string name="dk_iv_edit_saved">सहेजा गया</string>
     <string name="dk_iv_edit_not_allowed">आप ये विवरण नहीं बदल सकते।</string>
+    <string name="dk_d9_pay_print">रसीद प्रिंट करें</string>
+    <string name="dk_d9_pay_whatsapp">WhatsApp</string>
+    <string name="dk_d9_pay_email">ईमेल</string>
+    <string name="dk_d9_pay_email_queued">रसीद ईमेल के लिए कतार में है</string>
+    <string name="dk_d9_pay_email_no_email">भेजी नहीं गई: मरीज़ का ईमेल पता नहीं है</string>
+    <string name="dk_d9_pay_email_no_consent">भेजी नहीं गई: मरीज़ ने क्लिनिक के संदेश लेने से मना किया है</string>
+    <string name="dk_d9_pay_email_already">रसीद पहले ही ईमेल की जा चुकी है</string>
+    <string name="dk_d9_pay_email_failed">रसीद ईमेल नहीं हो सकी।</string>
+    <string name="dk_d9_pay_rc_title">रसीद</string>
+    <string name="dk_d9_pay_rc_number">रसीद संख्या</string>
+    <string name="dk_d9_pay_rc_date">तारीख</string>
+    <string name="dk_d9_pay_rc_amount">प्राप्त राशि</string>
+    <string name="dk_d9_pay_rc_method">भुगतान का तरीका</string>
+    <string name="dk_d9_pay_rc_bill">बिल</string>
+    <string name="dk_d9_pay_rc_patient">मरीज़</string>
 </resources>

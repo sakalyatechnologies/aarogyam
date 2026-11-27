@@ -85,7 +85,9 @@ class DeskIssueAndPayTest {
             backend.on(issue, { json(invoiceJson("d1", "v1", 252000, 0)) })
             paid(backend)
             val done = deliver(clinic(backend).api, job().copy(amountPaise = 300000), key, Logger("t"))
-            assertEquals(Delivery.Done("RC/1", ProofStatus.None), done)
+            val doneAs = done as Delivery.Done
+            assertEquals("RC/1", doneAs.payment.number)
+            assertEquals(ProofStatus.None, doneAs.proof)
             assertEquals(listOf("invoices/d1/issue", "payments"), order(backend).takeLast(2))
             assertTrue(""""amount_paise":252000""" in backend.requests.last().text(), "allocated to the issued balance")
         }

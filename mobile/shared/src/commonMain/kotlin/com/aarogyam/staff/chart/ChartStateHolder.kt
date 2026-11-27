@@ -46,6 +46,7 @@ class ChartStateHolder(
         val refreshing: Boolean = false,
         val error: ScreenError? = null,
         val statuses: Map<Int, ToothStatusView> = emptyMap(),
+        val noted: Set<Int> = emptySet(),
         val conditions: Map<Int, ToothConditionView> = emptyMap(),
         val eruptions: Map<Int, ToothEruptionView> = emptyMap(),
         val caries: Map<Int, List<CariesMark>> = emptyMap(),
@@ -181,6 +182,8 @@ class ChartStateHolder(
         supersedes: String? = null,
         /** The work was done by another dentist. */
         elsewhere: Boolean = false,
+        /** The treatment is started and not finished. */
+        inProgress: Boolean = false,
     ) {
         val current = model ?: return
         val teeth = current.group.takeIf { current.several && it.isNotEmpty() } ?: listOfNotNull(current.selected)
@@ -197,6 +200,7 @@ class ChartStateHolder(
                 note,
                 supersedes,
                 elsewhere,
+                inProgress,
             )
         publish(current.copy(teeth = drawn, saving = true, recordError = null))
         scope.launch {
@@ -297,6 +301,11 @@ class ChartStateHolder(
             teeth = if (keep) teeth else teethOf(chart.current),
             caries = if (keep) caries else cariesOf(chart.current),
             terms = termsOf(chart.terms),
+            noted =
+                chart.toothNotes
+                    .orEmpty()
+                    .map { it.tooth }
+                    .toSet(),
             conditions = conditionsOf(chart.conditions, clinic.timeZone),
             eruptions = eruptionsOf(chart.eruptions, clinic.timeZone),
         )
@@ -345,7 +354,14 @@ class ChartStateHolder(
                 refreshing = next.refreshing,
                 error = next.error,
                 statuses = next.statuses,
+                notedTeeth = next.noted,
             )
+    }
+
+    /** A note was saved on [tooth]: it gets its dot without reloading the chart. */
+    internal fun markNoted(tooth: Int) {
+        val current = model ?: return
+        publish(current.copy(noted = current.noted + tooth))
     }
 
     /**

@@ -3314,7 +3314,7 @@
         }
       }
     },
-    "pv.status.watch": {
+    "pv.status.in_progress": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -3783,29 +3783,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "चार्टची सूचना वापरा"
-          }
-        }
-      }
-    },
-    "pv.tooth.health_note_saved": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Saved"
-          }
-        },
-        "hi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सेव हो गया"
-          }
-        },
-        "mr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "सेव्ह झाले"
           }
         }
       }

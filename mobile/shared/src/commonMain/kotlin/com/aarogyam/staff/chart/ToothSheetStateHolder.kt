@@ -127,12 +127,34 @@ class ToothSheetStateHolder(
         terms: List<TermView>,
     ) = edit {
         TreatmentFormState(
-            status = if (entry.finding == Finding.Watch) TreatmentStatus.Watch else TreatmentStatus.Completed,
+            status = if (entry.inProgress) TreatmentStatus.InProgress else TreatmentStatus.Completed,
             treatment = terms.firstOrNull { t -> t.kind == TermKind.Procedure && t.label == entry.procedure },
             surfaces = setOfNotNull(entry.surface),
             material = terms.firstOrNull { t -> t.kind == TermKind.Material && t.label == entry.material },
             note = entry.note.orEmpty(),
             editing = entry,
+        )
+    }
+
+    /**
+     * A chart-entry row's status chip: [inProgress] true is "In progress", false is "Done". The same
+     * entry is posted again with the flag flipped, naming the old one in `supersedes_id`.
+     */
+    fun setEntryProgress(
+        entry: HistoryEntryView,
+        terms: List<TermView>,
+        inProgress: Boolean,
+    ) {
+        if (entry.status != EntryStatus.Current || entry.inProgress == inProgress) return
+        chart.record(
+            entry.finding,
+            listOfNotNull(entry.surface),
+            terms.firstOrNull { t -> t.kind == TermKind.Procedure && t.label == entry.procedure },
+            terms.firstOrNull { t -> t.kind == TermKind.Material && t.label == entry.material },
+            entry.note,
+            entry.id,
+            entry.elsewhere,
+            inProgress,
         )
     }
 
@@ -149,7 +171,9 @@ class ToothSheetStateHolder(
                     f.surfaces != setOf(e.surface)
             }
         val elsewhere = f.elsewhere && f.canElsewhere
-        plan.finding?.let { chart.record(it, surfaces, f.treatment, f.material, f.note, moved?.id, elsewhere) }
+        plan.finding?.let {
+            chart.record(it, surfaces, f.treatment, f.material, f.note, moved?.id, elsewhere, plan.inProgress)
+        }
         if (elsewhere) {
             // Another dentist's work is history on the chart, not something done in this visit.
             mutableForm.update { it.copy(saved = true) }

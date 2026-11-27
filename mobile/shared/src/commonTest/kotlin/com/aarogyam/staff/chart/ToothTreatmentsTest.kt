@@ -6,6 +6,7 @@ import com.aarogyam.staff.json
 import com.aarogyam.staff.openClinic
 import com.aarogyam.staff.testGraph
 import io.ktor.http.HttpMethod
+import io.ktor.http.content.TextContent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -60,5 +61,38 @@ class ToothTreatmentsTest {
                         it.url.encodedPath.endsWith("/a/complete")
                 },
             )
+        }
+
+    @Test
+    fun the_done_chip_on_a_chart_entry_posts_it_again_not_in_progress_and_superseding_the_old_one() =
+        runTest {
+            val backend = FakeBackend()
+            val entry =
+                """{"id":"e1","tooth":16,"finding":"crown","status":"current","effective_at":"2026-09-20T04:30:00Z",
+                   "canals":[],"in_progress":true}"""
+            backend.on(
+                "$SUNRISE/api/v1/patients/p1/dental-chart",
+                { json("""{"current":[$entry],"history":[$entry],"terms":[]}""") },
+            )
+            val graph = testGraph(backend, backgroundScope)
+            val clinic = openClinic(backend, graph, this, rights)
+            val chart = graph.chart(clinic, "p1", backgroundScope)
+            chart.state.first { it is ChartState.Loaded }
+            chart.select(16, null)
+            val picked =
+                chart.state.first { ((it as? ChartState.Loaded)?.selected?.history as? HistoryState.Loaded) != null }
+            val row = ((picked as ChartState.Loaded).selected?.history as HistoryState.Loaded).entries.single()
+            assertTrue(row.inProgress)
+            val sheet = ToothSheetStateHolder(clinic, chart, null, backgroundScope)
+            sheet.setEntryProgress(row, emptyList(), inProgress = false)
+            chart.state.first { !(it as ChartState.Loaded).saving }
+            val sent =
+                (
+                    backend.requests
+                        .last { it.method == HttpMethod.Post && it.url.encodedPath.endsWith("/dental-chart") }
+                        .body as TextContent
+                ).text
+            assertTrue(""""supersedes_id":"e1"""" in sent, sent)
+            assertFalse(""""in_progress":true""" in sent, sent)
         }
 }

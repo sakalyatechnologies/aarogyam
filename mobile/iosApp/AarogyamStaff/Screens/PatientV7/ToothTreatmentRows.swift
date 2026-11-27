@@ -6,12 +6,20 @@ import SwiftUI
 struct ToothTreatmentRows: View {
     let sheet: ToothSheetStateHolder
     let canRecord: Bool
+    let history: HistoryState
+    let terms: [TermView]
     @State private var rows = ToothTreatmentsState(items: [], busy: nil, error: nil)
     @Environment(\.skTheme) private var theme
 
+    /// Treatments already on the chart: tapping In progress or Done posts the entry again.
+    private var entries: [HistoryEntryView] {
+        guard case .loaded(let loaded) = onEnum(of: history) else { return [] }
+        return loaded.entries.filter { $0.status == .current && $0.procedure != nil }
+    }
+
     var body: some View {
         Group {
-            if !rows.items.isEmpty {
+            if !rows.items.isEmpty || !entries.isEmpty {
                 V7Card {
                     VStack(alignment: .leading, spacing: 8) {
                         V7Label(text: pv("pv.tooth.treatments"))
@@ -22,6 +30,19 @@ struct ToothTreatmentRows: View {
                                 Spacer(minLength: 8)
                                 SkChoiceChip(item.done ? pv("pv.status.completed") : pv("pv.status.planned"), selected: item.done) {
                                     if !item.done && canRecord { sheet.completeTreatment(id: item.id) }
+                                }
+                            }
+                        }
+                        ForEach(entries, id: \.id) { entry in
+                            HStack {
+                                Text(([entry.procedure] + [entry.surface.map { AddTreatmentForm.letter($0) }]).compactMap { $0 }.joined(separator: " · "))
+                                    .v7Text(14, .semibold).foregroundStyle(theme.roles.onSurface.color)
+                                Spacer(minLength: 8)
+                                SkChoiceChip(pv("pv.status.in_progress"), selected: entry.inProgress) {
+                                    if canRecord { sheet.setEntryProgress(entry: entry, terms: terms, inProgress: true) }
+                                }
+                                SkChoiceChip(pv("pv.status.completed"), selected: !entry.inProgress) {
+                                    if canRecord { sheet.setEntryProgress(entry: entry, terms: terms, inProgress: false) }
                                 }
                             }
                         }

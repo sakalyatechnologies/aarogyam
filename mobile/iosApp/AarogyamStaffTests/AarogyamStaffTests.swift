@@ -228,10 +228,10 @@ final class ChartMappingTests: XCTestCase {
     }
 
     func test_history_details_skip_what_is_missing() {
-        let entry = HistoryEntryView(id: "e1", finding: .caries, surface: .o, status: .superseded, at: nil, note: nil, procedure: nil, material: nil, elsewhere: false)
+        let entry = HistoryEntryView(id: "e1", finding: .caries, surface: .o, status: .superseded, at: nil, note: nil, procedure: nil, material: nil, elsewhere: false, inProgress: false, supersedes: nil)
         XCTAssertEqual(entry.detailText, EntryStatus.superseded.label)
         XCTAssertEqual(entry.treatmentText, "")
-        let crowned = HistoryEntryView(id: "e2", finding: .crown, surface: nil, status: .current, at: nil, note: nil, procedure: "Crown", material: "Zirconia", elsewhere: true)
+        let crowned = HistoryEntryView(id: "e2", finding: .crown, surface: nil, status: .current, at: nil, note: nil, procedure: "Crown", material: "Zirconia", elsewhere: true, inProgress: false, supersedes: nil)
         XCTAssertEqual(crowned.treatmentText, "Crown · Zirconia")
         XCTAssertTrue(crowned.detailText.hasPrefix(pv("pv.tooth.elsewhere")), "work by another dentist says so")
     }

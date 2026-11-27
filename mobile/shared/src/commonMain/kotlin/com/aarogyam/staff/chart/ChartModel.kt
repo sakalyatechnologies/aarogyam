@@ -237,6 +237,10 @@ data class HistoryEntryView(
     val material: String? = null,
     /** The work was done by another dentist. */
     val elsewhere: Boolean = false,
+    /** The treatment is started and not finished. */
+    val inProgress: Boolean = false,
+    /** The entry this one replaced, when it was a correction. */
+    val supersedes: String? = null,
 )
 
 /** The selected tooth's full history, fetched when the tooth is picked. */

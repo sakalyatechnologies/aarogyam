@@ -55,9 +55,34 @@ class TreatmentFormTest {
             TreatmentCheck.Blocked(TreatmentBlock.NoTreatment),
             planTreatment(TreatmentStatus.Completed, null, true),
         )
+    }
+
+    @Test
+    fun in_progress_posts_the_treatment_entry_as_started_and_needs_a_chart_mark() {
         assertEquals(
-            TreatmentCheck.Ok(TreatmentPlan(Finding.Watch, null)),
-            planTreatment(TreatmentStatus.Watch, null, false),
+            TreatmentCheck.Ok(TreatmentPlan(Finding.Crown, null, inProgress = true)),
+            planTreatment(TreatmentStatus.InProgress, seeded("crown"), inVisit = true),
         )
+        assertEquals(
+            TreatmentCheck.Blocked(TreatmentBlock.NoChartMark),
+            planTreatment(TreatmentStatus.InProgress, seeded("scaling"), inVisit = true),
+        )
+        assertEquals(
+            TreatmentCheck.Blocked(TreatmentBlock.NoTreatment),
+            planTreatment(TreatmentStatus.InProgress, null, inVisit = false),
+        )
+    }
+
+    @Test
+    fun the_record_plan_sends_in_progress_only_with_a_finding_and_supersedes_on_the_first_entry() {
+        val crown = seeded("crown")
+        val started =
+            recordPlan(emptyMap(), listOf(16), Finding.Crown, emptyList(), crown, null, null, "old", inProgress = true)
+        assertEquals(true, started.second.single().inProgress)
+        assertEquals("old", started.second.single().supersedesId)
+        val done = recordPlan(emptyMap(), listOf(16), Finding.Crown, emptyList(), crown, null, null, "old")
+        assertNull(done.second.single().inProgress, "done leaves the flag out: it defaults to false")
+        val sound = recordPlan(emptyMap(), listOf(16), Finding.Sound, emptyList(), null, null, null, inProgress = true)
+        assertNull(sound.second.single().inProgress)
     }
 }

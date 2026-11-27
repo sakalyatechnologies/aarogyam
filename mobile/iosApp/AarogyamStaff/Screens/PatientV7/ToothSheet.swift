@@ -50,7 +50,7 @@ private struct ToothSheetBody: View {
                     if chart.canRecord {
                         SkPillButton(pv("pv.tooth.add"), wide: true) { sheet.beginTreatment(); adding = true }
                     }
-                    ToothTreatmentRows(sheet: sheet, canRecord: chart.canRecord)
+                    ToothTreatmentRows(sheet: sheet, canRecord: chart.canRecord, history: selection.history, terms: chart.terms)
                     ToothMoreDetails {
                         nowCard
                         if chart.canRecord { ToothDetailsCard(sheet: sheet, tooth: selection.tooth.number, details: selection.details) }

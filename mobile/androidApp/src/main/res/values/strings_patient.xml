@@ -225,7 +225,7 @@
     <string name="pv_share_xrays">X-rays</string>
     <string name="pv_status_completed">Done</string>
     <string name="pv_status_planned">Planned</string>
-    <string name="pv_status_watch">In progress</string>
+    <string name="pv_status_in_progress">In progress</string>
     <string name="pv_tooth_more">More details</string>
     <string name="pv_tooth_treatments">Treatments</string>
     <string name="pv_tooth_add">Add treatment</string>

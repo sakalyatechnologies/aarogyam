@@ -41,6 +41,8 @@ struct JawChart: View {
     var glyph: ((ToothView) -> String?)?
     /// Drawn as an outline only (the Health view's not assessed).
     var outlined: ((ToothView) -> Bool)?
+    /// Teeth with notes get a small dot.
+    var noted: Set<Int32> = []
     @Environment(\.skTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -63,7 +65,7 @@ struct JawChart: View {
                     .position(x: w / 2, y: h / 2)
                 ForEach(JawGeometry.shared.spots(dentition: dentition, aspect: aspect), id: \.tooth) { spot in
                     if let tooth = teeth[Int32(spot.tooth)] {
-                        JawTooth(tooth: tooth, tone: tone(tooth), label: label?(tooth), glyph: glyph?(tooth) ?? nil, outlined: outlined?(tooth) ?? false, size: size, picked: picked.contains(tooth.number), onLongTap: onLongSelect.map { long in { long(tooth.number) } }) { onSelect(tooth.number) }
+                        JawTooth(tooth: tooth, tone: tone(tooth), label: label?(tooth), glyph: glyph?(tooth) ?? nil, outlined: outlined?(tooth) ?? false, noted: noted.contains(tooth.number), size: size, picked: picked.contains(tooth.number), onLongTap: onLongSelect.map { long in { long(tooth.number) } }) { onSelect(tooth.number) }
                             .position(x: w * spot.x, y: h * spot.y)
                             .zIndex(picked.contains(tooth.number) ? 1 : 0)
                     }
@@ -99,6 +101,7 @@ struct JawTooth: View {
     var label: String?
     var glyph: String?
     var outlined = false
+    var noted = false
     let size: CGFloat
     let picked: Bool
     var onLongTap: (() -> Void)?
@@ -122,6 +125,11 @@ struct JawTooth: View {
                 }
                 if tone == .missing { shape.strokeBorder(paint.ink, style: StrokeStyle(lineWidth: 1, dash: [3, 2])) }
                 Text(String(tooth.number)).font(.system(size: size * 0.32, weight: .bold, design: .monospaced)).foregroundStyle(paint.ink)
+                if noted {
+                    Circle().fill(theme.roles.primary.color).overlay(Circle().stroke(.white, lineWidth: 1))
+                        .frame(width: size * 0.3, height: size * 0.3)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
                 if let glyph {
                     Text(glyph).font(.system(size: size * 0.34, weight: .heavy)).foregroundStyle(paint.ink)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

@@ -8,8 +8,8 @@ enum class TreatmentStatus {
     /** To do later: a planned visit procedure; only inside a visit. */
     Planned,
 
-    /** Keep an eye on it: a "watch" finding on the chart. */
-    Watch,
+    /** Started, not finished: drawn on the chart as work in progress. */
+    InProgress,
 }
 
 /** Why Save is not possible yet; the form shows the reason beside the button. */
@@ -54,6 +54,8 @@ object ProcedureFindings {
 data class TreatmentPlan(
     val finding: Finding?,
     val procedureStatus: String?,
+    /** The chart entry is posted as started, not finished. */
+    val inProgress: Boolean = false,
 )
 
 /**
@@ -66,8 +68,13 @@ fun planTreatment(
     inVisit: Boolean,
 ): TreatmentCheck =
     when (status) {
-        TreatmentStatus.Watch -> {
-            TreatmentCheck.Ok(TreatmentPlan(Finding.Watch, null))
+        TreatmentStatus.InProgress -> {
+            val finding = treatment?.let { ProcedureFindings.of(it) }
+            when {
+                treatment == null -> TreatmentCheck.Blocked(TreatmentBlock.NoTreatment)
+                finding == null -> TreatmentCheck.Blocked(TreatmentBlock.NoChartMark)
+                else -> TreatmentCheck.Ok(TreatmentPlan(finding, null, inProgress = true))
+            }
         }
 
         TreatmentStatus.Planned -> {

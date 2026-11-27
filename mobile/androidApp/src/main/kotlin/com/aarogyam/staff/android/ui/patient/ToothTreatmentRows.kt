@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.message
+import com.aarogyam.staff.chart.EntryStatus
+import com.aarogyam.staff.chart.HistoryState
+import com.aarogyam.staff.chart.TermView
 import com.aarogyam.staff.chart.ToothSheetStateHolder
 import com.sakalya.mobile.designcompose.SkChoiceChip
 import com.sakalya.mobile.designcompose.SkTheme
@@ -31,9 +34,17 @@ import com.sakalya.mobile.designcompose.color
 internal fun ToothTreatmentRows(
     sheet: ToothSheetStateHolder,
     canRecord: Boolean,
+    history: HistoryState,
+    terms: List<TermView>,
 ) {
     val rows by sheet.treatmentRows.collectAsStateWithLifecycle()
-    if (rows.items.isEmpty()) return
+    // Treatments already on the chart: tapping In progress or Done posts the entry again.
+    val entries =
+        (history as? HistoryState.Loaded)
+            ?.entries
+            .orEmpty()
+            .filter { it.status == EntryStatus.Current && it.procedure != null }
+    if (rows.items.isEmpty() && entries.isEmpty()) return
     V7Card {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             V7Label(stringResource(R.string.pv_tooth_treatments))
@@ -54,6 +65,27 @@ internal fun ToothTreatmentRows(
                         { if (!item.done && canRecord) sheet.completeTreatment(item.id) },
                         single = false,
                     )
+                }
+            }
+            entries.forEach { entry ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        listOfNotNull(entry.procedure, entry.surface?.name).joinToString(" · "),
+                        style = v7(14f, FontWeight.SemiBold),
+                        color = SkTheme.palette.onSurface.color,
+                        modifier = Modifier.weight(1f),
+                    )
+                    val states = listOf(true to R.string.pv_status_in_progress, false to R.string.pv_status_completed)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        states.forEach { (started, label) ->
+                            SkChoiceChip(
+                                stringResource(label),
+                                entry.inProgress == started,
+                                { if (canRecord) sheet.setEntryProgress(entry, terms, started) },
+                                single = false,
+                            )
+                        }
+                    }
                 }
             }
             rows.error?.let {

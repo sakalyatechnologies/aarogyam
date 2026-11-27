@@ -151,6 +151,7 @@ internal fun JawCard(
                             label = { marks.getValue(chart.healthMark(it)) },
                             glyph = { chart.healthMark(it).glyph() },
                             outlined = { chart.healthMark(it) == HealthMark.NotAssessed },
+                            noted = chart.notedTeeth,
                         )
                         JawLegend(
                             HealthMark.entries.map {
@@ -159,7 +160,15 @@ internal fun JawCard(
                             },
                         )
                     } else {
-                        JawChart(chart.dentition, teeth, chart.upper, chart.lower, pick, onLongSelect = dictate)
+                        JawChart(
+                            chart.dentition,
+                            teeth,
+                            chart.upper,
+                            chart.lower,
+                            pick,
+                            onLongSelect = dictate,
+                            noted = chart.notedTeeth,
+                        )
                         JawLegend()
                     }
                 }

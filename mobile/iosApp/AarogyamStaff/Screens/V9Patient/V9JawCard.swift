@@ -27,9 +27,11 @@ struct V9JawCard: View {
                     } else if healthView {
                         JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick, onLongSelect: pickAndDictate,
                                  tone: { loadedChart.healthMark(tooth: $0).tone }, label: { loadedChart.healthMark(tooth: $0).label },
-                                 glyph: { loadedChart.healthMark(tooth: $0).glyph }, outlined: { loadedChart.healthMark(tooth: $0) == .notAssessed })
+                                 glyph: { loadedChart.healthMark(tooth: $0).glyph }, outlined: { loadedChart.healthMark(tooth: $0) == .notAssessed },
+                                 noted: Set(loadedChart.notedTeeth.map(\.int32Value)))
                     } else {
-                        JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick, onLongSelect: pickAndDictate)
+                        JawChart(dentition: loadedChart.dentition, teeth: teeth, picked: [], onSelect: pick, onLongSelect: pickAndDictate,
+                                 noted: Set(loadedChart.notedTeeth.map(\.int32Value)))
                     }
                     if healthView {
                         JawLegend(entries: HealthMark.allCases.map { ($0.tone, [$0.glyph, $0.label].compactMap { $0 }.joined(separator: " ")) })

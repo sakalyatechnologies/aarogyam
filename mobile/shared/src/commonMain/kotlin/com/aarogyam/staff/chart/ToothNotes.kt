@@ -69,6 +69,7 @@ internal class ToothNotes(
                 when (val answer = clinic.api.addToothNote(chart.patientId, tooth, request)) {
                     is Outcome.Success -> {
                         log.info("chart.tooth_note_added")
+                        chart.markNoted(tooth)
                         mutable.update { it.copy(items = listOf(answer.value.view()) + it.items) }
                     }
 

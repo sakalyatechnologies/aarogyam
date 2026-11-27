@@ -97,7 +97,7 @@ extension TreatmentStatus {
         switch self {
         case .completed: pv("pv.status.completed")
         case .planned: pv("pv.status.planned")
-        case .watch: pv("pv.status.watch")
+        case .inProgress: pv("pv.status.in_progress")
         }
     }
 }

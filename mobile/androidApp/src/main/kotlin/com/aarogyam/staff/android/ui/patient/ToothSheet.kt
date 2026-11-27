@@ -106,7 +106,7 @@ internal fun ToothSheet(
                     adding = true
                 }, wide = true)
             }
-            ToothTreatmentRows(sheet, chart.canRecord)
+            ToothTreatmentRows(sheet, chart.canRecord, selection.history, chart.terms)
             MoreDetails {
                 NowCard(tooth)
                 if (chart.canRecord) ToothDetailsCard(sheet, tooth.number, selection.details)

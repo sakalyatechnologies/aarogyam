@@ -50,7 +50,7 @@ import com.sakalya.mobile.designcompose.SkSegmented
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
 
-private val STATUS_ORDER = listOf(TreatmentStatus.Planned, TreatmentStatus.Watch, TreatmentStatus.Completed)
+private val STATUS_ORDER = listOf(TreatmentStatus.Planned, TreatmentStatus.InProgress, TreatmentStatus.Completed)
 
 @Composable
 private fun TreatmentStatus.title(): String =
@@ -58,7 +58,7 @@ private fun TreatmentStatus.title(): String =
         when (this) {
             TreatmentStatus.Completed -> R.string.pv_status_completed
             TreatmentStatus.Planned -> R.string.pv_status_planned
-            TreatmentStatus.Watch -> R.string.pv_status_watch
+            TreatmentStatus.InProgress -> R.string.pv_status_in_progress
         },
     )
 

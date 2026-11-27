@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -139,6 +140,8 @@ internal fun JawChart(
     glyph: (ToothView) -> String? = { null },
     /** Drawn as an outline only (the Health view's not assessed). */
     outlined: (ToothView) -> Boolean = { false },
+    /** Teeth with notes get a small dot. */
+    noted: Set<Int> = emptySet(),
 ) {
     val context = LocalContext.current
     val exploring =
@@ -190,6 +193,7 @@ internal fun JawChart(
                     label(tooth),
                     glyph(tooth),
                     outlined(tooth),
+                    tooth.number in noted,
                     size,
                     Modifier.offset(
                         w * spot.x.toFloat() - size / 2 - TAP_PAD,
@@ -204,6 +208,7 @@ internal fun JawChart(
 }
 
 private const val CAMERA = 12f
+private const val NOTE_DOT = 0.3f
 private val TAP_PAD = 6.dp
 
 @Composable
@@ -234,6 +239,7 @@ private fun JawTooth(
     label: String?,
     glyph: String?,
     outlined: Boolean,
+    noted: Boolean,
     size: Dp,
     modifier: Modifier,
     onLongTap: (() -> Unit)? = null,
@@ -294,6 +300,15 @@ private fun JawTooth(
                 ).copy(fontFamily = FontFamily.Monospace, fontSize = (size.value * NUMBER).sp),
             color = paint.ink,
         )
+        if (noted) {
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .size(size * NOTE_DOT)
+                    .background(SkTheme.palette.primary.color, CircleShape)
+                    .border(1.dp, Color.White, CircleShape),
+            )
+        }
         glyph?.let {
             Text(
                 it,

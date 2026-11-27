@@ -44,6 +44,8 @@ sealed interface ChartState {
         val error: ScreenError?,
         /** The doctor's health status by tooth; teeth without one take what [suggestedHealth] says. */
         val statuses: Map<Int, ToothStatusView> = emptyMap(),
+        /** Teeth that have notes: the chart marks them with a dot. */
+        val notedTeeth: Set<Int> = emptySet(),
     ) : ChartState {
         /** How many teeth the shown dentition has. */
         val total: Int get() = upper.size + lower.size

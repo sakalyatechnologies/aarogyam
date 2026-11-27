@@ -55,6 +55,8 @@ internal fun ChartEntry.toHistory(zone: TimeZone): HistoryEntryView? {
         procedure = procedure?.label,
         material = material?.label,
         elsewhere = elsewhere == true,
+        inProgress = inProgress,
+        supersedes = supersedesId,
     )
 }
 
@@ -74,6 +76,8 @@ internal fun recordPlan(
     supersedes: String? = null,
     /** The work was done by another dentist; only for [ELSEWHERE_FINDINGS]. */
     elsewhere: Boolean = false,
+    /** The treatment is started and not finished; with a finding other than sound. */
+    inProgress: Boolean = false,
 ): Pair<Map<Int, ToothView>, List<NewChartEntry>> {
     val on: List<Surface?> = if (finding.wholeTooth || surfaces.isEmpty()) listOf(null) else surfaces.distinct()
     val detail = finding != Finding.Sound
@@ -93,6 +97,7 @@ internal fun recordPlan(
                     surface = surface?.name,
                     supersedesId = supersedes.takeIf { entries.isEmpty() },
                     elsewhere = true.takeIf { elsewhere && finding in ELSEWHERE_FINDINGS },
+                    inProgress = true.takeIf { inProgress && detail },
                 )
         }
     }

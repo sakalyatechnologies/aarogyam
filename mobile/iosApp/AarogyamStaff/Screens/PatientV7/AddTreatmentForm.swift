@@ -119,7 +119,7 @@ struct AddTreatmentForm: View {
             .disabled(!ok || chart.saving)
     }
 
-    static let statusOrder: [TreatmentStatus] = [.planned, .watch, .completed]
+    static let statusOrder: [TreatmentStatus] = [.planned, .inProgress, .completed]
 
     /// The mockup's one-letter surface chips.
     static func letter(_ surface: Surface) -> String {

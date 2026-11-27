@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 
-import { apiErrorOf, randomUuid, unwrap, type Invoice, type PaymentMethod } from "@aarogyam/api-client";
+import { apiErrorOf, randomUuid, unwrap, type Invoice, type Payment, type PaymentMethod } from "@aarogyam/api-client";
 import { formatRupees } from "@aarogyam/app-kit";
 import { Field, TextInput, useToast } from "@sakalya/ui";
 
@@ -37,7 +37,7 @@ function upiUri(upiId: string, payee: string, amountPaise: number, note: string)
  * method, the UPI QR, and one `POST /payments` allocated oldest bill first. One idempotency key per attempt, so a retry
  * returns the first payment instead of charging twice.
  */
-export function CollectForm({ patientId, bills }: { patientId: Invoice["patient"]["id"]; bills: readonly [Invoice, ...Invoice[]] }) {
+export function CollectForm({ patientId, bills, onRecorded }: { patientId: Invoice["patient"]["id"]; bills: readonly [Invoice, ...Invoice[]]; onRecorded?: (payment: Payment) => void }) {
   const { api, access } = useClinic();
   const toast = useToast();
   const record = useRecordPayment();
@@ -88,6 +88,7 @@ export function CollectForm({ patientId, bills }: { patientId: Invoice["patient"
           attempt.current = undefined;
           setTyped(undefined);
           toast.show({ title: `Receipt ${payment.number} recorded`, tone: "success" });
+          onRecorded?.(payment);
         },
         onError: (thrown) => {
           setError(apiErrorOf(thrown)?.message ?? "Couldn't record the payment. Try again; it won't be charged twice.");

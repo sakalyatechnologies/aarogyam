@@ -41,6 +41,7 @@ export function PinCodeFields({
   pinError,
   disabled = false,
   large = false,
+  compact = false,
 }: {
   value: PinValue;
   onChange: (next: PinValue) => void;
@@ -52,7 +53,10 @@ export function PinCodeFields({
   disabled?: boolean;
   /** Bigger touch targets for the public page. */
   large?: boolean;
+  /** Show the filled city and state as text with a "Change" link, and boxes only when the lookup fails or on Change. */
+  compact?: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const asked = useRef("");
 
@@ -80,6 +84,9 @@ export function PinCodeFields({
           ? "We don't know this PIN. Type the city and state."
           : undefined;
 
+  const filled = compact && !editing && status !== "unknown" && (value.city !== "" || value.state !== "");
+  const hideBoxes = compact && !editing && status !== "unknown";
+
   return (
     <>
       <Field label={pinLabel} {...(pinError === undefined ? {} : { error: pinError })} {...(hint === undefined ? {} : { hint })}>
@@ -102,6 +109,22 @@ export function PinCodeFields({
           }}
         />
       </Field>
+      {filled ? (
+        <p className="flex items-center gap-2 text-sm text-text" data-testid="pin-filled">
+          <span>{[value.city, value.state].filter((part) => part !== "").join(", ")}</span>
+          <button
+            type="button"
+            className="font-medium text-primary-text underline"
+            onClick={() => {
+              setEditing(true);
+            }}
+          >
+            Change
+          </button>
+        </p>
+      ) : null}
+      {hideBoxes ? null : (
+        <>
       <Field label={cityLabel}>
         <TextInput
           className={size}
@@ -124,6 +147,8 @@ export function PinCodeFields({
           }}
         />
       </Field>
+        </>
+      )}
     </>
   );
 }

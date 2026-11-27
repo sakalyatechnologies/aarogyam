@@ -8,6 +8,7 @@ import { useDocumentTitle } from "@aarogyam/app-kit";
 import { Button, EmptyState, Skeleton } from "@sakalya/ui";
 
 import { useServices } from "../../clinic.js";
+import { PoweredBy } from "../../components/public-brand.js";
 import { LetterheadSheet } from "../../components/letterhead/letterhead.js";
 import { plainLetterhead } from "../../components/letterhead/sample.js";
 import { VisitPage } from "../../visit-page/visit-page.js";
@@ -155,6 +156,7 @@ export function SharedPage() {
           )}
         </LetterheadSheet>
       </div>
+      <PoweredBy />
     </main>
   );
 }

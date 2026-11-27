@@ -1,12 +1,14 @@
+import type { ComponentProps } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm, useWatch, type UseFormReturn } from "react-hook-form";
+import { Controller, useController, useForm, useWatch, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 
 import { apiErrorOf, type NewPatient, type Sex } from "@aarogyam/api-client";
-import { DateInput, Field, PhoneInput, RadioGroup, Select, TextInput } from "@sakalya/ui";
+import { Field, PhoneInput, RadioGroup, Select, TextInput } from "@sakalya/ui";
 
+import { DobInput } from "../../components/dob-input.js";
 import { PinCodeFields, useClinicPinLookup, type PinValue } from "../../components/pin-code-fields.js";
-import { LANGUAGES, SEX_OPTIONS, useTodayDate } from "../../lib/patients.js";
+import { LANGUAGES, SEX_OPTIONS } from "../../lib/patients.js";
 
 /** The registration form's rules, shared by the New patient page and the booking dialog. */
 export const patientSchema = z
@@ -87,16 +89,32 @@ export function patientErrorOf(form: PatientForm, thrown: unknown): string | und
   return apiError?.message ?? "Couldn't register the patient. Please try again.";
 }
 
-/** The registration fields: name, sex, date of birth or age, mobile, email and language. */
-export function PatientFields({ form, address }: { form: PatientForm; address?: { line1: string; pin: PinValue; onChange: (next: { line1: string; pin: PinValue }) => void } }) {
-  const lookup = useClinicPinLookup();
-  const today = useTodayDate();
+/** The date-of-birth box, wired to the form (kept as ISO). A direct child of its Field, so the label reaches the input. */
+function DobController({ of, ...rest }: { of: PatientForm } & Omit<ComponentProps<typeof DobInput>, "value" | "onValueChange">) {
+  const { field } = useController({ control: of.control, name: "dateOfBirth" });
+  return <DobInput {...rest} name={field.name} value={field.value} onValueChange={field.onChange} onBlur={field.onBlur} />;
+}
+
+/** The preferred-language choice, shown in the Contact section (English unless changed). */
+export function LanguageField({ form }: { form: PatientForm }) {
+  return (
+    <Field label="Preferred language" error={form.formState.errors.preferredLanguage?.message}>
+      <Select options={LANGUAGES} {...form.register("preferredLanguage")} />
+    </Field>
+  );
+}
+
+/** The registration fields: name, mobile, sex, date of birth or age, email and address (PIN first). */
+export function PatientFields({ form }: { form: PatientForm }) {
   const { errors } = form.formState;
   const birthMode = useWatch({ control: form.control, name: "birthMode" });
   return (
     <>
       <Field label="Full name" error={errors.fullName?.message} required>
         <TextInput autoComplete="off" {...form.register("fullName")} />
+      </Field>
+      <Field label="Mobile" hint="Contact only: families often share a number." error={errors.phone?.message}>
+        <PhoneInput autoComplete="off" {...form.register("phone")} />
       </Field>
       <Controller
         control={form.control}
@@ -132,30 +150,34 @@ export function PatientFields({ form, address }: { form: PatientForm; address?: 
         )}
       />
       {birthMode === "dob" ? (
-        <Field label="Date of birth" error={errors.dateOfBirth?.message} required>
-          <DateInput {...form.register("dateOfBirth")} max={today} min="1896-01-01" />
+        <Field label="Date of birth" hint="Day, month, year." error={errors.dateOfBirth?.message} required>
+          <DobController of={form} />
         </Field>
       ) : (
         <Field label="Age in years" hint="An estimate is fine." error={errors.ageYears?.message} required>
           <TextInput inputMode="numeric" autoComplete="off" className="max-w-32" {...form.register("ageYears")} />
         </Field>
       )}
-      <Field label="Mobile" hint="Contact only: families often share a number." error={errors.phone?.message}>
-        <PhoneInput autoComplete="off" {...form.register("phone")} />
-      </Field>
       <Field label="Email" error={errors.email?.message}>
         <TextInput type="email" autoComplete="off" {...form.register("email")} />
       </Field>
-      {address === undefined ? null : (
-        <>
-          <Field label="Address" hint="House, building and street.">
-            <TextInput autoComplete="off" value={address.line1} onChange={(event) => { address.onChange({ line1: event.currentTarget.value, pin: address.pin }); }} />
-          </Field>
-          <PinCodeFields value={address.pin} lookup={lookup} onChange={(pin) => { address.onChange({ line1: address.line1, pin }); }} />
-        </>
-      )}
-      <Field label="Preferred language" error={errors.preferredLanguage?.message} required>
-        <Select options={LANGUAGES} {...form.register("preferredLanguage")} />
+    </>
+  );
+}
+
+export interface AddressValue {
+  line1: string;
+  pin: PinValue;
+}
+
+/** The address group: PIN first (city and state fill from it), then house, building and street. */
+export function AddressFields({ value, onChange }: { value: AddressValue; onChange: (next: AddressValue) => void }) {
+  const lookup = useClinicPinLookup();
+  return (
+    <>
+      <PinCodeFields compact value={value.pin} lookup={lookup} onChange={(pin) => { onChange({ line1: value.line1, pin }); }} />
+      <Field label="Address" hint="House, building and street.">
+        <TextInput autoComplete="off" value={value.line1} onChange={(event) => { onChange({ line1: event.currentTarget.value, pin: value.pin }); }} />
       </Field>
     </>
   );

@@ -268,10 +268,27 @@ describe("Billing (New look)", () => {
     await user.click(await screen.findByRole("button", { name: `Open bill ${DUE}` }));
     const drawer = await screen.findByRole("dialog", { name: new RegExp(DUE) });
     await within(drawer).findByRole("table", { name: "Lines on this bill" });
-    await user.click(within(drawer).getByRole("button", { name: "Collect" }));
     await within(drawer).findByRole("form", { name: "Collect a payment" });
     const result = await axe.run(document.body, { rules: { "color-contrast": { enabled: false } } });
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.html).join(" | ")}`)).toEqual([]);
+  });
+
+  it("opens a bill with a balance on the collect form, and shows the receipt in the same drawer after recording", async () => {
+    const user = userEvent.setup();
+    renderPortal("/billing", { as: PEOPLE.asha, backend: withDueBill() });
+    await user.click(await screen.findByRole("button", { name: `Open bill ${DUE}` }));
+    const drawer = await screen.findByRole("dialog", { name: new RegExp(DUE) });
+    const form = await within(drawer).findByRole("form", { name: "Collect a payment" });
+    // The form is the first thing, there is no second Collect toggle, and Print sits with the share buttons.
+    expect(drawer.querySelector(".bl2-drawer")?.firstElementChild).toBe(form);
+    expect(within(drawer).queryByRole("button", { name: "Collect" })).toBeNull();
+    const actions = within(drawer).getByRole("group", { name: "Bill actions" });
+    expect(within(actions).getByRole("link", { name: /Print/ })).toBeTruthy();
+    expect(within(actions).getByRole("link", { name: /WhatsApp/ })).toBeTruthy();
+    await user.click(within(form).getByRole("button", { name: /^Record/ }));
+    const done = await within(drawer).findByRole("status", { name: "Payment recorded" });
+    expect(within(done).getByRole("link", { name: /Print receipt/ })).toBeTruthy();
+    expect(within(done).getByRole("link", { name: /WhatsApp receipt/ })).toBeTruthy();
   });
 
   it("keeps the classic screen when New look is off", async () => {

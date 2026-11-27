@@ -1,4 +1,4 @@
-import { MessageCircle, Mail, Printer, WalletCards } from "lucide-react";
+import { CircleCheck, MessageCircle, Mail, Printer } from "lucide-react";
 import { useRef, useState } from "react";
 import { Link } from "react-router";
 
@@ -19,7 +19,7 @@ import { useInvoice, usePayments } from "./queries.js";
 const METHOD_LABEL: Readonly<Record<string, string>> = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank" };
 
 /** One bill in full from the Billing list: lines, payments and the balance, with Collect, Print and Share. */
-export function InvoiceDrawer({ invoiceId, collect, onClose }: { invoiceId: Invoice["id"] | undefined; collect: boolean; onClose: () => void }) {
+export function InvoiceDrawer({ invoiceId, onClose }: { invoiceId: Invoice["id"] | undefined; collect?: boolean; onClose: () => void }) {
   const invoice = useInvoice(invoiceId);
   return (
     <Drawer
@@ -44,24 +44,26 @@ export function InvoiceDrawer({ invoiceId, collect, onClose }: { invoiceId: Invo
           }}
         />
       ) : (
-        <InvoiceBody invoice={invoice.data} startCollect={collect} />
+        <InvoiceBody invoice={invoice.data} />
       )}
     </Drawer>
   );
 }
 
-function InvoiceBody({ invoice, startCollect }: { invoice: Invoice; startCollect: boolean }) {
+function InvoiceBody({ invoice }: { invoice: Invoice }) {
   const { can, access } = useClinic();
   const status = invoiceStatus(invoice);
   const { doctor } = useBillDoctor(invoice);
   const payments = usePayments();
   const receipts = (payments.data?.items ?? []).filter((p) => p.allocations.some((a) => a.invoice_id === invoice.id));
   const canCollect = can("billing.write") && invoice.status === "issued" && invoice.balance_paise > 0;
-  const [collecting, setCollecting] = useState(startCollect);
+  const [recorded, setRecorded] = useState<Payment>();
   const printable = invoice.status === "issued";
 
   return (
     <div className="bl2-drawer">
+      {canCollect ? <CollectForm patientId={invoice.patient.id} bills={[invoice]} onRecorded={setRecorded} /> : null}
+      {recorded === undefined ? null : <ReceiptNotice payment={recorded} invoice={invoice} />}
       <div className="bl2-dhead">
         <StatusChip tone={CHIP_TONE[status.key]}>{status.label}</StatusChip>
         {invoice.issued_at == null ? null : <span className="bl2-sub">Issued {formatDateTime(invoice.issued_at)}</span>}
@@ -161,28 +163,34 @@ function InvoiceBody({ invoice, startCollect }: { invoice: Invoice; startCollect
         )}
       </section>
 
-      <div className="bl2-actions" role="group" aria-label="Bill actions">
-        {canCollect ? (
-          <button
-            type="button"
-            className="bl2-btn dark"
-            aria-expanded={collecting}
-            onClick={() => {
-              setCollecting((now) => !now);
-            }}
-          >
-            <WalletCards aria-hidden="true" /> Collect
-          </button>
-        ) : null}
-        {printable ? (
+      {printable ? (
+        <div className="bl2-actions" role="group" aria-label="Bill actions">
           <Link className="bl2-btn" to={`/billing/invoices/${invoice.id}/print`}>
             <Printer aria-hidden="true" /> Print
           </Link>
-        ) : null}
-      </div>
+          <ShareButtons invoice={invoice} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
-      {canCollect && collecting ? <CollectForm patientId={invoice.patient.id} bills={[invoice]} /> : null}
-      {printable ? <ShareBar invoice={invoice} /> : null}
+/** Right after a payment: its receipt number with Print and WhatsApp, without leaving the bill. */
+function ReceiptNotice({ payment, invoice }: { payment: Payment; invoice: Invoice }) {
+  const { access } = useClinic();
+  const text = `Receipt ${payment.number} from ${access.name}: ${formatRupees(payment.amount_paise)} received for bill ${invoice.number ?? ""}.`.replace(" for bill .", ".");
+  return (
+    <div className="bl2-actions" role="status" aria-label="Payment recorded">
+      <CircleCheck aria-hidden="true" className="size-4" />
+      <strong>
+        Receipt <span className="mk-mono">{payment.number}</span> recorded
+      </strong>
+      <Link className="bl2-btn" to={`/billing/payments/${payment.id}/receipt`}>
+        <Printer aria-hidden="true" /> Print receipt
+      </Link>
+      <a className="bl2-btn" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
+        <MessageCircle aria-hidden="true" /> WhatsApp receipt
+      </a>
     </div>
   );
 }
@@ -206,7 +214,7 @@ function PaymentRow({ payment, invoiceId }: { payment: Payment; invoiceId: Invoi
 }
 
 /** Sends the bill by email through the message queue (needs `messages.send`), or hands it to WhatsApp as text. */
-function ShareBar({ invoice }: { invoice: Invoice }) {
+function ShareButtons({ invoice }: { invoice: Invoice }) {
   const { api, can, access } = useClinic();
   const toast = useToast();
   const text = `Bill ${invoice.number ?? ""} from ${access.name}: total ${formatRupees(invoice.total_paise)}, balance ${formatRupees(invoice.balance_paise)}.`;
@@ -231,8 +239,7 @@ function ShareBar({ invoice }: { invoice: Invoice }) {
     },
   });
   return (
-    <div className="bl2-actions" role="group" aria-label="Share the bill">
-      <span className="bl2-sub">Share</span>
+    <>
       <a className="bl2-btn" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">
         <MessageCircle aria-hidden="true" /> WhatsApp
       </a>
@@ -248,6 +255,6 @@ function ShareBar({ invoice }: { invoice: Invoice }) {
           <Mail aria-hidden="true" /> {email.isPending ? "Sending…" : "Email"}
         </button>
       ) : null}
-    </div>
+    </>
   );
 }

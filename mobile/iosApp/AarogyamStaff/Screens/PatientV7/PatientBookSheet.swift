@@ -62,6 +62,25 @@ private struct BookBody: View {
 
     var body: some View {
         let r = theme.roles
+        // Book is pinned below the scroll view so it stays on screen however long the slot list is.
+        VStack(spacing: 0) {
+            scroll(r)
+            if state.booked == nil, state.allowed { bookBar(r) }
+        }
+        .skSheet()
+        .sheet(isPresented: $calendarOpen) { calendarSheet }
+    }
+
+    private func bookBar(_ r: SkRoles) -> some View {
+        VStack(spacing: 8) {
+            if let error = state.error { Text(error.message).v7Text(12.5, .semibold).foregroundStyle(r.error.color).frame(maxWidth: .infinity, alignment: .leading) }
+            SkPillButton(state.chosen.map { pvf("pv.book.cta", ClinicFormat.time(minuteOfDay: $0.time.minuteOfDay)) } ?? pv("pv.book.pick"), wide: true, loading: state.saving, action: holder.book)
+                .disabled(!state.canBook)
+        }
+        .padding(.horizontal, 18).padding(.top, 10).padding(.bottom, 16)
+    }
+
+    private func scroll(_ r: SkRoles) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 if state.booked != nil {
@@ -102,15 +121,10 @@ private struct BookBody: View {
                         V7Icon(name: "wa", size: 14, tint: r.onSurfaceVariant.color)
                         Text(pv("pv.book.reminder")).v7Text(12).foregroundStyle(r.onSurfaceVariant.color)
                     }
-                    if let error = state.error { Text(error.message).v7Text(12.5, .semibold).foregroundStyle(r.error.color) }
-                    SkPillButton(state.chosen.map { pvf("pv.book.cta", ClinicFormat.time(minuteOfDay: $0.time.minuteOfDay)) } ?? pv("pv.book.pick"), wide: true, loading: state.saving, action: holder.book)
-                        .disabled(!state.canBook)
                 }
             }
-            .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 30)
+            .padding(.horizontal, 18).padding(.top, 22).padding(.bottom, 16)
         }
-        .skSheet()
-        .sheet(isPresented: $calendarOpen) { calendarSheet }
     }
 
     /// A month calendar from today on; choosing a day sets the booking day and closes the sheet.

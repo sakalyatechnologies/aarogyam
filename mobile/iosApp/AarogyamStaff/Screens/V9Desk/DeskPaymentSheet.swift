@@ -17,7 +17,7 @@ struct DeskPaymentSheet: View {
         ScreenHost(make: { make(screen: $0) }, state: { $0.state }) { holder, state in
             DeskPaymentScreen(holder: holder, state: state, target: target, refreshTick: refreshTick)
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
     }
 
     private func make(screen: ScreenScope) -> DeskPaymentStateHolder {
@@ -36,7 +36,7 @@ private struct DeskPaymentScreen: View {
     @State private var invoiceId: String?
     @State private var amount = ""
     @State private var amountEdited = false
-    @State private var method: PayMethod?
+    @State private var method: PayMethod? = .cash
     @State private var showProblems = false
     @State private var proof: Data?
     @State private var camera = false
@@ -128,7 +128,7 @@ private struct DeskPaymentScreen: View {
                 Text(dvf("d9.pay.due", ClinicFormat.rupees(paise: chosen.balancePaise))).v7Text(13, .semibold).foregroundStyle(r.onSurfaceVariant.color)
             }
             if !all && chosen.draft {
-                Text(dv("d9.pay.draft_note")).v7Text(12.5, .semibold).foregroundStyle(r.onTertiaryContainer.color)
+                Text(dv("d9.pay.draft_note")).v7Text(12.5, .semibold).lineLimit(1).minimumScaleFactor(0.8).foregroundStyle(r.onTertiaryContainer.color)
                     .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
                     .background(r.tertiaryContainer.color, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }

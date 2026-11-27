@@ -22,6 +22,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
 import com.aarogyam.staff.android.ui.LoadingIndicator
+import com.aarogyam.staff.android.ui.PinnedSheet
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.rupees
 import com.aarogyam.staff.android.ui.walkin.PickChip
@@ -34,7 +35,6 @@ import com.aarogyam.staff.desk.DeskPaymentStateHolder
 import com.aarogyam.staff.desk.DueBill
 import com.aarogyam.staff.desk.ProofStatus
 import com.sakalya.mobile.design.Spacing
-import com.sakalya.mobile.designcompose.SkBottomSheet
 import com.sakalya.mobile.designcompose.SkButton
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkTextField
@@ -55,10 +55,13 @@ fun DeskPaymentSheet(
     refreshTick: Int,
     onDismiss: () -> Unit,
 ) {
-    SkBottomSheet(
+    // Half height first (the form is short); drag up for the proof photo and long bill lists.
+    PinnedSheet(
         title = stringResource(R.string.dk_d9_pay_title),
         subtitle = target.name,
         onDismiss = onDismiss,
+        partial = true,
+        scrolls = false,
     ) {
         DeskPaymentBody(graph, clinic, target, refreshTick, onDismiss)
     }
@@ -178,13 +181,20 @@ private fun Fields(
     var amount by remember(if (all) ALL_BILLS else chosen.id) {
         mutableStateOf(DeskPay.rupeesText(if (all) allTotal else chosen.balancePaise))
     }
-    var method by remember { mutableStateOf<PayMethod?>(null) }
+    var method by remember { mutableStateOf<PayMethod?>(PayMethod.Cash) }
     var showProblems by remember { mutableStateOf(false) }
     var proof by remember { mutableStateOf<ByteArray?>(null) }
     val problems = if (showProblems) DeskPay.problems(amount, method != null) else emptyList()
     if (!online) DeskNotice(stringResource(R.string.dk_d9_pay_offline))
     BillPicker(dues, chosen, allTotal.takeIf { canSplit }, all) { invoiceId = it }
-    if (!all && chosen.draft) DeskMutedText(stringResource(R.string.dk_d9_pay_draft_note))
+    if (!all && chosen.draft) {
+        Text(
+            stringResource(R.string.dk_d9_pay_draft_note),
+            style = SkTypography.footnote,
+            color = SkTheme.colors.textMuted.color,
+            maxLines = 1,
+        )
+    }
     SkTextField(
         value = amount,
         onValueChange = {

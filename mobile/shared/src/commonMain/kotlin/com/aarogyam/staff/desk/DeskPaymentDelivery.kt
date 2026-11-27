@@ -9,6 +9,7 @@ import com.aarogyam.staff.api.issueInvoice
 import com.aarogyam.staff.api.model.Allocation
 import com.aarogyam.staff.api.model.CollectUpi
 import com.aarogyam.staff.api.model.NewPayment
+import com.aarogyam.staff.api.model.Payment
 import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.config.caps.ServerCaps
 import com.aarogyam.staff.outbox.OutboxEntry
@@ -71,7 +72,7 @@ internal fun encodeProof(jpeg: ByteArray): String = Base64.encode(jpeg)
 
 internal sealed interface Delivery {
     data class Done(
-        val number: String,
+        val payment: Payment,
         val proof: ProofStatus,
     ) : Delivery
 
@@ -188,7 +189,7 @@ internal suspend fun deliver(
             }
         }
     }
-    return Delivery.Done((paid as Outcome.Success).value.number, proof)
+    return Delivery.Done((paid as Outcome.Success).value, proof)
 }
 
 /** The upload kind the front desk may attach to a payment (`billing.write`). */

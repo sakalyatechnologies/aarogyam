@@ -267,4 +267,19 @@
     <string name="dk_wait_just_arrived">आत्ताच आले</string>
     <string name="dk_wait_min">%1$d मिनिटे</string>
     <string name="dk_wait_h_min">%1$d तास %2$d मिनिटे</string>
+    <string name="dk_d9_pay_print">पावती प्रिंट करा</string>
+    <string name="dk_d9_pay_whatsapp">WhatsApp</string>
+    <string name="dk_d9_pay_email">ईमेल</string>
+    <string name="dk_d9_pay_email_queued">पावती ईमेलसाठी रांगेत आहे</string>
+    <string name="dk_d9_pay_email_no_email">पाठवली नाही: रुग्णाचा ईमेल पत्ता नाही</string>
+    <string name="dk_d9_pay_email_no_consent">पाठवली नाही: रुग्णाने क्लिनिकचे संदेश नाकारले आहेत</string>
+    <string name="dk_d9_pay_email_already">पावती आधीच ईमेल केली आहे</string>
+    <string name="dk_d9_pay_email_failed">पावती ईमेल करता आली नाही.</string>
+    <string name="dk_d9_pay_rc_title">पावती</string>
+    <string name="dk_d9_pay_rc_number">पावती क्रमांक</string>
+    <string name="dk_d9_pay_rc_date">तारीख</string>
+    <string name="dk_d9_pay_rc_amount">मिळालेली रक्कम</string>
+    <string name="dk_d9_pay_rc_method">पेमेंट पद्धत</string>
+    <string name="dk_d9_pay_rc_bill">बिल</string>
+    <string name="dk_d9_pay_rc_patient">रुग्ण</string>
 </resources>

@@ -5,6 +5,7 @@ import com.aarogyam.staff.ScreenError
 import com.aarogyam.staff.api.collectSummary
 import com.aarogyam.staff.api.invoice
 import com.aarogyam.staff.api.model.CollectUpi
+import com.aarogyam.staff.api.model.Payment
 import com.aarogyam.staff.billing.PayMethod
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.config.caps.ServerCaps
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -64,10 +66,11 @@ sealed interface DeskPayOutcome {
     /** The bill's balance is 0 now (someone else collected it): "Already paid", nothing was sent. */
     data object AlreadyPaid : DeskPayOutcome
 
-    /** The server has it; [number] is the receipt. */
+    /** The server has it; [number] is the receipt, [receipt] what Print, WhatsApp and Email send. */
     data class Recorded(
         val number: String,
         val proof: ProofStatus,
+        val receipt: Receipt,
     ) : DeskPayOutcome
 
     /** Offline or the network dropped: saved on the phone, "Saved, will send". */
@@ -118,6 +121,9 @@ class DeskPaymentStateHolder(
 
     /** "Send UPI link" for a bill with a balance (BK-13); needs `billing.write`. */
     val upiLink = UpiLinkHolder(clinic, scope)
+
+    /** "Email receipt" after Record; needs `messages.send`. */
+    val receiptEmail = ReceiptEmailHolder(clinic, scope)
     private val mutableState =
         MutableStateFlow<DeskPayState>(if (allowed) DeskPayState.Loading else DeskPayState.NotAllowed)
     private val mutableOutcome = MutableStateFlow<DeskPayOutcome>(DeskPayOutcome.Idle)
@@ -212,6 +218,33 @@ class DeskPaymentStateHolder(
             }
         }
     }
+
+    /** The receipt for [payment]; the bill's number is named only when exactly one bill was paid and it has one. */
+    private fun receiptOf(
+        payment: Payment,
+        job: PaymentJob,
+    ): Receipt {
+        val dues = (mutableState.value as? DeskPayState.Ready)?.dues.orEmpty()
+        val bill =
+            when {
+                job.shares.size == 1 -> job.shares.first().number
+                job.shares.isEmpty() -> dues.firstOrNull { it.id == job.invoiceId }?.number
+                else -> null
+            }
+        return Receipt(
+            paymentId = payment.id,
+            patientId = payment.patient.id,
+            number = payment.number,
+            amountPaise = payment.amountPaise,
+            method = payment.method,
+            receivedOn = receivedOn(payment.receivedAt),
+            invoiceNumber = bill,
+            clinicName = clinic.session.clinic.name,
+        )
+    }
+
+    private fun receivedOn(at: String): String =
+        (parseInstant(at) ?: clock()).toLocalDateTime(clinic.timeZone).date.toString()
 
     private fun showUpiOf(due: DueBill) {
         due.upi?.let { upis[due.id] = it }
@@ -351,7 +384,12 @@ class DeskPaymentStateHolder(
             when (val delivery = deliver(clinic.api, fresh, key, log)) {
                 is Delivery.Done -> {
                     keyed = null
-                    mutableOutcome.value = DeskPayOutcome.Recorded(delivery.number, delivery.proof)
+                    mutableOutcome.value =
+                        DeskPayOutcome.Recorded(
+                            delivery.payment.number,
+                            delivery.proof,
+                            receiptOf(delivery.payment, fresh),
+                        )
                     load()
                 }
 

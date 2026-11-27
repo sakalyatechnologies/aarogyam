@@ -34,6 +34,7 @@ import com.aarogyam.staff.desk.DeskPayState
 import com.aarogyam.staff.desk.DeskPaymentStateHolder
 import com.aarogyam.staff.desk.DueBill
 import com.aarogyam.staff.desk.ProofStatus
+import com.aarogyam.staff.desk.ReceiptEmailHolder
 import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkButton
 import com.sakalya.mobile.designcompose.SkEmptyState
@@ -100,7 +101,7 @@ fun DeskPaymentBody(
         }
         when (val done = outcome) {
             is DeskPayOutcome.Recorded -> {
-                RecordedCard(done, onDone)
+                RecordedCard(done, holder.receiptEmail, target.name, onDone)
             }
 
             DeskPayOutcome.Saved -> {
@@ -330,6 +331,8 @@ private fun ProofSection(
 @Composable
 private fun RecordedCard(
     done: DeskPayOutcome.Recorded,
+    email: ReceiptEmailHolder,
+    patientName: String,
     onDone: () -> Unit,
 ) {
     Text(
@@ -347,6 +350,7 @@ private fun RecordedCard(
         ProofStatus.NotSent -> DeskErrorText(stringResource(R.string.dk_d9_pay_proof_not_sent))
         ProofStatus.None -> Unit
     }
+    DeskReceiptActions(done.receipt, patientName, email)
     SkButton(stringResource(R.string.dk_d9_done), onClick = onDone, modifier = Modifier.fillMaxWidth())
 }
 

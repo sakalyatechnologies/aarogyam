@@ -269,4 +269,19 @@
     <string name="dk_wait_just_arrived">Just arrived</string>
     <string name="dk_wait_min">%1$d min</string>
     <string name="dk_wait_h_min">%1$d h %2$d min</string>
+    <string name="dk_d9_pay_print">Print receipt</string>
+    <string name="dk_d9_pay_whatsapp">WhatsApp</string>
+    <string name="dk_d9_pay_email">Email</string>
+    <string name="dk_d9_pay_email_queued">Receipt queued to email</string>
+    <string name="dk_d9_pay_email_no_email">Not sent: the patient has no email address</string>
+    <string name="dk_d9_pay_email_no_consent">Not sent: the patient has declined messages from the clinic</string>
+    <string name="dk_d9_pay_email_already">The receipt was already emailed</string>
+    <string name="dk_d9_pay_email_failed">Couldn\'t email the receipt.</string>
+    <string name="dk_d9_pay_rc_title">Receipt</string>
+    <string name="dk_d9_pay_rc_number">Receipt number</string>
+    <string name="dk_d9_pay_rc_date">Date</string>
+    <string name="dk_d9_pay_rc_amount">Amount received</string>
+    <string name="dk_d9_pay_rc_method">Paid by</string>
+    <string name="dk_d9_pay_rc_bill">Bill</string>
+    <string name="dk_d9_pay_rc_patient">Patient</string>
 </resources>

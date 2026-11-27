@@ -370,7 +370,9 @@ class V9WireTest {
                     "0192f3a4-5b6c-7d8e-9f01-23456789abcd",
                     Logger("t"),
                 )
-            assertEquals(Delivery.Done("RC/26-27/000042", ProofStatus.Sent), done)
+            val doneAs = done as Delivery.Done
+            assertEquals("RC/26-27/000042", doneAs.payment.number)
+            assertEquals(ProofStatus.Sent, doneAs.proof)
             val upload = backend.requests.first { it.url.encodedPath.endsWith("/attachments") }.text()
             assertTrue("payment_proof" in upload, "kind is payment_proof")
             val payment = backend.requests.last { it.url.encodedPath.endsWith("/payments") }.text()
@@ -413,7 +415,9 @@ class V9WireTest {
                     "0192f3a4-5b6c-7d8e-9f01-23456789abcd",
                     Logger("t"),
                 )
-            assertEquals(Delivery.Done("RC/1", ProofStatus.NotSent), done)
+            val doneAs = done as Delivery.Done
+            assertEquals("RC/1", doneAs.payment.number)
+            assertEquals(ProofStatus.NotSent, doneAs.proof)
             assertFalse("attachment_id" in backend.requests.last { it.url.encodedPath.endsWith("/payments") }.text())
         }
 

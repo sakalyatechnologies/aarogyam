@@ -56,15 +56,18 @@ internal fun ToothSheet(
     selection: ToothSelection,
     /** Opened with a long press: dictate into the tooth note at once. */
     dictate: Boolean = false,
+    /** The open visit the treatments belong to, when opened from Start treatment. */
+    visitId: String? = null,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val sheet = remember { graph.toothSheet(clinic, chartHolder, null, scope) }
+    val sheet = remember { graph.toothSheet(clinic, chartHolder, visitId, scope) }
     val form by sheet.form.collectAsStateWithLifecycle()
     val group = if (chart.several) chart.group else emptyList()
     val isGroup = group.size > 1
     var adding by remember { mutableStateOf(false) }
     val tooth = selection.tooth
+    LaunchedEffect(tooth.number) { sheet.loadTreatments(tooth.number) }
     LaunchedEffect(form.saved) {
         if (form.saved) {
             sheet.reset()
@@ -80,7 +83,11 @@ internal fun ToothSheet(
                 stringResource(R.string.pv_tooth_title, tooth.number)
             },
         subtitle = if (isGroup) group.joinToString(", ") else toothName(tooth),
-        onDismiss = onDismiss,
+        onDismiss = {
+            // The note written saves itself when the sheet closes (nothing when it is empty).
+            sheet.saveNote(tooth.number)
+            onDismiss()
+        },
     ) {
         if (adding || isGroup) {
             AddTreatmentForm(chartHolder, chart, sheet, form, tooth) {
@@ -88,22 +95,25 @@ internal fun ToothSheet(
                     onDismiss()
                 } else {
                     adding = false
-                    sheet.reset()
+                    sheet.endTreatment()
                 }
             }
         } else {
-            NowCard(tooth)
             ToothHealthCard(sheet, tooth, selection.status, chart.canRecord, graph.voiceLanguage(), dictate)
-            if (chart.canRecord) ToothDetailsCard(sheet, tooth.number, selection.details)
-            HistoryCard(tooth, selection.history, chart.canRecord) { entry ->
-                sheet.startEdit(entry, chart.terms)
-                adding = true
-            }
             if (chart.canRecord) {
                 SkPillButton(stringResource(R.string.pv_tooth_add), {
-                    sheet.reset()
+                    sheet.beginTreatment()
                     adding = true
                 }, wide = true)
+            }
+            ToothTreatmentRows(sheet, chart.canRecord)
+            MoreDetails {
+                NowCard(tooth)
+                if (chart.canRecord) ToothDetailsCard(sheet, tooth.number, selection.details)
+                HistoryCard(tooth, selection.history, chart.canRecord) { entry ->
+                    sheet.startEdit(entry, chart.terms)
+                    adding = true
+                }
             }
         }
     }

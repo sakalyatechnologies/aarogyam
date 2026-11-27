@@ -31,32 +31,32 @@ struct AddTreatmentForm: View {
                 .frame(minHeight: 44)
             }
             .accessibilityLabel(pv("pv.form.back"))
+            SkField(pv("pv.form.note"), text: Binding(get: { form.note }, set: { sheet.setNote(text: $0) }))
             V7Label(text: pv("pv.form.treatment"))
             SkChoiceChips(procedures, selected: Set(form.treatment.map { [$0] } ?? []), label: { $0.own ? pvf("pv.form.own", $0.label) : $0.label }) {
                 sheet.chooseTreatment(term: $0 == form.treatment ? nil : $0)
             }
-            V7Label(text: pv("pv.form.surfaces"))
-            HStack(spacing: 8) {
-                ForEach(Surface.allCases, id: \.self) { surface in
-                    SkChoiceChip(Self.letter(surface), selected: form.surfaces.contains(surface)) { sheet.toggleSurface(surface: surface) }
-                        .accessibilityLabel(tooth.surfaceText(surface))
+            V7Label(text: pv("pv.form.status"))
+            SkChoiceChips(Self.statusOrder, selected: [form.status], label: { $0.title }) { sheet.setStatus(status: $0) }
+            ToothMoreDetails {
+                V7Label(text: pv("pv.form.surfaces"))
+                HStack(spacing: 8) {
+                    ForEach(Surface.allCases, id: \.self) { surface in
+                        SkChoiceChip(Self.letter(surface), selected: form.surfaces.contains(surface)) { sheet.toggleSurface(surface: surface) }
+                            .accessibilityLabel(tooth.surfaceText(surface))
+                    }
+                }
+                .disabled(wholeTooth)
+                .opacity(wholeTooth ? 0.4 : 1)
+                if wholeTooth { V7Muted(pv("pv.form.whole")) }
+                V7Label(text: pv("pv.form.material"))
+                materialMenu
+                if addingMaterial { addMaterial }
+                if form.canElsewhere {
+                    SkChoiceChip(pv("pv.tooth.elsewhere"), selected: form.elsewhere) { sheet.setElsewhere(on: !form.elsewhere) }
+                    if form.elsewhere { V7Muted(pv("pv.tooth.elsewhere_hint")) }
                 }
             }
-            .disabled(wholeTooth)
-            .opacity(wholeTooth ? 0.4 : 1)
-            if wholeTooth { V7Muted(pv("pv.form.whole")) }
-            V7Label(text: pv("pv.form.material"))
-            materialMenu
-            if addingMaterial { addMaterial }
-            V7Label(text: pv("pv.form.status"))
-            SkSegmented(TreatmentStatus.allCases.map(\.title), selectedIndex: TreatmentStatus.allCases.firstIndex(of: form.status) ?? 0) {
-                sheet.setStatus(status: TreatmentStatus.allCases[$0])
-            }
-            if form.canElsewhere {
-                SkChoiceChip(pv("pv.tooth.elsewhere"), selected: form.elsewhere) { sheet.setElsewhere(on: !form.elsewhere) }
-                if form.elsewhere { V7Muted(pv("pv.tooth.elsewhere_hint")) }
-            }
-            SkField(pv("pv.form.note"), text: Binding(get: { form.note }, set: { sheet.setNote(text: $0) }))
             footer
         }
         .onChange(of: chart.addedTerm?.id) { _, id in
@@ -118,6 +118,8 @@ struct AddTreatmentForm: View {
         SkPillButton(pv("pv.form.save"), wide: true, loading: form.saving) { sheet.save(tooth: Int32(tooth.number)) }
             .disabled(!ok || chart.saving)
     }
+
+    static let statusOrder: [TreatmentStatus] = [.planned, .watch, .completed]
 
     /// The mockup's one-letter surface chips.
     static func letter(_ surface: Surface) -> String {

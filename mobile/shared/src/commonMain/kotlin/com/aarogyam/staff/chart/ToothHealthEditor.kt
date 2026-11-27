@@ -14,11 +14,9 @@ import com.sakalya.mobile.core.Logger
 import com.sakalya.mobile.core.Outcome
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -27,14 +25,12 @@ data class HealthSaveState(
     val saving: Boolean = false,
     /** The last change was refused and taken back. */
     val error: ScreenError? = null,
-    /** The note as edited; [ToothSheetStateHolder.saveHealthNote] saves it with the tooth's health. */
+    /** The note being written; [ToothSheetStateHolder.saveNote] saves it as a tooth note when the sheet closes. */
     val note: String = "",
     /** Dictating into the note, in this language. */
     val listening: DictationLanguage? = null,
     /** Words still being recognised. */
     val live: String? = null,
-    /** The note as shown was saved; false again as soon as it is edited. */
-    val noteSaved: Boolean = false,
 )
 
 /**
@@ -51,8 +47,6 @@ internal class ToothHealthEditor(
     private val mutableHealth = MutableStateFlow(HealthSaveState())
     val state: StateFlow<HealthSaveState> = mutableHealth.asStateFlow()
     private var listenJob: Job? = null
-    private var noteJob: Job? = null
-    private var noteTooth: Int? = null
 
     /**
      * Sets the doctor's health for [tooth]; no visit needed. [months] goes only with watch or needs
@@ -63,7 +57,6 @@ internal class ToothHealthEditor(
         level: HealthLevel,
         months: Int? = null,
         note: String? = null,
-        fromNote: Boolean = false,
     ) {
         if (mutableHealth.value.saving) return
         val within = months?.takeIf { level.advisesTreatment && it in TREAT_WITHIN_MONTHS }
@@ -84,16 +77,7 @@ internal class ToothHealthEditor(
                     log.info("chart.health_set")
                     val saved = statusesOf(listOf(answer.value), clinic.timeZone)[tooth]
                     saved?.let { chart.applyStatus(tooth, it) }
-                    mutableHealth.update {
-                        // Words typed while this was saving stay; their own save follows.
-                        val kept = if (it.note.trim() == text.orEmpty()) saved?.note.orEmpty() else it.note
-                        HealthSaveState(
-                            note = kept,
-                            listening = it.listening,
-                            live = it.live,
-                            noteSaved = fromNote && kept.trim() == text.orEmpty(),
-                        )
-                    }
+                    mutableHealth.update { it.copy(saving = false) }
                 }
 
                 is Outcome.Failure -> {
@@ -125,59 +109,20 @@ internal class ToothHealthEditor(
 
     fun dismissError() = mutableHealth.update { it.copy(error = null) }
 
-    /** The sheet opened on [tooth]: its saved note is the one to edit. */
-    fun open(tooth: Int) {
+    /** The sheet opened: a fresh note to write (the past ones are the tooth's notes). */
+    fun open() {
         if (mutableHealth.value.listening != null) return
-        // A note still waiting for its pause belongs to the tooth it was typed on.
-        noteTooth?.takeIf { it != tooth }?.let { flushNote(it) }
-        mutableHealth.update {
-            it.copy(error = null, note = chart.statusOf(tooth)?.note.orEmpty(), live = null, noteSaved = false)
-        }
+        mutableHealth.update { it.copy(error = null, note = "", live = null) }
     }
 
-    /** The note was typed on [tooth]: it saves by itself once typing pauses. */
-    fun editNote(
-        tooth: Int,
-        text: String,
-    ) {
-        mutableHealth.update { it.copy(note = text.take(MAX_HEALTH_NOTE), noteSaved = false) }
-        noteTooth = tooth
-        noteJob?.cancel()
-        noteJob =
-            scope.launch {
-                delay(NOTE_PAUSE_MS)
-                mutableHealth.first { !it.saving }
-                noteTooth = null
-                saveNote(tooth)
-            }
-    }
+    /** The note being written; it saves when the sheet closes. */
+    fun editNote(text: String) = mutableHealth.update { it.copy(note = text.take(MAX_HEALTH_NOTE)) }
 
-    private fun flushNote(tooth: Int) {
-        noteJob?.cancel()
-        noteTooth = null
-        scope.launch {
-            mutableHealth.first { !it.saving }
-            saveNote(tooth)
-        }
-    }
+    /** Takes the note out (into the Add treatment form), leaving the box empty. */
+    fun takeNote(): String = mutableHealth.value.note.also { editNote("") }
 
-    /**
-     * Saves the note with the tooth's health: the doctor's, else what its findings suggest, else
-     * healthy (a note on a tooth not assessed yet is a finding on its own).
-     */
-    fun saveNote(tooth: Int) {
-        val status = chart.statusOf(tooth)
-        val level = status?.level ?: chart.toothView(tooth).suggestedHealth ?: HealthLevel.Healthy
-        val note = mutableHealth.value.note.trim()
-        if (note == status?.note.orEmpty()) return
-        set(tooth, level, status?.treatWithinMonths, note, fromNote = true)
-    }
-
-    /** Dictates into the tooth note in [language]; when listening stops the note is saved. */
-    fun dictate(
-        tooth: Int,
-        language: DictationLanguage,
-    ) {
+    /** Dictates into the tooth note in [language]; the words join the note. */
+    fun dictate(language: DictationLanguage) {
         if (mutableHealth.value.listening != null) return
         listenJob?.cancel()
         listenJob =
@@ -199,7 +144,6 @@ internal class ToothHealthEditor(
                             mutableHealth.update {
                                 it.copy(note = joined(it.note, it.live.orEmpty()), live = null, listening = null)
                             }
-                            saveNote(tooth)
                             listenJob?.cancel()
                         }
                     }
@@ -228,6 +172,5 @@ internal class ToothHealthEditor(
 
     private companion object {
         const val MAX_HEALTH_NOTE = 500
-        const val NOTE_PAUSE_MS = 800L
     }
 }

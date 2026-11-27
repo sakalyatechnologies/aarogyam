@@ -33,6 +33,13 @@ suspend fun ClinicApi.addProcedure(
         setBody(procedure)
     }
 
+/** `POST /api/v1/procedures/{id}/complete` (`completeProcedure`): a planned procedure is done; its plan item follows. */
+suspend fun ClinicApi.completeProcedure(id: String): Outcome<Procedure, ApiError> =
+    client.call {
+        method = HttpMethod.Post
+        url("api/v1/procedures/${id.encodeURLPathPart()}/complete")
+    }
+
 /** `GET /api/v1/visits/{id}` (`getVisit`): one visit with its notes, procedures, chart entries, observations and files. */
 suspend fun ClinicApi.visit(id: String): Outcome<VisitDetail, ApiError> =
     client.call { url("api/v1/visits/${id.encodeURLPathPart()}") }

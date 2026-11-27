@@ -47,6 +47,7 @@ struct V9VisitContent: View {
                             if !connectivity.online { V9OfflineBanner() }
                             DoctorV10VisitEntry(graph: graph, clinic: clinic, patientId: route.patientId, patientName: person?.name ?? "", holder: holder, view: view, rx: rx,
                                                 saveStaged: { await commitProcedures() })
+                            V9VisitChart(graph: graph, clinic: clinic, chart: chart, state: chartState, visitId: view.visitId).id("chart")
                             V9Notes(holder: holder, view: view).id("notes")
                             V9RxCard(
                                 rx: rx, state: rxState, phone: person?.phone, canIssue: clinic.permissions.contains("prescriptions.issue"),

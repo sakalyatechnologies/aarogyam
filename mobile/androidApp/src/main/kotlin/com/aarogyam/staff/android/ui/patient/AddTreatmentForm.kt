@@ -50,6 +50,8 @@ import com.sakalya.mobile.designcompose.SkSegmented
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
 
+private val STATUS_ORDER = listOf(TreatmentStatus.Planned, TreatmentStatus.Watch, TreatmentStatus.Completed)
+
 @Composable
 private fun TreatmentStatus.title(): String =
     stringResource(
@@ -121,6 +123,7 @@ internal fun AddTreatmentForm(
                 color = p.onSurface.color,
             )
         }
+        SkField(stringResource(R.string.pv_form_note), form.note, sheet::setNote)
         V7Label(stringResource(R.string.pv_form_treatment))
         val texts = procedures.associateWith { it.text() }
         SkChoiceChips(
@@ -129,43 +132,46 @@ internal fun AddTreatmentForm(
             onToggle = { sheet.chooseTreatment(if (it == form.treatment) null else it) },
             label = { texts.getValue(it) },
         )
-        V7Label(stringResource(R.string.pv_form_surfaces))
-        Row(Modifier.alpha(if (wholeTooth) 0.4f else 1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface.entries.forEach { surface ->
+        V7Label(stringResource(R.string.pv_form_status))
+        val statusTexts = STATUS_ORDER.associateWith { it.title() }
+        SkChoiceChips(
+            options = STATUS_ORDER,
+            selected = setOf(form.status),
+            onToggle = { sheet.setStatus(it) },
+            label = { statusTexts.getValue(it) },
+        )
+        MoreDetails {
+            V7Label(stringResource(R.string.pv_form_surfaces))
+            Row(Modifier.alpha(if (wholeTooth) 0.4f else 1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface.entries.forEach { surface ->
+                    SkChoiceChip(
+                        surface.letter(),
+                        surface in form.surfaces,
+                        { if (!wholeTooth) sheet.toggleSurface(surface) },
+                        single = false,
+                    )
+                }
+            }
+            if (wholeTooth) V7Muted(stringResource(R.string.pv_form_whole))
+            V7Label(stringResource(R.string.pv_form_material))
+            MaterialMenu(form.material, materials, sheet) { addingMaterial = true }
+            if (addingMaterial) {
+                AddMaterial(chart, newMaterial, { newMaterial = it }, holder) {
+                    addingMaterial = false
+                    newMaterial = ""
+                    holder.consumeAddedTerm()
+                }
+            }
+            if (form.canElsewhere) {
                 SkChoiceChip(
-                    surface.letter(),
-                    surface in form.surfaces,
-                    { if (!wholeTooth) sheet.toggleSurface(surface) },
+                    stringResource(R.string.pv_tooth_elsewhere),
+                    form.elsewhere,
+                    { sheet.setElsewhere(!form.elsewhere) },
                     single = false,
                 )
+                if (form.elsewhere) V7Muted(stringResource(R.string.pv_tooth_elsewhere_hint))
             }
         }
-        if (wholeTooth) V7Muted(stringResource(R.string.pv_form_whole))
-        V7Label(stringResource(R.string.pv_form_material))
-        MaterialMenu(form.material, materials, sheet) { addingMaterial = true }
-        if (addingMaterial) {
-            AddMaterial(chart, newMaterial, { newMaterial = it }, holder) {
-                addingMaterial = false
-                newMaterial = ""
-                holder.consumeAddedTerm()
-            }
-        }
-        V7Label(stringResource(R.string.pv_form_status))
-        SkSegmented(
-            TreatmentStatus.entries.map { it.title() },
-            form.status.ordinal,
-            { sheet.setStatus(TreatmentStatus.entries[it]) },
-        )
-        if (form.canElsewhere) {
-            SkChoiceChip(
-                stringResource(R.string.pv_tooth_elsewhere),
-                form.elsewhere,
-                { sheet.setElsewhere(!form.elsewhere) },
-                single = false,
-            )
-            if (form.elsewhere) V7Muted(stringResource(R.string.pv_tooth_elsewhere_hint))
-        }
-        SkField(stringResource(R.string.pv_form_note), form.note, sheet::setNote)
         Footer(chart, sheet, form, tooth)
     }
 }

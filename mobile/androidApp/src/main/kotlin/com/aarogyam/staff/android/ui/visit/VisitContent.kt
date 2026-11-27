@@ -183,6 +183,7 @@ internal fun VisitContent(
             } else {
                 if (!online) OfflineBanner()
                 VisitEntry(graph, clinic, target.patientId, holder, view, rx, ::saveStaged, onCollect)
+                VisitChart(graph, clinic, chart, chartState, view.visitId)
                 VisitNotes(holder, view)
                 VisitRxCard(rx, rxState, person?.phone, "prescriptions.issue" in clinic.permissions, rxOpen) {
                     rxOpen =

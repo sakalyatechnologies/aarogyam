@@ -225,7 +225,9 @@
     <string name="pv_share_xrays">एक्स-रे</string>
     <string name="pv_status_completed">पूरा</string>
     <string name="pv_status_planned">योजनाबद्ध</string>
-    <string name="pv_status_watch">निगरानी</string>
+    <string name="pv_status_watch">जारी</string>
+    <string name="pv_tooth_more">और विवरण</string>
+    <string name="pv_tooth_treatments">उपचार</string>
     <string name="pv_tooth_add">उपचार जोड़ें</string>
     <string name="pv_tooth_note_dictate">बोलकर लिखें</string>
     <string name="pv_tooth_note_stop">रोकें</string>
@@ -237,7 +239,6 @@
     <string name="pv_tooth_health_unassessed">अभी जाँचा नहीं गया</string>
     <string name="pv_tooth_health_within">इतने समय में इलाज</string>
     <string name="pv_tooth_health_note">टिप्पणी</string>
-    <string name="pv_tooth_health_note_saved">सेव हो गया</string>
     <string name="pv_tooth_health_reset">चार्ट का सुझाव लें</string>
     <string name="pv_tooth_health_failed">दाँत का स्वास्थ्य सेव नहीं हुआ। फिर कोशिश करें।</string>
     <string name="pv_detail_title">विवरण</string>

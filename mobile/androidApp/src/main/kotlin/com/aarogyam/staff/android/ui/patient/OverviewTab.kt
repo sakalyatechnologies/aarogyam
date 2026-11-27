@@ -116,7 +116,7 @@ private fun Loaded(
 }
 
 @Composable
-private fun JawCard(
+internal fun JawCard(
     chart: ChartState?,
     chartHolder: ChartStateHolder?,
     pick: (Int) -> Unit,

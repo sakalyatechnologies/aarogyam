@@ -12,9 +12,11 @@ struct ToothSheet: View {
     let clinic: ClinicContext
     /// Opened with a long press: dictate into the tooth note at once.
     var dictate = false
+    /// The open visit the treatments belong to, when the sheet opens from Start treatment.
+    var visitId: String?
 
     var body: some View {
-        ScreenHost(make: { graph.toothSheet(clinic: clinic, chart: holder, visitId: nil, screen: $0) }, state: { $0.form }) { sheet, form in
+        ScreenHost(make: { graph.toothSheet(clinic: clinic, chart: holder, visitId: visitId, screen: $0) }, state: { $0.form }) { sheet, form in
             ToothSheetBody(holder: holder, chart: chart, selection: selection, sheet: sheet, form: form, voice: graph.voiceLanguage(), dictate: dictate)
         }
     }
@@ -41,15 +43,18 @@ private struct ToothSheetBody: View {
                 header
                 if adding || isGroup {
                     AddTreatmentForm(holder: holder, chart: chart, sheet: sheet, form: form, tooth: selection.tooth, group: group) {
-                        if isGroup { dismiss() } else { adding = false; sheet.reset() }
+                        if isGroup { dismiss() } else { adding = false; sheet.endTreatment() }
                     }
                 } else {
-                    nowCard
                     ToothHealthCard(sheet: sheet, tooth: selection.tooth, status: selection.status, canRecord: chart.canRecord, voice: voice, dictate: dictate)
-                    if chart.canRecord { ToothDetailsCard(sheet: sheet, tooth: selection.tooth.number, details: selection.details) }
-                    historyCard
                     if chart.canRecord {
-                        SkPillButton(pv("pv.tooth.add"), wide: true) { sheet.reset(); adding = true }
+                        SkPillButton(pv("pv.tooth.add"), wide: true) { sheet.beginTreatment(); adding = true }
+                    }
+                    ToothTreatmentRows(sheet: sheet, canRecord: chart.canRecord)
+                    ToothMoreDetails {
+                        nowCard
+                        if chart.canRecord { ToothDetailsCard(sheet: sheet, tooth: selection.tooth.number, details: selection.details) }
+                        historyCard
                     }
                 }
             }
@@ -57,6 +62,9 @@ private struct ToothSheetBody: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .skSheet()
+        .onAppear { sheet.loadTreatments(tooth: selection.tooth.number) }
+        // The note written saves itself when the sheet closes (nothing when it is empty).
+        .onDisappear { sheet.saveNote(tooth: selection.tooth.number) }
         #if DEBUG && AARO_ENV_Local
         .onAppear { if DevLaunch.toothForm { adding = true } }
         #endif

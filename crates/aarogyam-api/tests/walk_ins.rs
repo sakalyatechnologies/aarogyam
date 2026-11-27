@@ -75,14 +75,10 @@ async fn the_front_desk_registers_a_walk_in_in_one_step() {
         .collect();
     let patient = walk_in["patient"]["id"].as_str().unwrap().to_owned();
 
-    // The front desk can't read clinical details: allergies, visits.
-    for path in [
-        format!("/api/v1/patients/{patient}/allergies"),
-        format!("/api/v1/patients/{patient}/visits"),
-    ] {
-        let (status, _) = get(&app, ALPHA, &desk, &path).await;
-        assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
-    }
+    // The front desk can't read clinical details: allergies. Its visit list has no complaint.
+    let path = format!("/api/v1/patients/{patient}/allergies");
+    let (status, _) = get(&app, ALPHA, &desk, &path).await;
+    assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
     // The banner tells them allergies exist, not what they are.
     let (status, flags) = get(
         &app,
@@ -288,12 +284,20 @@ async fn intake_write_alone_reads_and_does_nothing_clinical() {
     for who in [&intake, &desk] {
         for path in [
             format!("/api/v1/patients/{patient}/allergies"),
-            format!("/api/v1/patients/{patient}/visits"),
             format!("/api/v1/patients/{patient}/conditions"),
         ] {
             let (status, _) = get(&app, ALPHA, who, &path).await;
             assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
         }
+        // Intake alone lacks patients.read; the desk lists visits without the complaint.
+        let visits = format!("/api/v1/patients/{patient}/visits");
+        let (status, _) = get(&app, ALPHA, who, &visits).await;
+        let expected = if who == &desk {
+            StatusCode::OK
+        } else {
+            StatusCode::FORBIDDEN
+        };
+        assert_eq!(status, expected, "{visits}");
         for path in [
             format!("/api/v1/queue/{token}/start-visit"),
             format!("/api/v1/patients/{patient}/allergies/{allergy}/confirm"),

@@ -4266,7 +4266,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A patient's visits, newest first. */
+        /**
+         * A patient's visits, newest first.
+         * @description Needs `patients.read`; without `clinical.read` (the front desk) the chief complaint is left
+         *     out and the rest is dates, status, doctor and chair.
+         */
         get: operations["listVisits"];
         put?: never;
         /**
@@ -32269,7 +32273,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks clinical.read */
+            /** @description The role lacks patients.read */
             403: {
                 headers: {
                     [name: string]: unknown;

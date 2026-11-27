@@ -3048,7 +3048,8 @@ async fn clinical_routes_need_their_permission() {
         if method == Method::GET {
             // Billing staff list a patient's files (payment proofs only) and ask for a link to
             // one, which is not found unless it is a proof.
-            let expected = if flags || path.ends_with("/attachments") {
+            // The visit list needs only patients.read (complaint left out), so the desk gets 200.
+            let expected = if flags || path.ends_with("/attachments") || path.ends_with("/visits") {
                 StatusCode::OK
             } else if path.ends_with("/download") {
                 StatusCode::NOT_FOUND

@@ -21,7 +21,8 @@ struct MoreScreen: View {
     @Binding var path: [MoreRoute]
     @State private var settingsURL: URL?
     @State private var avatars = false
-    @State private var selfCheckIn = false
+    @State private var patientQR = false
+    @State private var qrTab = PatientQrTab.checkIn
     @State private var deleting = false
     @State private var languages = false
     @State private var appearance = false
@@ -71,11 +72,7 @@ struct MoreScreen: View {
             Button(String(localized: "outbox.signout.anyway"), role: .destructive) { graph.signOut() }
             Button(String(localized: "outbox.signout.stay"), role: .cancel) {}
         }
-        .sheet(isPresented: $selfCheckIn) {
-            ScreenHost(make: { graph.selfCheckIn(clinic: clinic, screen: $0) }, state: { $0.state }) { holder, state in
-                SelfCheckInSheet(holder: holder, state: state, clinicName: clinic.session.clinic.name)
-            }
-        }
+        .sheet(isPresented: $patientQR) { PatientQRSheet(graph: graph, clinic: clinic, start: qrTab) }
         .sheet(isPresented: $deleting) { DeleteAccountSheet(graph: graph) }
         .sheet(isPresented: $languages) { LanguageSheet(graph: graph).presentationDetents([.medium, .large]) }
         .sheet(isPresented: $appearance) { AppearanceSheet(preference: graph.appearance).presentationDetents([.medium]) }
@@ -117,7 +114,9 @@ struct MoreScreen: View {
         case .team: path.append(.team)
         case .timeOff: path.append(.timeOff)
         case .rxSets: path.append(.rxSets)
-        case .selfCheckIn: selfCheckIn = true
+        case .selfCheckIn:
+            qrTab = .checkIn
+            patientQR = true
         case .settings: settingsURL = URL(string: clinic.api.origin + "/settings")
         case .switchClinic: onSwitchClinic()
         case .language: languages = true
@@ -126,7 +125,9 @@ struct MoreScreen: View {
         case .signOut:
             // Writes not sent yet would be lost: ask first.
             if case .signOutBlocked(let blocked) = onEnum(of: graph.trySignOut()) { unsent = Int(blocked.pendingCount) }
-        case .clinicQr: path.append(.rxSets)
+        case .clinicQr:
+            qrTab = .book
+            patientQR = true
         }
     }
 

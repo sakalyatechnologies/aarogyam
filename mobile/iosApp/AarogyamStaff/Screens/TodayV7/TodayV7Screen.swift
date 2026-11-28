@@ -15,7 +15,6 @@ struct TodayV7Screen: View {
     /// Opens the Schedule tab on a segment: 0 Queue, 1 Day.
     let onOpenSchedule: (Int) -> Void
     let onAddExpense: (() -> Void)?
-    @State private var qr = false
     @State private var bell = false
     @State private var avatars = false
     @State private var avatarRevision = 0
@@ -48,13 +47,9 @@ struct TodayV7Screen: View {
         .toolbar { toolbar }
         #if DEBUG && AARO_ENV_Local
         .onAppear {
-            qr = DevLaunch.sheet == "qr"
             bell = DevLaunch.sheet == "bell"
         }
         #endif
-        .sheet(isPresented: $qr) {
-            ClinicQRSheet(url: TodayV7.bookingURL(origin: clinic.api.origin), clinicName: clinic.session.clinic.name)
-        }
         .sheet(isPresented: $bell) {
             NotificationsSheet(holder: notifications, state: notificationsState) { id in
                 bell = false
@@ -72,11 +67,6 @@ struct TodayV7Screen: View {
 
     @ToolbarContentBuilder private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
-            if !money {
-                Button { qr = true } label: {
-                    Label { Text("t7.qr.title", tableName: "TodayV7") } icon: { V7Icon.image("qr") }
-                }
-            }
             Button { bell = true } label: {
                 Label { Text("t7.notifications", tableName: "TodayV7") } icon: { V7Icon.image("bell") }
             }

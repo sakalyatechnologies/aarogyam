@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 
 /** What the self check-in settings screen draws. */
 sealed interface SelfCheckInState {
-    /** The role lacks settings.manage: the screen is not offered. */
+    /** The role may not read the code (see PatientQr.canShowCheckInQr): the screen is not offered. */
     data object NotAllowed : SelfCheckInState
 
     data object Loading : SelfCheckInState
@@ -42,7 +42,14 @@ class SelfCheckInHolder(
 ) {
     private val mutable =
         MutableStateFlow<SelfCheckInState>(
-            if (SETTINGS_MANAGE in clinic.permissions) SelfCheckInState.Loading else SelfCheckInState.NotAllowed,
+            if (PatientQr.canShowCheckInQr(
+                    clinic.permissions,
+                )
+            ) {
+                SelfCheckInState.Loading
+            } else {
+                SelfCheckInState.NotAllowed
+            },
         )
     val state: StateFlow<SelfCheckInState> = mutable.asStateFlow()
 
@@ -93,9 +100,5 @@ class SelfCheckInHolder(
                 }
             }
         }
-    }
-
-    private companion object {
-        const val SETTINGS_MANAGE = "settings.manage"
     }
 }

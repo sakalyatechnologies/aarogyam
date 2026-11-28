@@ -59,6 +59,7 @@ fun TodayScreen(
     onAddExpense: (() -> Unit)?,
     onEditAvatar: () -> Unit,
     onQr: () -> Unit,
+    onBook: (() -> Unit)? = null,
     onNotifications: () -> Unit,
     unread: Boolean,
     onTasks: (() -> Unit)? = null,
@@ -90,7 +91,8 @@ fun TodayScreen(
                             badge = openTasks > 0,
                         )
                     }
-                    if (money == null) IconWell("qr", stringResource(R.string.v7_tile_clinic_qr), onQr)
+                    IconWell("qr", stringResource(R.string.pqr_title), onQr)
+                    if (onBook != null) IconWell("cal", stringResource(R.string.pqr_book_action), onBook)
                     IconWell("bell", stringResource(R.string.v7_notifications), onNotifications, badge = unread)
                 }
             },

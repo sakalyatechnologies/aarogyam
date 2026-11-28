@@ -57,9 +57,7 @@
     <string name="sh_t7_qr_code">QR code for the clinic\'s booking page</string>
     <string name="sh_t7_qr_copied">Copied</string>
     <string name="sh_t7_qr_copy">Copy link</string>
-    <string name="sh_t7_qr_message">Patients scan this to book an appointment.</string>
     <string name="sh_t7_qr_share">Share</string>
-    <string name="sh_t7_qr_title">Clinic QR</string>
     <string name="sh_t7_qr_unavailable">Preview: the booking link is not available yet</string>
     <string name="sh_tasks10_done">Done</string>
     <string name="sh_tasks10_due">Due %1$s</string>

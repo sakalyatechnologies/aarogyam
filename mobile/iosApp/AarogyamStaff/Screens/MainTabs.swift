@@ -25,6 +25,8 @@ struct MainTabs: View {
     /// The Schedule segment Today asked for (0 Queue, 1 Day); the tab applies it and clears it.
     @State private var scheduleRequest: Int?
     @State private var walkIn = false
+    @State private var patientQR = false
+    @State private var qrTab = PatientQrTab.checkIn
     @State private var addExpense = false
     @State private var morePath: [MoreRoute] = []
     @State private var expenseRevision = 0
@@ -74,6 +76,7 @@ struct MainTabs: View {
         }
         .sheet(isPresented: $tasksOpen) { RoutesV10Tasks.screen(graph: graph, clinic: clinic) }
         .sheet(isPresented: $walkIn) { RoutesDesk.sheet(graph: graph, clinic: clinic) }
+        .sheet(isPresented: $patientQR) { PatientQRSheet(graph: graph, clinic: clinic, start: qrTab) }
         .sheet(isPresented: $addExpense, onDismiss: { expenseRevision += 1 }) { ExpenseSheetHost(graph: graph, clinic: clinic) }
         .devClinicalHooks(graph: graph, clinic: clinic, selected: $selected, morePath: $morePath)
         .task { clinicCount = await countClinics() }
@@ -86,6 +89,8 @@ struct MainTabs: View {
         .onAppear {
             if let tab = DevLaunch.tab { selected = tab }
             if DevLaunch.sheet == "walkin" { walkIn = true }
+            if DevLaunch.sheet == "patientqr" { patientQR = true }
+            if DevLaunch.sheet == "patientqrbook" { qrTab = .book; patientQR = true }
             if DevLaunch.sheet == "team" {
                 selected = .more
                 morePath = [.team]
@@ -147,6 +152,7 @@ struct MainTabs: View {
                     }
                 }
                 .barAction(nav.action, walkIn: $walkIn, addExpense: $addExpense, permissions: clinic.permissions)
+                .homeBarIcons(permissions: clinic.permissions, onBook: { walkIn = true }, onQR: { qrTab = .checkIn; patientQR = true })
                 .brandMark(onTap: goHome)
                 .patientDestination(graph: graph, clinic: clinic)
                 .navigationDestination(item: $todayVisit) { VisitScreen(graph: graph, clinic: clinic, route: $0) }

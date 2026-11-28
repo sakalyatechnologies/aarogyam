@@ -185,6 +185,7 @@ private fun TabContent(
                 onOpenPatient,
                 onOpenSchedule = { onTab(Tab.Schedule) },
                 onAddExpense = nav::openExpenses,
+                onWalkIn = onWalkIn,
             )
         }
 

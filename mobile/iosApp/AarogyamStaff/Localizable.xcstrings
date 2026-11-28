@@ -9410,6 +9410,328 @@
           }
         }
       }
+    },
+    "home.qr.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patient QR"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रोगी QR"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्ण QR"
+          }
+        }
+      }
+    },
+    "home.book.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक करा"
+          }
+        }
+      }
+    },
+    "pqr.tab.checkin": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चेक-इन"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चेक-इन"
+          }
+        }
+      }
+    },
+    "pqr.tab.book": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book appointment"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपॉइंटमेंट बुक करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "अपॉइंटमेंट बुक करा"
+          }
+        }
+      }
+    },
+    "pqr.checkin.about": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For patients at the clinic now. They scan, fill in their details, and appear on Waiting for you to accept."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक में मौजूद मरीज़ों के लिए. वे स्कैन करते हैं, अपना विवरण भरते हैं, और आपके स्वीकार करने के लिए प्रतीक्षा में दिखते हैं."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "आत्ता क्लिनिकमध्ये असलेल्या रुग्णांसाठी. ते स्कॅन करतात, आपली माहिती भरतात आणि तुमच्या स्वीकारासाठी प्रतीक्षेत दिसतात."
+          }
+        }
+      }
+    },
+    "pqr.book.about": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For patients who want a later visit. They scan, pick a doctor, a day and a time, and the request reaches the clinic to confirm."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बाद में आने के इच्छुक मरीज़ों के लिए. वे स्कैन करते हैं, डॉक्टर, दिन और समय चुनते हैं, और अनुरोध क्लिनिक तक पहुँचता है."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "नंतर भेट हवी असलेल्या रुग्णांसाठी. ते स्कॅन करतात, डॉक्टर, दिवस आणि वेळ निवडतात आणि विनंती क्लिनिकपर्यंत पोहोचते."
+          }
+        }
+      }
+    },
+    "pqr.print": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Print poster"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पोस्टर प्रिंट करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "पोस्टर प्रिंट करा"
+          }
+        }
+      }
+    },
+    "pqr.poster.checkin": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan to check in"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चेक-इन के लिए स्कैन करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "चेक-इनसाठी स्कॅन करा"
+          }
+        }
+      }
+    },
+    "pqr.poster.book": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan to book"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक करने के लिए स्कैन करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुक करण्यासाठी स्कॅन करा"
+          }
+        }
+      }
+    },
+    "pqr.copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy link"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंक कॉपी करें"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "लिंक कॉपी करा"
+          }
+        }
+      }
+    },
+    "pqr.copied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कॉपी हो गया"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "कॉपी झाले"
+          }
+        }
+      }
+    },
+    "pqr.book.code": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR code for the clinic's booking page"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिक के बुकिंग पेज का QR कोड"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "क्लिनिकच्या बुकिंग पानाचा QR कोड"
+          }
+        }
+      }
+    },
+    "pqr.book.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The booking link is not available yet."
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुकिंग लिंक अभी उपलब्ध नहीं है."
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "बुकिंग लिंक अजून उपलब्ध नाही."
+          }
+        }
+      }
+    },
+    "pqr.tabs": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Patient QR type"
+          }
+        },
+        "hi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रोगी QR का प्रकार"
+          }
+        },
+        "mr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "रुग्ण QR चा प्रकार"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

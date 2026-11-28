@@ -66,9 +66,7 @@
     <string name="checkin_handled">हे आधीच दुसऱ्याने हाताळले आहे</string>
     <string name="selfcheckin_tile">स्वतः चेक-इन</string>
     <string name="selfcheckin_tile_sub">रुग्ण QR</string>
-    <string name="selfcheckin_title">स्वतः चेक-इन</string>
     <string name="selfcheckin_switch">रुग्ण QR ने चेक-इन करू शकतात</string>
-    <string name="selfcheckin_message">रुग्ण कोड स्कॅन करून छोटा फॉर्म भरतात. ते रांगेत तुमच्या स्वीकारासाठी दिसतात.</string>
     <string name="selfcheckin_off">QR कोड बनवण्यासाठी चालू करा.</string>
     <string name="selfcheckin_code">चेक-इनसाठी QR कोड</string>
     <string name="selfcheckin_share">शेअर करा</string>
@@ -89,4 +87,13 @@
     <string name="checkin_in_emergency">आपत्कालीन संपर्क</string>
     <string name="checkin_in_line">%1$s: %2$s</string>
     <string name="address_change">बदला</string>
+    <string name="pqr_title">रुग्ण QR</string>
+    <string name="pqr_book_action">बुक करा</string>
+    <string name="pqr_tab_checkin">चेक-इन</string>
+    <string name="pqr_tab_book">अपॉइंटमेंट बुक करा</string>
+    <string name="pqr_checkin_about">आत्ता क्लिनिकमध्ये असलेल्या रुग्णांसाठी. ते स्कॅन करतात, आपली माहिती भरतात आणि तुमच्या स्वीकारासाठी प्रतीक्षेत दिसतात.</string>
+    <string name="pqr_book_about">नंतर भेट हवी असलेल्या रुग्णांसाठी. ते स्कॅन करतात, डॉक्टर, दिवस आणि वेळ निवडतात आणि विनंती क्लिनिकपर्यंत पोहोचते.</string>
+    <string name="pqr_print">पोस्टर प्रिंट करा</string>
+    <string name="pqr_poster_checkin">चेक-इनसाठी स्कॅन करा</string>
+    <string name="pqr_poster_book">बुक करण्यासाठी स्कॅन करा</string>
 </resources>

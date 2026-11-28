@@ -65,9 +65,7 @@
     <string name="checkin_handled">Someone already handled this</string>
     <string name="selfcheckin_tile">Self check-in</string>
     <string name="selfcheckin_tile_sub">patient QR</string>
-    <string name="selfcheckin_title">Self check-in</string>
     <string name="selfcheckin_switch">Patients can check in by QR</string>
-    <string name="selfcheckin_message">Patients scan the code and fill a short form. They show up on the Queue for you to accept.</string>
     <string name="selfcheckin_off">Switch on to make the QR code.</string>
     <string name="selfcheckin_code">QR code to check in</string>
     <string name="selfcheckin_share">Share</string>
@@ -88,4 +86,13 @@
     <string name="checkin_in_emergency">Emergency contact</string>
     <string name="checkin_in_line">%1$s: %2$s</string>
     <string name="address_change">Change</string>
+    <string name="pqr_title">Patient QR</string>
+    <string name="pqr_book_action">Book</string>
+    <string name="pqr_tab_checkin">Check in</string>
+    <string name="pqr_tab_book">Book appointment</string>
+    <string name="pqr_checkin_about">For patients at the clinic now. They scan, fill in their details, and appear on Waiting for you to accept.</string>
+    <string name="pqr_book_about">For patients who want a later visit. They scan, pick a doctor, a day and a time, and the request reaches the clinic to confirm.</string>
+    <string name="pqr_print">Print poster</string>
+    <string name="pqr_poster_checkin">Scan to check in</string>
+    <string name="pqr_poster_book">Scan to book</string>
 </resources>

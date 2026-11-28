@@ -54,9 +54,7 @@
     <string name="sh_t7_qr_code">क्लिनिकच्या बुकिंग पानाचा QR कोड</string>
     <string name="sh_t7_qr_copied">कॉपी झाले</string>
     <string name="sh_t7_qr_copy">लिंक कॉपी करा</string>
-    <string name="sh_t7_qr_message">रुग्ण अपॉइंटमेंट बुक करण्यासाठी हे स्कॅन करतात.</string>
     <string name="sh_t7_qr_share">शेअर करा</string>
-    <string name="sh_t7_qr_title">क्लिनिक QR</string>
     <string name="sh_t7_qr_unavailable">प्रीव्ह्यू: बुकिंग लिंक अजून उपलब्ध नाही</string>
     <string name="sh_tasks10_done">झाले</string>
     <string name="sh_tasks10_due">वेळ %1$s</string>

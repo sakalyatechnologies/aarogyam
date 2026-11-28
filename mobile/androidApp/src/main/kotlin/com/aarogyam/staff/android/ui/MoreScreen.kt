@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,13 +52,12 @@ import com.aarogyam.staff.android.ui.more.MyAvatar
 import com.aarogyam.staff.android.ui.more.openHelp
 import com.aarogyam.staff.android.ui.more.openStock
 import com.aarogyam.staff.android.ui.more.openTimeOff
-import com.aarogyam.staff.android.ui.today.ClinicQrSheet
-import com.aarogyam.staff.android.ui.today.bookingUrl
 import com.aarogyam.staff.art.Icons
 import com.aarogyam.staff.clinic.ClinicContext
 import com.aarogyam.staff.nav.MoreTile
 import com.aarogyam.staff.nav.NavModel
 import com.aarogyam.staff.outbox.SignOutResult
+import com.aarogyam.staff.settings.PatientQrTab
 import com.sakalya.mobile.design.Spacing
 import com.sakalya.mobile.designcompose.SkAvatarFrame
 import com.sakalya.mobile.designcompose.SkAvatarShape
@@ -106,8 +104,7 @@ fun MoreScreen(
     var appearance by rememberSaveable { mutableStateOf(false) }
     val currentAppearance by graph.appearance.state.collectAsStateWithLifecycle()
     var avatars by rememberSaveable { mutableStateOf(false) }
-    var qr by rememberSaveable { mutableStateOf(false) }
-    var selfCheckIn by rememberSaveable { mutableStateOf(false) }
+    var patientQr by rememberSaveable { mutableStateOf<PatientQrTab?>(null) }
     var deleting by rememberSaveable { mutableStateOf(false) }
     var soon by rememberSaveable { mutableStateOf(false) }
     var unsent by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -144,11 +141,11 @@ fun MoreScreen(
             }
 
             MoreTile.ClinicQr -> {
-                qr = true
+                patientQr = PatientQrTab.Book
             }
 
             MoreTile.SelfCheckIn -> {
-                selfCheckIn = true
+                patientQr = PatientQrTab.CheckIn
             }
 
             MoreTile.RxSets -> {
@@ -266,12 +263,7 @@ fun MoreScreen(
         AvatarPicker(graph, clinic, onChange = { avatar = AvatarChoice.current(graph) }) { avatars = false }
     }
     if (deleting) DeleteAccountSheet(graph) { deleting = false }
-    if (selfCheckIn) {
-        val scope = rememberCoroutineScope()
-        val holder = remember { graph.selfCheckIn(clinic, scope) }
-        SelfCheckInSheet(holder, clinic.session.clinic.name) { selfCheckIn = false }
-    }
-    if (qr) ClinicQrSheet(bookingUrl(clinic.api.origin), clinic.session.clinic.name) { qr = false }
+    patientQr?.let { PatientQrSheet(graph, clinic, it) { patientQr = null } }
     unsent?.let { count ->
         AlertDialog(
             onDismissRequest = { unsent = null },

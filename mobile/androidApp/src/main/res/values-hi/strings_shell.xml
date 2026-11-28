@@ -57,9 +57,7 @@
     <string name="sh_t7_qr_code">क्लिनिक के बुकिंग पेज का QR कोड</string>
     <string name="sh_t7_qr_copied">कॉपी हो गया</string>
     <string name="sh_t7_qr_copy">लिंक कॉपी करें</string>
-    <string name="sh_t7_qr_message">मरीज़ अपॉइंटमेंट बुक करने के लिए इसे स्कैन करें.</string>
     <string name="sh_t7_qr_share">शेयर करें</string>
-    <string name="sh_t7_qr_title">क्लिनिक QR</string>
     <string name="sh_t7_qr_unavailable">प्रीव्यू: बुकिंग लिंक अभी उपलब्ध नहीं</string>
     <string name="sh_tasks10_done">हो गया</string>
     <string name="sh_tasks10_due">समय %1$s</string>

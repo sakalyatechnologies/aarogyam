@@ -1,7 +1,9 @@
 package com.aarogyam.staff.android.ui.today
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,6 +28,7 @@ import androidx.navigation.NavController
 import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.PollingUpdates
 import com.aarogyam.staff.android.R
+import com.aarogyam.staff.android.ui.PatientQrSheet
 import com.aarogyam.staff.android.ui.TodayScreen
 import com.aarogyam.staff.android.ui.desk.DeskHome
 import com.aarogyam.staff.android.ui.doctor.DoctorWaitingTop
@@ -40,6 +43,8 @@ import com.aarogyam.staff.nav.Home
 import com.aarogyam.staff.nav.homeChoiceOf
 import com.aarogyam.staff.nav.showsTasksOnHome
 import com.aarogyam.staff.pollWhileInFront
+import com.aarogyam.staff.settings.PatientQr
+import com.aarogyam.staff.settings.PatientQrTab
 
 /** What the Today tab shows, decided from permissions alone (iOS `TodayV10Logic`). */
 object TodayLogic {
@@ -65,10 +70,12 @@ fun TodayTab(
     onOpenPatient: (String) -> Unit,
     onOpenSchedule: () -> Unit,
     onAddExpense: () -> Unit,
+    onWalkIn: () -> Unit,
 ) {
     var notifications by rememberSaveable { mutableStateOf(false) }
     var tasksOpen by rememberSaveable { mutableStateOf(false) }
     var qr by rememberSaveable { mutableStateOf(false) }
+    val onBook = onWalkIn.takeIf { PatientQr.canBook(clinic.permissions) }
     var avatarSheet by rememberSaveable { mutableStateOf(false) }
     var avatar by remember {
         mutableStateOf(
@@ -100,10 +107,13 @@ fun TodayTab(
         Box(Modifier.weight(1f).then(if (card) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier)) {
             if (usesDesk) {
                 DeskHome(graph, clinic, nav)
-                if (showsTasks) {
-                    TasksButton(taskState.openCount, {
-                        tasksOpen = true
-                    }, Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp))
+                Row(
+                    Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (showsTasks) TasksButton(taskState.openCount, { tasksOpen = true }, Modifier)
+                    IconWell("qr", stringResource(R.string.pqr_title), { qr = true })
+                    if (onBook != null) IconWell("cal", stringResource(R.string.pqr_book_action), onBook)
                 }
             } else {
                 val today = rememberHolder { graph.today(clinic, it) }
@@ -117,6 +127,7 @@ fun TodayTab(
                     onAddExpense = onAddExpense,
                     onEditAvatar = { avatarSheet = true },
                     onQr = { qr = true },
+                    onBook = onBook,
                     onNotifications = { notifications = true },
                     unread = counts.notifications > 0,
                     onTasks = { tasksOpen = true }.takeIf { showsTasks },
@@ -135,9 +146,7 @@ fun TodayTab(
         ) { notifications = false }
     }
     if (tasksOpen) TasksSheet(graph, clinic, tasks) { tasksOpen = false }
-    if (qr) {
-        ClinicQrSheet(bookingUrl(clinic.api.origin), clinic.session.clinic.name) { qr = false }
-    }
+    if (qr) PatientQrSheet(graph, clinic, PatientQrTab.CheckIn) { qr = false }
     if (avatarSheet) {
         AvatarPicker(graph, clinic, onChange = {
             avatar =

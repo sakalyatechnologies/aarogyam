@@ -23,7 +23,7 @@ describe("Patient 360 header", () => {
     expect(await screen.findByText("Allergies:")).toBeTruthy();
     expect(screen.getByText("Penicillin")).toBeTruthy();
     const tabs = screen.getByRole("tablist", { name: "Patient record" });
-    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Chart", "Visits", "Rx", "Files", "Notes", "Consent", "Clinical flags", "Billing"]);
+    expect(within(tabs).getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Overview", "Chart", "Visits", "Rx", "Files", "Notes", "Lab work", "Consent", "Clinical flags", "Billing"]);
     expect(await screen.findByRole("heading", { name: "Recent clinical history" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to patients" }).getAttribute("href")).toBe("/patients");
   });

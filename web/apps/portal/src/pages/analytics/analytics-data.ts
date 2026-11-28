@@ -27,6 +27,9 @@ export const AGE_LABEL: Readonly<Record<string, string>> = {
   "65_plus": "65+",
   unknown: "Unknown",
 };
+export const SEX_LABEL: Readonly<Record<string, string>> = { female: "Female", male: "Male", other: "Other", unknown: "Not recorded" };
+export const CHAIR_TIME_LABEL: Readonly<Record<string, string>> = { treatment: "Treatment", consult: "Consults", admin: "Admin" };
+export const SOURCE_LABEL: Readonly<Record<string, string>> = { booked: "Booked", walk_in: "Walk-in" };
 export const VISIT_LABEL: Readonly<Record<string, string>> = { new: "New", follow_up: "Follow-up", procedure: "Procedure", emergency: "Emergency" };
 export const REFERRAL_LABEL: Readonly<Record<string, string>> = {
   patient: "Patient",

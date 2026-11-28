@@ -1,4 +1,4 @@
-export type { AnalyticsQuery, ApiClient, AppointmentFilter, DateRange, LabOrderFilter, NotificationQuery, PatientFilter, PatientListOptions, PatientSearch, QueueOptions, RequestOptions, TodayOptions } from "./client.js";
+export type { AnalyticsQuery, ApiClient, AppointmentFilter, DateRange, InboxQuery, LabOrderFilter, NotificationQuery, PatientFilter, PatientListOptions, PatientSearch, QueueOptions, RequestOptions, TodayOptions } from "./client.js";
 export type { AcceptBody, NewArrivalBody, NewAudience, NewCampaign, NewChatMessage, NewConversation, NewUiPrefs, ScheduleCampaign, SendMessages } from "./contract.js";
 export { randomUuid } from "./uuid.js";
 export { createDevTokenSource, createHttpClient, type HttpClientOptions, type TokenSource } from "./http-client.js";

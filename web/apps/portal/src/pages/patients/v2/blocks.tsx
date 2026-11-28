@@ -27,6 +27,7 @@ import { DICTATION_LANGUAGES, NO_VOICE_TYPING, clock, type DictationLanguage } f
 import { ClinicalFlagsPanel } from "../clinical-flags-panel.js";
 import { ConsentPanel } from "../consent-panel.js";
 import { FilesPanel } from "../files-panel.js";
+import { LabWorkPanel } from "../lab-work-panel.js";
 import { NotesPanel } from "../notes-panel.js";
 import { PatientAppCard } from "../patient-app-card.js";
 import { CarePlan, Contact, Kv } from "../patient-page.js";
@@ -649,12 +650,13 @@ export function WrapCard() {
   );
 }
 
-export type RecordTab = "plans" | "prescriptions" | "images" | "consent";
+export type RecordTab = "plans" | "prescriptions" | "images" | "labs" | "consent";
 
 const RECORD_TABS: readonly PillOption<RecordTab>[] = [
   { value: "plans", label: "Plans" },
   { value: "prescriptions", label: "Prescriptions" },
   { value: "images", label: "Images" },
+  { value: "labs", label: "Lab work" },
   { value: "consent", label: "Consent" },
 ];
 
@@ -662,7 +664,7 @@ const RECORD_TABS: readonly PillOption<RecordTab>[] = [
 export function RecordsCard({ canClinical, initial = "plans" }: { canClinical: boolean; initial?: RecordTab }) {
   const { can } = useClinic();
   const session = useVisitSession();
-  const options = canClinical ? RECORD_TABS : RECORD_TABS.filter((tab) => tab.value === "consent");
+  const options = canClinical ? RECORD_TABS.filter((tab) => tab.value !== "labs" || can("labs.read")) : RECORD_TABS.filter((tab) => tab.value === "consent");
   const [tab, setTab] = useState<RecordTab>(canClinical ? initial : "consent");
   return (
     <Bento level={2} title="Records">
@@ -670,6 +672,7 @@ export function RecordsCard({ canClinical, initial = "plans" }: { canClinical: b
         {tab === "plans" ? <PlanPane /> : null}
         {tab === "prescriptions" ? <PastRxBlock /> : null}
         {tab === "images" ? <GalleryBlock patientId={session.patientId} canUpload={can("clinical.write")} visitId={session.visit?.id} /> : null}
+        {tab === "labs" ? <LabWorkPanel patientId={session.patientId} /> : null}
         {tab === "consent" ? <ConsentPanel patientId={session.patientId} /> : null}
       </CardTabs>
     </Bento>

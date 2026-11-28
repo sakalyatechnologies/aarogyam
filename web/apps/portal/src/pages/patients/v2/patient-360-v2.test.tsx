@@ -85,7 +85,7 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
     const records = await screen.findByRole("heading", { level: 2, name: "Records" });
     const card = records.closest("section");
     if (card === null) throw new Error("the Records card is missing");
-    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Plans", "Prescriptions", "Images", "Consent"]);
+    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Plans", "Prescriptions", "Images", "Lab work", "Consent"]);
     // The visits live on the history page, one click away.
     expect((await screen.findByRole("button", { name: /^History/, hidden: true })).textContent).toMatch(/\d+ visits?/);
 

@@ -139,6 +139,20 @@ describe("Analytics (New look)", () => {
     expect(within(legend).getByText(/^2 \(40%\)$/)).toBeTruthy();
   });
 
+  it("splits patients by sex, chair time and booked against walk-in visits", async () => {
+    const wrap = withReport((r) => {
+      r.chair_time = { treatment: 300, consult: 100, admin: 0 };
+      r.visit_sources = { booked: 30, walk_in: 10 };
+    });
+    renderPortal("/analytics", { as: PEOPLE.asha, wrap });
+    expect(within(await screen.findByRole("list", { name: "Sex" })).getByText("Female")).toBeTruthy();
+    const time = await screen.findByRole("list", { name: "Chair time" });
+    expect(within(time).getByText(/300 \(75%\)/)).toBeTruthy();
+    expect(within(time).queryByText("Admin")).toBeNull();
+    const src = await screen.findByRole("list", { name: "Booked or walk-in" });
+    expect(within(src).getByText(/10 \(25%\)/)).toBeTruthy();
+  });
+
   it("compares collected with the previous period and shows the discount given", async () => {
     const user = userEvent.setup();
     const calls: unknown[] = [];

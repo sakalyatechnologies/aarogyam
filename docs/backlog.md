@@ -216,24 +216,24 @@ Review prompts are in `~/project/ux-review/ux-review-prompts.md` (outside the re
 ## Mobile v7 gaps (9 Oct 2026, from the native v7 plan)
 The staff apps build these screens fully but show "Preview: needs server support" until the backend lands (`docs/plans/mobile-v7-plan.md`). As of 17 Nov 2026 the apps still show previews for BK-15/16 (Today extras).
 - ~~**BK-1** Chart edit when the surface changes~~: done 17 Nov 2026. Both apps put `supersedes_id` on the first new entry.
-- **BK-2** Labs: vendors, cases, WhatsApp updates (planned as T1 in `docs/handoff.md`), plus a future lab app.
-- **BK-3** Staff chat: team group and direct messages (T2 in `docs/handoff.md`).
-- **BK-4** Analytics: patients by sex, procedures by category, chair time split (treatment, consults, admin).
+- **BK-2** Labs: vendors, cases, WhatsApp updates (planned as T1 in `docs/handoff.md`), plus a future lab app. Left: WhatsApp updates to the patient (needs a lab-work template and a status-change trigger; a product decision on wording and consent), the lab app, STL scans over 10 MB. Built 27 Nov 2026: a Lab work tab on the patient page (their cases, tracker, "Send to lab" with the patient filled in), and `/labs?order=<id>` opens that order.
+- **BK-3** Staff chat: team group and direct messages (T2 in `docs/handoff.md`). Portal: done (Messages > Staff chat: Everyone channel, direct, group, notices, files, polling; rail badge from `chat_unread`, 27 Nov). Left: push for new messages, archive and rename a group, the retention purge, console and phone screens.
+- **BK-4** Analytics: patients by sex, procedures by category, chair time split (treatment, consults, admin). API and Practice tab show sex, procedures and treatment vs consult time (27 Nov 2026); admin time waits on an admin appointment kind (see "Left over" below).
 - ~~**BK-5** Expenses: payment method and bill photo~~: done 17 Nov 2026. `method` on `POST /expenses` and `Expense`, and `POST`/`DELETE /expenses/{id}/bill` with a signed download link (0724). The apps can drop their preview.
 - ~~**BK-6** Expenses: `Idempotency-Key` on `POST /expenses`~~: done 17 Nov 2026. The apps keep the key while the draft is unchanged.
-- **BK-7** Notifications feed API (A in `docs/handoff.md`).
-- **BK-8** Messages inbox for clinic and patient conversations (T3 in `docs/handoff.md`).
+- ~~**BK-7** Notifications feed API~~: done 27 Nov 2026. `/notifications`, `/count`, `/{id}/read`, `/read-all` and `/inbox` exist; the portal bell uses them.
+- **BK-8** Messages inbox for clinic and patient conversations (T3 in `docs/handoff.md`). The portal Messages page has an Inbox tab for booking requests (27 Nov 2026). Left: patient replies and two-way patient threads; the API has no inbound patient message yet.
 - **BK-9** Share links: expiry choice (1 h, 24 h, 7 d) and sharing the chart, X-rays and bills, not just prescriptions.
 - ~~**BK-10** The staff avatar choice and photo stored on the server~~: done 24 Nov 2026 in the staff apps. A choice or photo is also saved with `PUT /me/avatar`; a phone with no choice adopts the server's; the team list shows members' avatars. The device copy is the cache.
 - **BK-11** Phone number OTP by SMS (needs DLT and a paid provider) and Google/Apple sign-in.
-- **BK-12** App Links and Universal Links on the product domain (today `aarogyam://invite`).
+- **BK-12** App Links and Universal Links on the product domain (today `aarogyam://invite`). Web side done 27 Nov 2026 (portal Worker serves `/.well-known/assetlinks.json` and `apple-app-site-association`; founder fills `ANDROID_CERT_SHA256` in `deploy/cloudflare/portal/wrangler.toml`). Left: mobile manifest and entitlements.
 - ~~**BK-13** UPI collect request or payment link from a bill~~: done 25 Nov 2026 in the staff apps. "Send UPI link" on the desk payment sheet (`billing.write`) opens the share sheet and shows the QR, from `GET /invoices/{id}/upi-link`.
 - ~~**BK-14** Seat a queued patient in a chosen chair~~: done 17 Nov 2026. The queue board shows each chair's patient by the token's `room_id`; Seat and "Seat next" send `room_id` with `in_chair`.
 - ~~**BK-15** Monthly revenue target for the clinic~~: built 25 Nov 2026 (backend and portal). `PATCH /settings/clinic` takes `month_revenue_target_paise` (0 clears); `/today/money` returns `month_target_paise` and `month_collected_paise`. The phones still show their preview until they read the new fields.
 - ~~**BK-16** Me-card extras: sterilisation cycles, estimated end of day~~: built 25 Nov 2026 (backend). `POST/GET /sterilisation-cycles`; `/today` returns `sterilisation_cycles_today` and each team entry a `day_ends_at`. The phones still show their preview until they read the new fields.
 - ~~**BK-17** Queue summary (average wait, no-shows)~~: done 17 Nov 2026. Average wait comes from the loaded tokens' `wait_minutes`; no-shows from `/today` `counts.no_shows`.
 - **BK-18** In-app support chat with Sakalya.
-- **BK-19** Analytics: booked vs walk-in split.
+- ~~**BK-19** Analytics: booked vs walk-in split~~: done 27 Nov 2026 (`visit_sources`, a donut on the Practice tab).
 
 ## Left over from the backend plan (10 Oct 2026)
 - Messaging extras: promo codes, two-person approval for campaigns, "has balance" and treatment filters for marketing audiences.

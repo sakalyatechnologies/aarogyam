@@ -23,6 +23,7 @@ import { ConsentPanel } from "./consent-panel.js";
 import { useConsents } from "./queries.js";
 import { DentalChartPanel } from "./dental-chart-panel.js";
 import { FilesPanel } from "./files-panel.js";
+import { LabWorkPanel } from "./lab-work-panel.js";
 import { NotesPanel } from "./notes-panel.js";
 import { PatientAppCard } from "./patient-app-card.js";
 import { BillsPanel, PrescriptionsPanel } from "./records-panels.js";
@@ -180,6 +181,7 @@ function PatientView({ patient }: { patient: Patient }) {
                 { value: "notes", label: "Notes", content: <MkCard><NotesPanel patientId={patient.id} /></MkCard> },
               ]
             : []),
+          ...(can("labs.read") ? [{ value: "labs", label: "Lab work", content: <MkCard><LabWorkPanel patientId={patient.id} /></MkCard> }] : []),
           { value: "consent", label: "Consent", content: <MkCard><ConsentPanel patientId={patient.id} /></MkCard> },
           { value: "flags", label: "Clinical flags", content: <MkCard><ClinicalFlagsPanel patientId={patient.id} /></MkCard> },
           ...(can("billing.read") ? [{ value: "billing", label: "Billing", content: <MkCard><BillsPanel patientId={patient.id} /></MkCard> }] : []),

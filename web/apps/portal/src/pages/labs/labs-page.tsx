@@ -43,7 +43,7 @@ export function LabsPage() {
   const [tab, setTab] = useState<Tab>("orders");
   const [show, setShow] = useState<Show>("open");
   const [vendorId, setVendorId] = useState("all");
-  const [selected, setSelected] = useState<string>();
+  const [selected, setSelected] = useState<string | undefined>(params.get("order") ?? undefined);
   const [sending, setSending] = useState(params.get("new") === "1");
   const [addingLab, setAddingLab] = useState(false);
   const [picking, setPicking] = useState(false);

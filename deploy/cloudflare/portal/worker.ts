@@ -1,4 +1,5 @@
 import { buildFetch, type Env } from "../shared/api-proxy.js";
+import { appLinksResponse, type AppLinksEnv } from "./app-links.js";
 
 /**
  * Patient links (`/shared/{token}`) get the small patient page (`shared.html`) instead of the
@@ -14,7 +15,9 @@ export function patientPageRequest(request: Request): Request | undefined {
 }
 
 export default {
-  fetch(request: Request, env: Env) {
+  fetch(request: Request, env: Env & AppLinksEnv) {
+    const appLinks = appLinksResponse(request, env);
+    if (appLinks !== undefined) return appLinks;
     const patientPage = patientPageRequest(request);
     return patientPage === undefined ? buildFetch(env)(request) : env.ASSETS.fetch(patientPage);
   },

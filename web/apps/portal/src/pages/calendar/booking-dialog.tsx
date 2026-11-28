@@ -316,7 +316,7 @@ export function BookingDialog({ open, onOpenChange, timeZone, rooms, practitione
           </p>
         ) : null}
 
-        <Field label="Kind">
+        <Field label="Visit type">
           <Select options={KINDS} value={kind} onValueChange={setKind} />
         </Field>
 

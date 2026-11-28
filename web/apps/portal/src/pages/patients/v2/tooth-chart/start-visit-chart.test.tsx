@@ -37,7 +37,7 @@ describe("starting a visit", () => {
       const { path, backend } = adult();
       localStorage.setItem(layoutKey(PEOPLE.asha), layout);
       renderPortal(path, { as: PEOPLE.asha, backend });
-      await screen.findByRole("radiogroup", { name: "Chart look" }, { timeout: 20_000 });
+      await screen.findByRole("button", { name: "View" }, { timeout: 20_000 });
       expect(teeth()).toHaveLength(32);
       await user.click(await screen.findByRole("button", { name: "Start visit" }));
       await screen.findByText("Visit in progress", undefined, { timeout: 20_000 });
@@ -49,7 +49,7 @@ describe("starting a visit", () => {
     const { path, backend } = adult();
     localStorage.setItem(chartPrefsKey(PEOPLE.asha), JSON.stringify({ look: "rows", dentition: "child", view: "treatment" }));
     renderPortal(path, { as: PEOPLE.asha, backend });
-    await screen.findByRole("radiogroup", { name: "Chart look" }, { timeout: 20_000 });
+    await screen.findByRole("button", { name: "View" }, { timeout: 20_000 });
     expect(teeth()).toHaveLength(32);
   });
 });

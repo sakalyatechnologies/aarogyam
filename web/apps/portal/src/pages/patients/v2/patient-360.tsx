@@ -16,11 +16,11 @@ import { useClinicalFlags, usePatient, useSetAppointmentStatus, useVisits } from
 import { NotFoundPage } from "../../not-found-page.js";
 import { ConsentLine } from "../patient-page.js";
 import { Celebration } from "./celebration.js";
-import { Pills } from "./kit.js";
 import { PatientIntakeCard } from "../../../components/intake/patient-intake-card.js";
+import { usePatientIntake, useIntakeOptions } from "../../../intake-queries.js";
 import { PatientFacts } from "./patient-facts.js";
 import { ConsoleLayout, StageLayout, TabsLayout, type LayoutProps } from "./layouts.js";
-import { P360_LAYOUTS, useP360Layout, type P360Layout } from "./use-layout.js";
+import { useP360Layout } from "./use-layout.js";
 import { VisitBar } from "./visit-bar.js";
 import { VisitSessionProvider, useVisitSession } from "./visit-session.js";
 import { useHistoryStyle } from "./history/history-style.js";
@@ -72,7 +72,8 @@ export function Patient360() {
 function Patient360View({ patient }: { patient: Patient }) {
   const { can, access, session: auth } = useClinic();
   const navigate = useNavigate();
-  const [layout, setLayout] = useP360Layout(auth.user.id);
+  // The layout is chosen in Settings, My profile.
+  const [layout] = useP360Layout(auth.user.id);
   const session = useVisitSession();
   const canClinical = can("clinical.read") || can("clinical.write");
   // ?tab=prescriptions (the command palette and old links) lands on the past prescriptions.
@@ -113,9 +114,6 @@ function Patient360View({ patient }: { patient: Patient }) {
         <Link to="/patients" className="mk-back" aria-label="Back to patients">
           <ChevronLeft aria-hidden="true" /> All patients
         </Link>
-        <div className="p360-switch">
-          <Pills<P360Layout> label="Layout" options={P360_LAYOUTS} value={layout} onChange={setLayout} />
-        </div>
       </div>
 
       <section className="p360-head" aria-label="Patient summary">
@@ -129,6 +127,7 @@ function Patient360View({ patient }: { patient: Patient }) {
           <div className="p360-tags">
             <AllergyTag patientId={patient.id} />
             <ConsentLine patientId={patient.id} />
+            <IntakeChips patientId={patient.id} />
             {patient.status === "active" ? null : <Tag tone="wait">{patient.status === "inactive" ? "Inactive" : patient.status}</Tag>}
           </div>
           </div>
@@ -148,6 +147,24 @@ function Patient360View({ patient }: { patient: Patient }) {
 
       {session.celebrating && session.ended !== undefined ? <Celebration finished={session.ended} patient={patient} onClose={session.closeCelebration} /> : null}
     </div>
+  );
+}
+
+/** Blood group and the medical history from the case paper, as small chips under the name. Nothing shows without an intake. */
+function IntakeChips({ patientId }: { patientId: PatientId }) {
+  const { can } = useClinic();
+  const intake = usePatientIntake(patientId);
+  const options = useIntakeOptions(can("patients.write"));
+  const data = intake.data;
+  if (data === undefined) return null;
+  const blood = data.blood_group == null || data.blood_group === "" ? undefined : (options.data?.blood_groups.find((g) => g.code === data.blood_group)?.label ?? data.blood_group);
+  const medical = data.health_other == null || data.health_other === "" ? undefined : data.health_other;
+  if (blood === undefined && medical === undefined) return null;
+  return (
+    <>
+      {blood === undefined ? null : <Tag>{`Blood group ${blood}`}</Tag>}
+      {medical === undefined ? null : <Tag tone="wait">{`Medical: ${medical}`}</Tag>}
+    </>
   );
 }
 

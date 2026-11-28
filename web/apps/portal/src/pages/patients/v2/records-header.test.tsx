@@ -188,13 +188,17 @@ describe("The patient header", () => {
     renderPortal(path, { as: PEOPLE.asha, backend });
     const summary = await screen.findByRole("region", { name: "Patient summary" });
     const facts = await within(summary).findByRole("group", { name: "Contact and care" });
-    for (const label of ["Mobile", "Email", "Date of birth", "File number", "Visits", "Last visit", "Next appointment", "Collected", "Pending"]) {
+    for (const label of ["Mobile", "Date of birth", "File number", "Visits", "Last visit", "Next appointment", "Collected", "Pending"]) {
       expect(within(facts).getByText(label), label).toBeTruthy();
     }
     expect(within(facts).getByText(number)).toBeTruthy();
     await waitFor(() => {
       expect(within(facts).getByText("Visits").nextElementSibling?.textContent).toMatch(/^\d+$/);
     });
+    // Fields with no value are left out, and Last visit agrees with the Visits count.
+    expect(within(facts).queryByText("Not recorded")).toBeNull();
+    if (within(facts).queryByText("Email") === null) expect(within(facts).getByRole("link", { name: "Add email or address" })).toBeTruthy();
+    expect(within(facts).getByText("Last visit").nextElementSibling?.textContent).not.toBe("None yet");
     // Hidden until the eye is opened, and remembered in the same setting as Today.
     expect(localStorage.getItem(SHOW_MONEY_KEY)).toBeNull();
     expect(within(facts).getByText("Collected").nextElementSibling?.textContent).toBe("₹ ••••");
@@ -204,6 +208,21 @@ describe("The patient header", () => {
     expect(within(facts).getByText("Collected").nextElementSibling?.textContent).not.toContain("••••");
     await user.click(within(facts).getByRole("button", { name: "Hide patient money" }));
     expect(within(facts).getByText("Collected").nextElementSibling?.textContent).toBe("₹ ••••");
+  });
+
+  it("keeps the list's last-visit date when this clinic has no visits, labelled as earlier records", async () => {
+    const { path, backend } = visited((fixtures) => {
+      const sunrise = fixtures.clinics.find((c) => c.slug === "sunrise");
+      const visit = fixtures.visits.find((v) => v.clinic_id === sunrise?.id);
+      const patient = fixtures.patients.find((p) => p.id === visit?.patient_id);
+      if (patient !== undefined) patient.last_visit_at = "2026-11-14T10:00:00.000Z";
+      fixtures.visits = fixtures.visits.filter((v) => v.patient_id !== patient?.id);
+    });
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    const summary = await screen.findByRole("region", { name: "Patient summary" });
+    const facts = await within(summary).findByRole("group", { name: "Contact and care" });
+    expect((await within(facts).findByText("Visits here")).nextElementSibling?.textContent).toBe("0");
+    expect(within(facts).getByText("Last visit").nextElementSibling?.textContent).toBe("14 Nov 2026 (earlier records)");
   });
 
   it("shows no money and no eye without billing.read, but still the contacts and visit stats", async () => {

@@ -9,6 +9,8 @@ import { Chip } from "../kit.js";
 import { TREATMENTS, allowsElsewhere, allowsSurfaces, defaultMaterial, canalOptions, lengthProblem, materialChoices, statusesFor, treatmentOf, type Draft, type TreatmentKey, type TxStatus } from "./model.js";
 
 const NO_MATERIAL = "none";
+/** Left to right: where the work stands, from not started to finished. */
+const STATUS_ORDER: readonly TxStatus[] = ["Planned", "In progress", "Completed", "Watch"];
 
 /** The Add / Edit treatment form: treatment, surfaces, material (only those that suit the treatment), status, root canal details and a note. */
 export function TreatmentForm({
@@ -41,6 +43,8 @@ export function TreatmentForm({
   onClose: () => void;
 }) {
   const tx = treatmentOf(draft.tx);
+  // A new treatment starts with none chosen, so the doctor picks one; an existing one is already chosen.
+  const [chosen, setChosen] = useState(editing || planned);
   const materials = materialChoices(tx, terms);
   const [newMaterial, setNewMaterial] = useState("");
   const [addError, setAddError] = useState<string | undefined>(undefined);
@@ -51,6 +55,7 @@ export function TreatmentForm({
   const toggle = <T extends string>(list: readonly T[], value: T): T[] => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
   const pickTreatment = (key: TreatmentKey) => {
+    setChosen(true);
     const next = treatmentOf(key);
     const keep = materialChoices(next, terms).some((m) => m.id === draft.material);
     onChange({
@@ -62,7 +67,9 @@ export function TreatmentForm({
       status: statusesFor(key).includes(draft.status) ? draft.status : "Completed",
     });
   };
-  const statuses = statusesFor(draft.tx).filter((s) => !(editing && s === "Planned") && (s !== "Watch" || draft.status === "Watch"));
+  const statuses = [...statusesFor(draft.tx)]
+    .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
+    .filter((s) => !(editing && s === "Planned") && (s !== "Watch" || draft.status === "Watch"));
 
   const addMaterial = () => {
     const label = newMaterial.trim();
@@ -85,7 +92,7 @@ export function TreatmentForm({
       aria-label={`${editing ? "Edit" : "Add"} treatment for tooth ${String(tooth)}`}
       onSubmit={(event) => {
         event.preventDefault();
-        if (lengthError === undefined) onSave();
+        if (lengthError === undefined && chosen) onSave();
       }}
     >
       <p className="tc-label" id="tc-tx-label">
@@ -95,7 +102,7 @@ export function TreatmentForm({
         {TREATMENTS.map((t) => (
           <Chip
             key={t.key}
-            pressed={draft.tx === t.key}
+            pressed={chosen && draft.tx === t.key}
             onClick={() => {
               pickTreatment(t.key);
             }}
@@ -252,7 +259,7 @@ export function TreatmentForm({
         </p>
       )}
       <div className="tc-actions" style={{ marginTop: 12 }}>
-        <Button type="submit" disabled={busy || lengthError !== undefined}>
+        <Button type="submit" disabled={busy || lengthError !== undefined || !chosen}>
           {busy ? "Saving…" : editing ? "Update treatment" : "Save treatment"}
         </Button>
         <Button variant="secondary" type="button" icon={<ArrowLeft aria-hidden="true" className="size-4" />} onClick={onBack}>

@@ -22,5 +22,5 @@ run_worker_first = ["/api/*", "/shared/*", "/.well-known/*"]
 API_ORIGIN = "http://localhost:8080"
 # App Links / Universal Links (see app-links.ts). Founder: fill in before the phone apps ship;
 # comma-separated SHA-256 signing-certificate fingerprints, e.g. "AA:BB:...,CC:DD:...".
-ANDROID_CERT_SHA256 = ""
+ANDROID_CERT_SHA256 = "C6:D3:FC:A8:A7:39:AD:AD:37:B8:97:44:33:75:49:59:85:10:44:B9:D7:8B:7C:C3:50:8A:E2:DC:84:64:BD:80"
 APPLE_TEAM_ID = "WQCU2WYFHG"

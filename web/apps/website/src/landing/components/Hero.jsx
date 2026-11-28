@@ -9,7 +9,6 @@ const ORDER = [
   { id: 'cross', icon: '✚', tag: 'Cross' },
   { id: 'heart', icon: '💓', tag: 'Pulse' },
 ]
-const TRUST = ['Smile Care', 'Apollo Dental', 'CityCare', 'LifeLine', 'CarePoint']
 export default function Hero({ onRegister }) {
   const canvasRef = useRef(null)
   const engineRef = useRef(null)

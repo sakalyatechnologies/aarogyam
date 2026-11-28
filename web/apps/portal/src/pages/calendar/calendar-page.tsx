@@ -352,7 +352,7 @@ export function CalendarPage() {
                 setBookingOpen(true);
               }}
             >
-              <Plus aria-hidden="true" /> {newLook ? "Book" : "Book appointment"}
+              <Plus aria-hidden="true" /> {newLook ? "New appointment" : "Book appointment"}
             </button>
           ) : undefined
         }

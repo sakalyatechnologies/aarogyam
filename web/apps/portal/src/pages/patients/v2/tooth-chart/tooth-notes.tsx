@@ -71,10 +71,10 @@ export function ToothNotes({ patientId, tooth, canWrite, who }: { patientId: Pat
 
   return (
     <section className="tc-notes" aria-label={`Notes for tooth ${String(tooth)}`}>
-      <div className="tc-note">
+      <div className="tc-note tc-note-box">
         <textarea
           aria-label="Notes"
-          rows={2}
+          rows={3}
           maxLength={2000}
           value={text}
           disabled={!canWrite || !notes.supported}

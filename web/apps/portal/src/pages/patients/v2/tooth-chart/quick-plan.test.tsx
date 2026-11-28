@@ -54,7 +54,7 @@ function spy() {
 }
 
 async function openTooth(user: ReturnType<typeof userEvent.setup>, n: number) {
-  await screen.findByRole("radiogroup", { name: "Chart look" });
+  await screen.findByRole("button", { name: "View" });
   await user.click(screen.getByRole("button", { name: new RegExp(`^Tooth ${String(n)},`) }));
   const panel = await screen.findByRole("complementary", { name: `Tooth ${String(n)} panel` });
   const start = screen.queryByRole("button", { name: "Start visit" });

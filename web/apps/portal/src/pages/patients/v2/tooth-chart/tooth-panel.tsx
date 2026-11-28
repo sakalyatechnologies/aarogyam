@@ -41,6 +41,8 @@ interface Props {
   surface?: ToothSurface | null;
   /** The open visit, when there is one: treatment is recorded in it. */
   visitId: VisitId | undefined;
+  /** With no open visit, starts one: saving the first treatment starts the visit, then records it. */
+  startVisit?: (() => Promise<boolean>) | undefined;
   canWrite: boolean;
   /** The visit Show patient opens on (the open one, else the latest), when the patient has one: the "Show" button. */
   presentVisitId?: string | undefined;
@@ -78,7 +80,7 @@ export function ToothPanel(props: Props) {
   return <SelectedTooth key={tooth} {...props} tooth={tooth} />;
 }
 
-function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVisitId, terms, planItems, procedures, who, onClose, entries = NO_ENTRIES, status, condition, eruption, dictate = false, onDictateStarted = noop }: Props & { tooth: number }) {
+function SelectedTooth({ patientId, tooth, surface, visitId, startVisit, canWrite, presentVisitId, terms, planItems, procedures, who, onClose, entries = NO_ENTRIES, status, condition, eruption, dictate = false, onDictateStarted = noop }: Props & { tooth: number }) {
   const history = useToothHistory(patientId, tooth);
   const [mode, setMode] = useState<"view" | "form" | "finding">("view");
   const [editing, setEditing] = useState<HistoryRow | undefined>(undefined);
@@ -104,13 +106,16 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
       window.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
+  // Saving with no visit open starts one, then saves once the open visit has reached this panel.
+  const [starting, setStarting] = useState(false);
+  const [queued, setQueued] = useState<{ draft: Draft; editing: HistoryRow | undefined } | undefined>(undefined);
   const record = useRecordChartEntries(patientId);
   const createPlan = useCreatePlan(patientId);
   const setItem = useSetPlanItemStatus(patientId);
   const addTerm = useAddDentalTerm();
   const recordProcedure = useRecordProcedure(visitId ?? NO_VISIT, patientId);
   const rows = historyRows({ history: history.data?.history ?? [], planItems, procedures, tooth, who });
-  const busy = record.isPending || createPlan.isPending || setItem.isPending || recordProcedure.isPending;
+  const busy = starting || record.isPending || createPlan.isPending || setItem.isPending || recordProcedure.isPending;
   const open = canWrite && visitId !== undefined;
 
   /** A planned or in-progress treatment can move on from its row, with no form. */
@@ -145,8 +150,24 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
     );
   };
 
+  const ran = useRef<typeof queued>(undefined);
+  const saveRef = useRef<(draft: Draft, editing: HistoryRow | undefined) => Promise<void>>(() => Promise.resolve());
+  useEffect(() => {
+    if (queued === undefined || visitId === undefined || ran.current === queued) return;
+    ran.current = queued;
+    void saveRef.current(queued.draft, queued.editing);
+  }, [queued, visitId]);
+
   const save = async (draft: Draft, editing: HistoryRow | undefined) => {
-    if (visitId === undefined) return;
+    if (visitId === undefined) {
+      if (startVisit === undefined) return;
+      setError(undefined);
+      setStarting(true);
+      const started = await startVisit();
+      setStarting(false);
+      if (started) setQueued({ draft, editing });
+      return;
+    }
     setError(undefined);
     const tx = treatmentOf(draft.tx);
     const material = terms.find((t) => t.id === draft.material)?.label;
@@ -171,12 +192,15 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
     setMode("view");
   };
 
+  useEffect(() => {
+    saveRef.current = save;
+  });
+
   return (
     <aside className="tc-panel" aria-label={`Tooth ${String(tooth)} panel`} aria-live="polite">
       <div className="tc-head">
         <div>
           <h3>{`${String(tooth)} · ${toothName(tooth)}`}</h3>
-          {mode === "view" ? <p className="tc-sub">{`${String(rows.length)} ${rows.length === 1 ? "entry" : "entries"}`}</p> : null}
         </div>
       </div>
 
@@ -185,7 +209,7 @@ function SelectedTooth({ patientId, tooth, surface, visitId, canWrite, presentVi
       {mode === "view" ? (
         <>
           <HealthRow patientId={patientId} tooth={tooth} entries={entries} status={status} canWrite={canWrite} who={who} dictate={dictate} onDictateStarted={onDictateStarted} extras={showMore} />
-          {!canWrite ? null : visitId === undefined ? (
+          {!canWrite ? null : visitId === undefined && startVisit === undefined ? (
             <p className="tc-meta">Start the visit from the bar at the top to add treatment.</p>
           ) : (
             <div className="tc-actions">

@@ -52,14 +52,15 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
     setSelected(undefined);
     setSurface(null);
   }, []);
+  const multiOn = multi !== undefined;
   useEffect(() => {
-    if (multi === undefined) return;
+    if (!multiOn) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMulti(undefined);
     };
     window.addEventListener("keydown", onKey);
     return () => { window.removeEventListener("keydown", onKey); };
-  }, [multi === undefined]);
+  }, [multiOn]);
   const [explaining, setExplaining] = useState(false);
   const navigate = useNavigate();
   // Show patient opens on the open visit, or else on the patient's latest visit, so it works from any patient page.
@@ -101,6 +102,7 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
       tooth={selected}
       surface={surface}
       visitId={visit.visit?.id}
+      startVisit={visit.canWrite ? visit.startVisit : undefined}
       canWrite={visit.canWrite}
       presentVisitId={presentId}
       terms={chart.data.terms}
@@ -136,15 +138,23 @@ export function ToothChartBlock({ patientId }: { patientId: Patient["id"] }) {
       sub={`${String(planned)} planned · ${String(done)} treated`}
       action={
         <div className="p360-tools">
-          <Pills label="Chart look" size="sm" options={LOOKS} value={prefs.look} onChange={(look) => { setPrefs({ look }); }} />
-          {prefs.look === "classic" ? null : (
-            <Pills label="Dentition" size="sm" options={DENTITIONS} value={dentition} onChange={setChosenDentition} />
-          )}
           {prefs.look === "classic" ? null : (
             <Pills label="Chart view" size="sm" options={VIEWS} value={prefs.view} onChange={(view) => { setPrefs({ view }); }} />
           )}
-          <PopoverPill label="Key" title="Chart key">
-            <ChartKey view={prefs.look === "classic" ? "treatment" : prefs.view} />
+          {/* The look, the dentition and the key are set once, so they share one menu. */}
+          <PopoverPill label="View" title="Chart view options">
+            <div className="p360-viewmenu">
+              <p className="mk-flabel">Style</p>
+              <Pills label="Chart look" size="sm" options={LOOKS} value={prefs.look} onChange={(look) => { setPrefs({ look }); }} />
+              {prefs.look === "classic" ? null : (
+                <>
+                  <p className="mk-flabel">Teeth</p>
+                  <Pills label="Dentition" size="sm" options={DENTITIONS} value={dentition} onChange={setChosenDentition} />
+                </>
+              )}
+              <p className="mk-flabel">Key</p>
+              <ChartKey view={prefs.look === "classic" ? "treatment" : prefs.view} />
+            </div>
           </PopoverPill>
           {/* one mode (§1.12): Show patient opens Present with Teeth and X-rays tabs; without a visit, the X-rays alone */}
           <PillButton

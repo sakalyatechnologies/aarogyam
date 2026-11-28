@@ -56,7 +56,7 @@ describe("Calendar (New look)", () => {
 
   it("has one way to book on the calendar: the page's Book, not also the top bar's New appointment", async () => {
     renderPortal("/calendar", { as: PEOPLE.asha });
-    expect(await screen.findByRole("button", { name: "Book" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "New appointment" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Schedule an appointment" })).toBeNull();
     cleanup();
     renderPortal("/patients", { as: PEOPLE.asha });
@@ -66,7 +66,7 @@ describe("Calendar (New look)", () => {
   it("Book opens the existing booking dialog", async () => {
     const user = userEvent.setup();
     renderPortal("/calendar", { as: PEOPLE.asha });
-    await user.click(await screen.findByRole("button", { name: "Book" }));
+    await user.click(await screen.findByRole("button", { name: "New appointment" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(await screen.findByPlaceholderText("Name, clinic number or phone")).toBeTruthy();
   });

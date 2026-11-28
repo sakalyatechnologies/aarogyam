@@ -1,4 +1,4 @@
-import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import axe from "axe-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -104,40 +104,28 @@ describe("Patient 360 in the new look: three layouts, one set of data", () => {
   });
 });
 
-describe("The layout switcher", () => {
-  it("remembers the choice for this person, and not for someone else", async () => {
-    const user = userEvent.setup();
+describe("The layout choice", () => {
+  it("is not on the patient page, and the layout chosen in My profile still applies", async () => {
     const { path, backend } = visitedPatient();
-    const first = renderPortal(path, { as: PEOPLE.asha, backend });
-    const switcher = await screen.findByRole("radiogroup", { name: "Layout" });
-    expect(within(switcher).getByRole("radio", { name: "Console" }).getAttribute("aria-checked")).toBe("true");
-
-    await user.click(within(switcher).getByRole("radio", { name: "Tabs + ribbon" }));
-    expect(await screen.findByRole("tablist", { name: "Patient record" })).toBeTruthy();
-    expect(localStorage.getItem(layoutKey(PEOPLE.asha))).toBe("tabs");
-
-    // Arrow keys move through the layouts.
-    await user.keyboard("{ArrowLeft}");
-    expect(within(switcher).getByRole("radio", { name: "Stage + drawers" }).getAttribute("aria-checked")).toBe("true");
-    await user.click(within(switcher).getByRole("radio", { name: "Tabs + ribbon" }));
-
-    first.router.dispose();
-    cleanup();
+    choose("tabs");
     renderPortal(path, { as: PEOPLE.asha, backend });
-    const again = await screen.findByRole("radiogroup", { name: "Layout" });
-    expect(within(again).getByRole("radio", { name: "Tabs + ribbon" }).getAttribute("aria-checked")).toBe("true");
-    expect(localStorage.getItem(layoutKey(PEOPLE.dev))).toBeNull();
+    expect(await screen.findByRole("tablist", { name: "Patient record" })).toBeTruthy();
+    expect(screen.queryByRole("radiogroup", { name: "Layout" })).toBeNull();
   });
 
-  it("still works when storage is blocked", async () => {
+  it("is remembered per person from My profile, and still works when storage is blocked", async () => {
     const user = userEvent.setup();
-    const { path, backend } = visitedPatient();
-    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation((key) => {
-      if (key !== NEW_LOOK_KEY) throw new Error("blocked");
+    renderPortal("/settings", { as: PEOPLE.asha });
+    const group = await screen.findByRole("radiogroup", { name: "Patient page layout" });
+    expect(within(group).getByRole("radio", { name: "Console" }).getAttribute("aria-checked")).toBe("true");
+    await user.click(within(group).getByRole("radio", { name: "Tabs + ribbon" }));
+    expect(localStorage.getItem(layoutKey(PEOPLE.asha))).toBe("tabs");
+    expect(localStorage.getItem(layoutKey(PEOPLE.dev))).toBeNull();
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
     });
-    renderPortal(path, { as: PEOPLE.asha, backend });
-    await user.click(await screen.findByRole("radio", { name: "Stage + drawers" }));
-    expect(await screen.findByRole("toolbar", { name: "Open a panel" })).toBeTruthy();
+    await user.click(within(group).getByRole("radio", { name: "Stage + drawers" }));
+    expect(within(group).getByRole("radio", { name: "Stage + drawers" }).getAttribute("aria-checked")).toBe("true");
     spy.mockRestore();
   });
 });
@@ -147,7 +135,7 @@ describe("The account menu", () => {
     const user = userEvent.setup();
     const { path, backend } = visitedPatient();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    await screen.findByRole("radiogroup", { name: "Layout" });
+    await screen.findByRole("region", { name: "Patient summary" });
     await user.click(screen.getByRole("button", { name: /^Account:/ }));
     expect(screen.queryByRole("switch", { name: /New look/ })).toBeNull();
   });

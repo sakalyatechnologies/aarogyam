@@ -44,7 +44,8 @@ function ToCollect() {
   const toast = useToast();
   const [collecting, setCollecting] = useState<QueueToken | undefined>(undefined);
   const items = list.data?.items ?? [];
-  if (list.data === undefined) return null;
+  // Nothing owed: no empty section.
+  if (list.data === undefined || (items.length === 0 && collecting === undefined)) return null;
   return (
     <section className="fd-extra" aria-labelledby="fd-to-collect">
       <h2 id="fd-to-collect">To collect ({items.length})</h2>

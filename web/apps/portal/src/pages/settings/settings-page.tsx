@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { useDocumentTitle } from "@aarogyam/app-kit";
@@ -85,7 +86,9 @@ export function SettingsPage() {
 }
 
 /** The new look's order and wording: My profile first, then Appearance, as in the design. */
-const NEW_LOOK_ORDER = ["me", "appearance", "profile", "letterhead", "chairs-doctors", "price-list", "team", "time-off", "tasks", "booking", "qr", "offers", "website", "present", "terms", "support", "sessions"];
+const NEW_LOOK_ORDER = ["me", "appearance", "sessions", "profile", "letterhead", "chairs-doctors", "price-list", "terms", "website", "support", "team", "time-off", "tasks", "booking", "qr", "offers", "present"];
+/** The nav groups its sections under small headings so the owner finds one without reading all seventeen. */
+const NEW_LOOK_GROUP: Readonly<Record<string, string>> = { me: "You", appearance: "You", sessions: "You", profile: "Clinic", letterhead: "Clinic", "chairs-doctors": "Clinic", "price-list": "Clinic", terms: "Clinic", website: "Clinic", support: "Clinic", team: "People", "time-off": "People", tasks: "People", booking: "Patients", qr: "Patients", offers: "Patients", present: "Patients" };
 const NEW_LOOK_LABEL: Readonly<Record<string, string>> = { "chairs-doctors": "Chairs & doctors" };
 
 /**
@@ -104,11 +107,19 @@ function SettingsNewLook({ items, owner, requested, onChoose }: { items: TabItem
       <DisplayHeader variant="display" title="Settings" subtitle={owner ? "Clinic-wide setup · changes apply to everyone" : "Your profile and look"} />
       <div className="st-nl-grid">
         <nav className="st-nl-nav" aria-label="Settings sections">
-          {sorted.map((item) => (
-            <button key={item.value} type="button" className="st-nl-item" aria-current={item.value === current?.value ? "page" : undefined} onClick={() => { onChoose(item.value); }}>
-              {item.label}
-            </button>
-          ))}
+          {sorted.map((item, index) => {
+            const group = !owner && item.value === "profile" ? "You" : NEW_LOOK_GROUP[item.value];
+            const before = sorted[index - 1];
+            const previous = before === undefined ? undefined : !owner && before.value === "profile" ? "You" : NEW_LOOK_GROUP[before.value];
+            return (
+              <Fragment key={item.value}>
+                {group !== undefined && group !== previous ? <span className="st-nl-group">{group}</span> : null}
+                <button type="button" className="st-nl-item" aria-current={item.value === current?.value ? "page" : undefined} onClick={() => { onChoose(item.value); }}>
+                  {item.label}
+                </button>
+              </Fragment>
+            );
+          })}
           <Link to="/guides" className="st-nl-item">
             Guides &amp; videos
           </Link>

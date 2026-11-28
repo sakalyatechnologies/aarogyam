@@ -12,6 +12,7 @@ import { useDictationLanguage } from "../../lib/dictation-language.js";
 import { useUiPrefs, useSaveUiPrefs } from "../../queries.js";
 import { isHistoryStyle, setSessionHistoryStyle, type HistoryStyle } from "../patients/v2/history/history-style.js";
 import { Pills } from "../patients/v2/kit.js";
+import { P360_LAYOUTS, useP360Layout, type P360Layout } from "../patients/v2/use-layout.js";
 import { DICTATION_LANGUAGES } from "../visits/voice/dictation.js";
 
 /** The pictures this portal draws for a preset id. The server stores only the id; each app ships its own pictures. */
@@ -224,6 +225,8 @@ export function MyProfile() {
           </button>
         </div>
       </form>
+      <div className="st-me-prefs" role="group" aria-label="On this browser">
+      <p className="st-me-prefs-title">On this browser</p>
       <div className="st-me-alerts" style={{ marginTop: 16 }}>
         <Switch
           label="Sound and desktop alert for a waiting patient"
@@ -239,8 +242,23 @@ export function MyProfile() {
           <Select options={DICTATION_LANGUAGES.map((l) => ({ value: l.value, label: l.label }))} value={voiceLanguage} onValueChange={setVoiceLanguage} />
         </Field>
       </div>
+      <PatientLayoutChoice />
       <HistoryViewChoice />
+      </div>
     </MkCard>
+  );
+}
+
+/** "Patient page layout": kept on this browser, as the patient page has always remembered it. */
+function PatientLayoutChoice() {
+  const { session } = useClinic();
+  const [layout, setLayout] = useP360Layout(session.user.id);
+  return (
+    <div style={{ marginTop: 16 }}>
+      <p className="mk-flabel">Patient page layout</p>
+      <Pills<P360Layout> label="Patient page layout" options={P360_LAYOUTS} value={layout} onChange={setLayout} />
+      <p className="mk-hint">How a patient's page arranges its sections. Kept on this browser.</p>
+    </div>
   );
 }
 

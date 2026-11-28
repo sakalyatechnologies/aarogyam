@@ -6776,6 +6776,45 @@ export function createFakeBackend(fixtures: Fixtures): FakeBackend {
           return reply({ items } satisfies C.NotificationList);
         }),
 
+      listInbox: (params, opts) =>
+        respond(S.inboxList, opts?.signal, async () => {
+          const caller = await inClinic();
+          if (!isCaller(caller)) {
+            return caller;
+          }
+          if (!hasPermission(caller.membership.role.permissions, "appointments.read")) {
+            return refuse(403, "forbidden", "You don't have permission to do that.");
+          }
+          const limit = Math.min(Math.max(params?.limit ?? 30, 1), 100);
+          const items = visibleNotifications(state, caller, clock())
+            .filter((n) => n.kind === "booking_requested" && n.appointment != null)
+            .filter((n) => params?.before === undefined || n.id < params.before)
+            .sort((a, b) => (a.id < b.id ? 1 : -1))
+            .flatMap((n): C.InboxMessage[] => {
+              const a = n.appointment;
+              if (a == null) return [];
+              const open = a.status === "requested";
+              return [
+                {
+                  id: n.id,
+                  kind: "booking_reminder",
+                  audience: "clinic",
+                  created_at: n.created_at,
+                  notification_id: n.id,
+                  open,
+                  handled_at: open ? null : n.created_at,
+                  appointment_id: a.id,
+                  starts_at: a.starts_at,
+                  practitioner_id: a.practitioner_id,
+                  practitioner_name: a.practitioner_name,
+                },
+              ];
+            })
+            .filter((m) => params?.openOnly !== true || m.open)
+            .slice(0, limit);
+          return reply({ items } satisfies C.InboxList);
+        }),
+
       countUnreadNotifications: (opts) =>
         respond(S.unreadCount, opts?.signal, async () => {
           const caller = await inClinic();

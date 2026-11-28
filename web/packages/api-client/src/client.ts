@@ -36,6 +36,7 @@ import type { FileSharing, PatientAppAccess, PatientAppInvitation, PatientLinkDe
 import type { Handoff, HandoffSession, NewHandoff, RedeemHandoff, SlugCheck, SlugQuery } from "./schemas.js";
 import type {
   MarkedRead,
+  InboxList,
   NotificationList,
   NotificationSettings,
   NotificationSettingsChanges,
@@ -337,6 +338,16 @@ export interface TaskHistoryQuery {
   assignee?: string;
   status?: "open" | "done" | "skipped" | "missed";
   templateId?: TaskId;
+}
+
+/** Filters for `listInbox`. */
+export interface InboxQuery {
+  /** Only messages whose booking has not been handled. */
+  openOnly?: boolean;
+  /** Page size, 1 to 100 (default 30). */
+  limit?: number;
+  /** Only those older than this message id. */
+  before?: string;
 }
 
 /** Filters for `listNotifications`. */
@@ -705,6 +716,8 @@ export interface ApiClient {
 
   /** Clinic host: the caller's notifications, newest first, each with a portal link (`href`) when it has one. Needs a read permission that one of the kinds uses (appointments, labs, billing or patients). */
   listNotifications(params?: NotificationQuery, options?: RequestOptions): Promise<ApiResult<NotificationList>>;
+  /** Clinic host: booking reminders and escalations within the caller's scope, newest first. Needs `appointments.read`. */
+  listInbox(params?: InboxQuery, options?: RequestOptions): Promise<ApiResult<InboxList>>;
   /** Clinic host: the bell's number: unread notifications from the last 30 days, at most 100. */
   countUnreadNotifications(options?: RequestOptions): Promise<ApiResult<UnreadCount>>;
   /** Clinic host: marks one notification read for the caller only. `404` when it is not in their clinic or reach. */

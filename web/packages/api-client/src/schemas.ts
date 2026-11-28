@@ -4399,6 +4399,24 @@ export type UnreadCount = z.output<typeof unreadCount>;
 export const markedRead = z.object({ marked: z.number().int() }) satisfies z.ZodType<C.MarkedRead>;
 export type MarkedRead = z.output<typeof markedRead>;
 
+export const inboxMessage = z.object({
+  id: z.string(),
+  kind: z.string(),
+  audience: z.string(),
+  created_at: z.string(),
+  notification_id: z.string(),
+  open: z.boolean(),
+  handled_at: optionalText,
+  appointment_id: z.string(),
+  starts_at: z.string(),
+  practitioner_id: z.string(),
+  practitioner_name: z.string(),
+}) satisfies z.ZodType<C.InboxMessage>;
+export type InboxMessage = z.output<typeof inboxMessage>;
+
+export const inboxList = z.object({ items: z.array(inboxMessage) }) satisfies z.ZodType<C.InboxList>;
+export type InboxList = z.output<typeof inboxList>;
+
 /** What the apps poll every minute: unread chat messages and unread notifications. */
 export const badges = z.object({
   chat_unread: z.number().int(),

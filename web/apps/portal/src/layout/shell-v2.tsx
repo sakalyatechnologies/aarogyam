@@ -183,12 +183,12 @@ function FrameV2() {
         <nav aria-label="Main" className="mk2-nav">
           <ul aria-label="Workspace">
             {workspace.map((item) => (
-              <RailItem key={item.id} item={item} active={item.id === activeId} onNavigate={closeMenu} />
+              <RailItem key={item.id} item={item.id === "messages" ? { ...item, badge: badges.data?.chat_unread } : item} active={item.id === activeId} onNavigate={closeMenu} />
             ))}
           </ul>
           <ul aria-label="System">
             {system.map((item) => (
-              <RailItem key={item.id} item={item} active={item.id === activeId} onNavigate={closeMenu} />
+              <RailItem key={item.id} item={item.id === "messages" ? { ...item, badge: badges.data?.chat_unread } : item} active={item.id === activeId} onNavigate={closeMenu} />
             ))}
           </ul>
         </nav>

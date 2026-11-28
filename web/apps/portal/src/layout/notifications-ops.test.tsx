@@ -100,6 +100,17 @@ describe("bell: tasks, time off and stock", () => {
     });
   });
 
+  it("shows the unread chat count on the Messages rail item", async () => {
+    renderPortal("/today", {
+      as: PEOPLE.asha,
+      wrap: (client) => ({ ...withBell()(client), getBadges: () => Promise.resolve(success({ chat_unread: 3, notifications_unread: 1, tasks_open: 0 })) }),
+    });
+    const link = await screen.findByRole("link", { name: /^Messages/ });
+    await waitFor(() => {
+      expect(within(link).getByText("3")).toBeTruthy();
+    });
+  });
+
   it("counts the tasks still open in the badge", async () => {
     renderPortal("/today", { as: PEOPLE.asha, wrap: withBell() });
     // 7 unread notifications and 2 open tasks.

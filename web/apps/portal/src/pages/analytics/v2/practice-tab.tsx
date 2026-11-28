@@ -6,7 +6,7 @@ import { ApiErrorNotice, formatRupees } from "@aarogyam/app-kit";
 import { BentoCard, Heatmap } from "@sakalya/ui";
 
 import { Empty, Skeleton } from "../../../components/mk/index.js";
-import { AGE_LABEL, REFERRAL_LABEL, VISIT_LABEL, WEEKDAY, busyGrid, hourLabel, isEmpty, periodRows, totals } from "../analytics-data.js";
+import { AGE_LABEL, CHAIR_TIME_LABEL, SEX_LABEL, SOURCE_LABEL, REFERRAL_LABEL, VISIT_LABEL, WEEKDAY, busyGrid, hourLabel, isEmpty, periodRows, totals } from "../analytics-data.js";
 import { DonutCard } from "../breakdown-charts.js";
 import { ChairChart, PatientMixChart } from "../chair-charts.js";
 import { useAnalytics } from "../queries.js";
@@ -43,6 +43,16 @@ function Practice({ report, updating, win }: { report: Analytics; updating: bool
   const procedureLabels = Object.fromEntries(report.procedures_by_category.map((p) => [p.key, prettyKey(p.key)]));
   // Rupees per kind only for those allowed to see money: the API sends null otherwise.
   const amounts = Object.fromEntries(report.procedures_by_category.flatMap((p) => (p.amount_paise == null ? [] : [[p.key, formatRupees(p.amount_paise)] as const])));
+  // Admin time is not tracked yet (always 0), so it stays off the chart until it is.
+  const chairTime = [
+    { key: "treatment", count: report.chair_time.treatment },
+    { key: "consult", count: report.chair_time.consult },
+    ...(report.chair_time.admin > 0 ? [{ key: "admin", count: report.chair_time.admin }] : []),
+  ];
+  const sources = [
+    { key: "booked", count: report.visit_sources.booked },
+    { key: "walk_in", count: report.visit_sources.walk_in },
+  ];
   return (
     <div className="an2-stack" aria-busy={updating}>
       <ul className="an2-kpis" aria-label="Practice totals for the range">
@@ -84,6 +94,15 @@ function Practice({ report, updating, win }: { report: Analytics; updating: bool
         </div>
         <div className="an2-cell an2-w4">
           <DonutCard title="Visit kind" hint="Visits by appointment kind" area="an-visit" data={report.patients.visit_kinds} labels={VISIT_LABEL} unit="visits" animate={animate} />
+        </div>
+        <div className="an2-cell an2-w4">
+          <DonutCard title="Sex" hint="Patients seen, by recorded sex" area="an-sex" data={report.patients.sex} labels={SEX_LABEL} unit="patients" animate={animate} />
+        </div>
+        <div className="an2-cell an2-w4">
+          <DonutCard title="Chair time" hint="Booked minutes, by what they were for" area="an-chair-time" data={chairTime} labels={CHAIR_TIME_LABEL} unit="min" animate={animate} />
+        </div>
+        <div className="an2-cell an2-w4">
+          <DonutCard title="Booked or walk-in" hint="Visits, by how they came" area="an-sources" data={sources} labels={SOURCE_LABEL} unit="visits" animate={animate} />
         </div>
         <div className="an2-cell an2-w4">
           <DonutCard title="Referral source" hint="New patients, by how they found you" area="an-referral" data={report.patients.referral_sources} labels={REFERRAL_LABEL} unit="new" animate={animate} />

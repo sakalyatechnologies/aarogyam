@@ -36,6 +36,14 @@ export function InvitePage() {
         title="Join your clinic on Aarogyam"
         subtitle={state.status === "signed_in" ? "You're signed in. One more step." : "Sign in with the email address the invitation was sent to."}
       />
+      {/* Fallback when the phone did not open the app from the https link itself. */}
+      <p className="text-sm text-muted">
+        Have the Aarogyam app?{" "}
+        <a className="font-medium underline" href={`aarogyam://invite#${token}`}>
+          Open this invitation in the app
+        </a>
+        .
+      </p>
       {state.status === "loading" ? (
         <Skeleton shape="block" />
       ) : state.status === "signed_out" ? (

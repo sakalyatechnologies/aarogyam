@@ -117,6 +117,18 @@ export function why(thrown: unknown): string {
   return apiErrorOf(thrown)?.message ?? "Something went wrong. Please try again.";
 }
 
+/** Booking reminders and escalations for the caller, newest first. Needs `appointments.read`. */
+export function useInbox(openOnly: boolean, enabled: boolean) {
+  const { api, access } = useClinic();
+  return useQuery({
+    queryKey: ["messages", access.org_id, "inbox", openOnly],
+    queryFn: ({ signal }) => unwrap(api.listInbox({ openOnly, limit: 50 }, { signal })),
+    enabled,
+    ...SCHEDULE,
+    refetchInterval: 30_000,
+  });
+}
+
 /** This month's message numbers. Needs `messages.send`. */
 export function useMessageStats(enabled: boolean) {
   const { api, access } = useClinic();

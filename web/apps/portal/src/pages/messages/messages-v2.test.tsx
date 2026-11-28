@@ -533,3 +533,18 @@ describe("Messages accessibility", () => {
     expect(problems(await axe.run(document.body, AXE))).toEqual([]);
   });
 });
+
+describe("Inbox", () => {
+  it("lists the booking requests waiting and hides the tab without appointments.read", async () => {
+    const user = userEvent.setup();
+    renderPortal("/messages", { as: PEOPLE.asha });
+    await user.click(await screen.findByRole("button", { name: "Inbox" }));
+    await user.click(await screen.findByRole("button", { name: "All" }));
+    const list = await screen.findByRole("list", { name: "Inbox" });
+    expect(within(list).getAllByText(/Booking request/).length).toBeGreaterThan(0);
+    cleanup();
+    renderPortal("/messages", { as: PEOPLE.farah, backend: farahWith(["messages.send", "patients.read"]) });
+    await screen.findByRole("group", { name: "Patients" });
+    expect(screen.queryByRole("button", { name: "Inbox" })).toBeNull();
+  });
+});

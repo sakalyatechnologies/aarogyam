@@ -841,6 +841,8 @@ export type Notification = Schemas["Notification"];
 export type NotificationList = Schemas["NotificationList"];
 export type UnreadCount = Schemas["UnreadCount"];
 export type MarkedRead = Schemas["MarkedRead"];
+export type InboxMessage = Schemas["InboxMessage"];
+export type InboxList = Schemas["InboxList"];
 export type Badges = Schemas["Badges"];
 
 // Patient messages, campaigns and staff chat -------------------------------------------------------

@@ -211,7 +211,7 @@ import {
   messageTemplates,
   messagesQueued,
 } from "./schemas.js";
-import { markedRead, notificationList, notificationSettings, profile, revokedSessions, unreadCount } from "./schemas.js";
+import { inboxList, markedRead, notificationList, notificationSettings, profile, revokedSessions, unreadCount } from "./schemas.js";
 
 /** Returns the current access token, or `null` when signed out. */
 export type TokenSource = () => Promise<string | null> | string | null;
@@ -881,6 +881,14 @@ export function createHttpClient(baseUrl: string, getToken: TokenSource, options
         path: "/api/v1/notifications",
         schema: notificationList,
         query: { unread_only: params?.unreadOnly === true ? "true" : undefined, limit: params?.limit, before: params?.before },
+        signal: opts?.signal,
+      }),
+    listInbox: (params, opts) =>
+      call({
+        method: "GET",
+        path: "/api/v1/inbox",
+        schema: inboxList,
+        query: { open_only: params?.openOnly === true ? "true" : undefined, limit: params?.limit, before: params?.before },
         signal: opts?.signal,
       }),
     countUnreadNotifications: (opts) =>

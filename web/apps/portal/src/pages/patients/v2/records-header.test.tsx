@@ -66,7 +66,7 @@ describe("Records: one card, small tabs", () => {
     renderPortal(path, { as: PEOPLE.asha, backend });
     const card = await openRecords(user, layout);
 
-    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Plans", "Prescriptions", "Images", "Consent"]);
+    expect(within(card).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Plans", "Prescriptions", "Images", "Lab work", "Consent"]);
     expect(within(card).getByRole("tab", { name: "Plans" }).getAttribute("aria-selected")).toBe("true");
 
     await user.click(within(card).getByRole("tab", { name: "Prescriptions" }));
@@ -112,7 +112,7 @@ describe("Records: one card, small tabs", () => {
     const { path, backend } = visited();
     renderPortal(path, { as: PEOPLE.asha, backend });
     const card = await openRecords(user, "console");
-    for (const name of ["Plans", "Prescriptions", "Images", "Consent"]) {
+    for (const name of ["Plans", "Prescriptions", "Images", "Lab work", "Consent"]) {
       await user.click(within(card).getByRole("tab", { name }));
       await waitFor(() => {
         expect(card.querySelector('[role="tabpanel"]')?.textContent.length ?? 0).toBeGreaterThan(0);

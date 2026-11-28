@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -53,8 +54,16 @@ fun ScheduleTab(
     onWalkIn: () -> Unit,
     onOpenBoard: () -> Unit,
     onOpenPatient: (String) -> Unit,
+    onlineRequest: Boolean = false,
+    onOnlineShown: () -> Unit = {},
 ) {
     val segment by holder.segment.collectAsStateWithLifecycle()
+    LaunchedEffect(onlineRequest) {
+        if (onlineRequest) {
+            holder.showOnlineRequests()
+            onOnlineShown()
+        }
+    }
     var booking by rememberSaveable { mutableStateOf(false) }
     val reduced = SkTheme.reducedMotion
     // No top bar here: the segments start below the status bar.
@@ -91,7 +100,7 @@ fun ScheduleTab(
                 }
 
                 ScheduleSegment.Day -> {
-                    DayV7(holder.day, clinic.timeZone, onOpenPatient)
+                    DayV7(graph, clinic, holder.day, clinic.timeZone, onOpenPatient)
                 }
 
                 ScheduleSegment.Week -> {

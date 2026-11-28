@@ -31,15 +31,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aarogyam.staff.AppGraph
 import com.aarogyam.staff.android.R
-import com.aarogyam.staff.android.ui.AppointmentSheet
 import com.aarogyam.staff.android.ui.LoadingIndicator
 import com.aarogyam.staff.android.ui.message
 import com.aarogyam.staff.android.ui.patient.v7
 import com.aarogyam.staff.calendar.CalendarMode
 import com.aarogyam.staff.calendar.CalendarState
 import com.aarogyam.staff.calendar.CalendarStateHolder
+import com.aarogyam.staff.clinic.ClinicContext
 import com.sakalya.mobile.design.Spacing
+import com.sakalya.mobile.designcompose.SkChoiceChip
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkSegmented
 import com.sakalya.mobile.designcompose.SkTheme
@@ -54,6 +56,8 @@ private const val SWIPE = 100f
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DayV7(
+    graph: AppGraph,
+    clinic: ClinicContext,
     holder: CalendarStateHolder,
     zone: TimeZone,
     onOpenPatient: (String) -> Unit,
@@ -99,7 +103,9 @@ fun DayV7(
     }
     val entry = loaded?.entries?.firstOrNull { it.appointmentId == detail }
     if (entry != null) {
-        AppointmentSheet(entry, onDismiss = { detail = null }, onOpenPatient = {
+        AppointmentActionsSheet(graph, clinic, entry, onChanged = holder::refresh, onDismiss = {
+            detail = null
+        }, onOpenPatient = {
             detail = null
             onOpenPatient(entry.patientId)
         })
@@ -115,6 +121,13 @@ private fun Day(
     onDetail: (String) -> Unit,
 ) {
     DayStrip(s.date, holder::show)
+    if (s.onlineCount > 0 || s.onlineOnly) {
+        SkChoiceChip(
+            stringResource(R.string.appt_filter_online) + " (${s.onlineCount})",
+            s.onlineOnly,
+            { holder.setOnlineOnly(!s.onlineOnly) },
+        )
+    }
     SkSegmented(
         listOf(stringResource(R.string.calendar_by_doctor), stringResource(R.string.calendar_by_chair)),
         if (s.mode == CalendarMode.Chair) 1 else 0,

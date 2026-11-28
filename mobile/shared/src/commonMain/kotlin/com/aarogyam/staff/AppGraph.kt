@@ -7,7 +7,10 @@ import com.aarogyam.staff.avatar.AvatarSync
 import com.aarogyam.staff.billing.BillingStateHolder
 import com.aarogyam.staff.booking.BookingStateHolder
 import com.aarogyam.staff.booking.QuickRegisterStateHolder
+import com.aarogyam.staff.calendar.AppointmentActionsHolder
+import com.aarogyam.staff.calendar.CalendarEntry
 import com.aarogyam.staff.calendar.CalendarStateHolder
+import com.aarogyam.staff.calendar.RescheduleStateHolder
 import com.aarogyam.staff.chart.ChartStateHolder
 import com.aarogyam.staff.chart.ToothSheetStateHolder
 import com.aarogyam.staff.clinic.ClinicContext
@@ -418,6 +421,25 @@ class AppGraph private constructor(
             makeDay = { calendar(clinic, scope) },
             makeWeek = { WeekStateHolder(clinic, scope, logger("aarogyam.week")) },
         )
+
+    /** The actions sheet for [entry]; [onChanged] reloads the day after a change. */
+    fun appointmentActions(
+        clinic: ClinicContext,
+        entry: CalendarEntry,
+        scope: CoroutineScope,
+        onChanged: () -> Unit,
+    ): AppointmentActionsHolder =
+        AppointmentActionsHolder(clinic, entry, scope, onChanged, logger("aarogyam.appt_actions"))
+
+    /** The reschedule sheet for [entry], opening on [date]. */
+    fun reschedule(
+        clinic: ClinicContext,
+        entry: CalendarEntry,
+        date: LocalDate,
+        scope: CoroutineScope,
+        onChanged: () -> Unit,
+    ): RescheduleStateHolder =
+        RescheduleStateHolder(clinic, entry, date, scope, onChanged, logger("aarogyam.reschedule"))
 
     /** The booking sheet for [patientId], opening on [date]. */
     fun booking(

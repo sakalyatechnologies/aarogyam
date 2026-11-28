@@ -29,6 +29,7 @@ import com.aarogyam.staff.android.ui.today.CycleSheet
 import com.aarogyam.staff.android.ui.today.IconWell
 import com.aarogyam.staff.android.ui.today.MePager
 import com.aarogyam.staff.android.ui.today.MoneyCards
+import com.aarogyam.staff.android.ui.today.OnlineBookingsCard
 import com.aarogyam.staff.android.ui.today.ScheduleList
 import com.aarogyam.staff.android.ui.today.SectionHeader
 import com.aarogyam.staff.android.ui.today.TodayHero
@@ -56,6 +57,7 @@ fun TodayScreen(
     avatar: String,
     onOpenPatient: (String) -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenOnline: (() -> Unit)?,
     onAddExpense: (() -> Unit)?,
     onEditAvatar: () -> Unit,
     onQr: () -> Unit,
@@ -135,6 +137,7 @@ fun TodayScreen(
                         avatar,
                         onOpenPatient,
                         onOpenSchedule,
+                        onOpenOnline,
                         onAddExpense,
                         onEditAvatar,
                         { logCycle = true }.takeIf { holder.cycles.allowed },
@@ -154,6 +157,7 @@ private fun DayList(
     avatar: String,
     onOpenPatient: (String) -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenOnline: (() -> Unit)?,
     onAddExpense: (() -> Unit)?,
     onEditAvatar: () -> Unit,
     onLogCycle: (() -> Unit)?,
@@ -191,6 +195,15 @@ private fun DayList(
         }
         item("stats") {
             Box(Modifier.padding(horizontal = Spacing.L.dp).skStaggerIn(1)) { TodayStats(view.counts, onOpenSchedule) }
+        }
+        if (onOpenOnline != null && view.counts.onlineToConfirm > 0) {
+            item("online") {
+                OnlineBookingsCard(
+                    view.counts.onlineToConfirm,
+                    onOpenOnline,
+                    Modifier.padding(horizontal = Spacing.L.dp, vertical = 8.dp),
+                )
+            }
         }
         val hero = view.hero
         val kind = view.heroKind

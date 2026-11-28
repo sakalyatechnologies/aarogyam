@@ -56,7 +56,16 @@ data class CalendarEntry(
     val room: String?,
     /** A visit without an appointment: drawn dashed, opens the patient, never moved. */
     val walkIn: Boolean = false,
-)
+    /** Who made it: `front_desk`, `phone`, `website`, `app` or `whatsapp`; empty for a walk-in. */
+    val origin: String = "",
+    /** The exact start, for deciding what can still be done to it. */
+    val startsAt: Instant? = null,
+) {
+    /** A request the patient made online (website or app) that nobody has confirmed yet. */
+    val online: Boolean get() = !walkIn && status == VisitStatus.Booked && origin in ONLINE_ORIGINS
+}
+
+private val ONLINE_ORIGINS = setOf("website", "app")
 
 /** What the Calendar screen draws. */
 sealed interface CalendarState {
@@ -87,6 +96,10 @@ sealed interface CalendarState {
         val error: ScreenError? = null,
         /** The walk-ins could not be loaded; the appointments show without them. */
         val walkInsFailed: Boolean = false,
+        /** Only online requests still to confirm are shown. */
+        val onlineOnly: Boolean = false,
+        /** Online requests to confirm on the day, whatever the filter. */
+        val onlineCount: Int = 0,
     ) : CalendarState
 }
 
@@ -117,6 +130,7 @@ class CalendarStateHolder(
     private var date: LocalDate = today
     private var mode = CalendarMode.Doctor
     private var selected: String? = null
+    private var onlineOnly = false
     private var day: Day? = null
     private var job: Job? = null
 
@@ -153,6 +167,13 @@ class CalendarStateHolder(
     /** Shows one doctor or chair ([id]), or everyone when null or already selected; no request. */
     fun select(id: String?) {
         selected = if (id == selected) null else id
+        publish()
+    }
+
+    /** Shows only the online requests still to confirm (or everything again); no request. */
+    fun setOnlineOnly(on: Boolean) {
+        if (onlineOnly == on) return
+        onlineOnly = on
         publish()
     }
 
@@ -240,12 +261,13 @@ class CalendarStateHolder(
         val current = day ?: return
         val columns = if (mode == CalendarMode.Doctor) current.doctors else current.chairs
         val chosen = selected?.takeIf { id -> columns.any { it.id == id } }
-        val entries =
+        val picked =
             when {
                 chosen == null -> current.all
                 mode == CalendarMode.Doctor -> current.all.filter { it.practitionerId == chosen }
                 else -> current.all.filter { it.roomId == chosen }
             }
+        val entries = if (onlineOnly) picked.filter { it.online } else picked
         mutableState.value =
             CalendarState.Loaded(
                 date,
@@ -255,6 +277,8 @@ class CalendarStateHolder(
                 chosen,
                 entries,
                 walkInsFailed = current.walkInsFailed,
+                onlineOnly = onlineOnly,
+                onlineCount = current.all.count { it.online },
             )
     }
 
@@ -280,5 +304,7 @@ private fun Appointment.toEntry(clinic: ClinicContext): CalendarEntry? {
         practitioner = practitioner.displayName,
         roomId = roomId,
         room = room,
+        origin = source,
+        startsAt = start,
     )
 }

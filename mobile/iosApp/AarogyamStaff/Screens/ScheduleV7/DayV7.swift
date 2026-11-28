@@ -5,6 +5,7 @@ import SwiftUI
 /// The Day view of the v7 Schedule: a week strip, doctors or chairs side by side down the hours,
 /// the "now" line, and a tap for an appointment's details.
 struct DayV7Screen: View {
+    let graph: AppGraph
     let holder: CalendarStateHolder
     let state: CalendarState
     let clinic: ClinicContext
@@ -38,7 +39,12 @@ struct DayV7Screen: View {
             isPresented: Binding(get: { detail != nil }, set: { if !$0 { detail = nil } }),
             title: detail?.patientName ?? "", subtitle: detail?.patientNumber
         ) {
-            if let entry = detail { AppointmentDetail(entry: entry) { detail = nil; onOpenPatient(entry.patientId) } }
+            if let entry = detail {
+                AppointmentActionsView(
+                    graph: graph, clinic: clinic, entry: entry, onChanged: { holder.refresh() },
+                    onOpenPatient: { detail = nil; onOpenPatient(entry.patientId) }, onClose: { detail = nil }
+                )
+            }
         }
     }
 
@@ -58,6 +64,11 @@ struct DayV7Screen: View {
             selectedIndex: loaded.mode == .chair ? 1 : 0
         ) { holder.setMode(newMode: $0 == 0 ? .doctor : .chair) }
         if let error = loaded.error { Text(error.message).skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.error.color) }
+        if loaded.onlineCount > 0 || loaded.onlineOnly {
+            SkChoiceChip(
+                String(localized: "appt.filter_online") + " (\(loaded.onlineCount))", selected: loaded.onlineOnly
+            ) { holder.setOnlineOnly(on: !loaded.onlineOnly) }
+        }
         if loaded.walkInsFailed {
             Text("calendar.walk_ins_failed").skTextStyle(SkTypeScale.footnote).foregroundStyle(theme.roles.onSurfaceVariant.color)
         }
@@ -192,6 +203,9 @@ private struct DayColumns: View {
             VStack(alignment: .leading, spacing: 0) {
                 if entry.walkIn {
                     Text(String(localized: "calendar.walk_in").uppercased()).font(.system(size: 9.5, weight: .heavy)).tracking(0.4).lineLimit(1)
+                }
+                if entry.online {
+                    Text(String(localized: "appt.badge").uppercased()).font(.system(size: 9.5, weight: .heavy)).tracking(0.4).lineLimit(1)
                 }
                 Text(entry.patientName).font(.system(size: 11.5, weight: .bold)).lineLimit(1)
                 if let reason = entry.reason { Text(reason).font(.system(size: 11)).lineLimit(1) }

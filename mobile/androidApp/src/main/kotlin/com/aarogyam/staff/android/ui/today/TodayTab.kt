@@ -69,6 +69,7 @@ fun TodayTab(
     nav: NavController,
     onOpenPatient: (String) -> Unit,
     onOpenSchedule: () -> Unit,
+    onOpenOnline: () -> Unit,
     onAddExpense: () -> Unit,
     onWalkIn: () -> Unit,
 ) {
@@ -124,6 +125,7 @@ fun TodayTab(
                     avatar = avatar,
                     onOpenPatient = onOpenPatient,
                     onOpenSchedule = onOpenSchedule,
+                    onOpenOnline = onOpenOnline.takeIf { "appointments.write" in clinic.permissions },
                     onAddExpense = onAddExpense,
                     onEditAvatar = { avatarSheet = true },
                     onQr = { qr = true },

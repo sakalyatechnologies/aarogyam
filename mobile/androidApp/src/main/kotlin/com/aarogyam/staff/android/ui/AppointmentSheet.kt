@@ -26,18 +26,24 @@ fun AppointmentSheet(
     onOpenPatient: () -> Unit,
 ) {
     SkBottomSheet(title = entry.patientName, subtitle = entry.patientNumber, onDismiss = onDismiss) {
-        SkChip(stringResource(entry.status.label()), tone = entry.status.tone())
-        Detail(null, stringResource(R.string.appointment_when, entry.starts.display(), entry.ends.display()))
-        Detail(stringResource(R.string.appointment_doctor), entry.practitioner)
-        entry.room?.let { Detail(stringResource(R.string.appointment_room), it) }
-        entry.reason?.let { Detail(stringResource(R.string.appointment_reason), it) }
-        entry.notes?.let { Detail(stringResource(R.string.appointment_notes), it) }
+        AppointmentSummary(entry)
         SkButton(
             stringResource(R.string.open_patient),
             onClick = onOpenPatient,
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.L.dp),
         )
     }
+}
+
+/** The status chip and the appointment's details; shared by the plain and the actions sheets. */
+@Composable
+fun AppointmentSummary(entry: CalendarEntry) {
+    SkChip(stringResource(entry.status.label()), tone = entry.status.tone())
+    Detail(null, stringResource(R.string.appointment_when, entry.starts.display(), entry.ends.display()))
+    Detail(stringResource(R.string.appointment_doctor), entry.practitioner)
+    entry.room?.let { Detail(stringResource(R.string.appointment_room), it) }
+    entry.reason?.let { Detail(stringResource(R.string.appointment_reason), it) }
+    entry.notes?.let { Detail(stringResource(R.string.appointment_notes), it) }
 }
 
 @Composable

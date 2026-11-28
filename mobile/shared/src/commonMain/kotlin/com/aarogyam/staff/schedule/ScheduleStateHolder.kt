@@ -48,6 +48,12 @@ class ScheduleStateHolder(
         touch(segment)
     }
 
+    /** Today's "online bookings to confirm": the Day view, showing only those. */
+    fun showOnlineRequests() {
+        show(ScheduleSegment.Day)
+        day.setOnlineOnly(true)
+    }
+
     private fun touch(segment: ScheduleSegment) {
         when (segment) {
             ScheduleSegment.Queue -> queue

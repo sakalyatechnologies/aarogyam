@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Machine-drafted; a native speaker reviews before the pilot (docs/backlog.md). -->
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="appt_badge">नवीन ऑनलाइन बुकिंग</string>
+    <string name="appt_confirm">निश्चित करा</string>
+    <string name="appt_reschedule">वेळ बदला</string>
+    <string name="appt_cancel">अपॉइंटमेंट रद्द करा</string>
+    <string name="appt_no_show">आला नाही म्हणून नोंदवा</string>
+    <string name="appt_call">रुग्णाला कॉल करा</string>
+    <string name="appt_no_phone">फोन नंबर नोंदवलेला नाही</string>
+    <string name="appt_cancel_title">रद्द करण्याचे कारण?</string>
+    <string name="appt_cancel_reason">कारण</string>
+    <string name="appt_cancel_patient">रुग्णाने सांगितले</string>
+    <string name="appt_cancel_doctor">डॉक्टर उपलब्ध नाहीत</string>
+    <string name="appt_cancel_duplicate">दुहेरी बुकिंग</string>
+    <string name="appt_cancel_submit">रद्द करा</string>
+    <string name="appt_taken_title">ही वेळ भरलेली आहे. तरीही बुक करायचे?</string>
+    <string name="appt_taken_yes">तरीही बुक करा</string>
+    <string name="appt_taken_no">आहे तसे ठेवा</string>
+    <string name="appt_move_title">नवीन वेळ निवडा</string>
+    <string name="appt_move_submit">अपॉइंटमेंट हलवा</string>
+    <string name="appt_online_one">निश्चितीसाठी 1 ऑनलाइन बुकिंग</string>
+    <string name="appt_online_many" tools:ignore="PluralsCandidate">निश्चितीसाठी %1$d ऑनलाइन बुकिंग</string>
+    <string name="appt_back">मागे</string>
+    <string name="appt_filter_online">ऑनलाइन विनंत्या</string>
+</resources>

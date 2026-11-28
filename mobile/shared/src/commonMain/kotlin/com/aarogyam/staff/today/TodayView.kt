@@ -41,6 +41,8 @@ data class TodayCountsView(
     val patientsDone: Int? = null,
     /** Appointments still to come: today's (cancelled ones are not counted) less done and no-shows. */
     val toCome: Int = 0,
+    /** Today's online requests (made on the website or in the app) still waiting for the desk to confirm. */
+    val onlineToConfirm: Int = 0,
 )
 
 /** The money tiles, only for a role that holds `finance.view`. Amounts are paise; [upiShareBps] is basis points. */
@@ -144,6 +146,7 @@ internal fun TodayResponse.toView(
                 patientsDone = counts.patientsDone,
                 // `total` already leaves out cancelled appointments.
                 toCome = (counts.total - counts.done - counts.noShows).coerceAtLeast(0),
+                onlineToConfirm = appointments.count { it.status == "booked" && it.source in ONLINE_SOURCES },
             ),
         heroKind = if (now != null) HeroKind.Now else next?.let { HeroKind.UpNext },
         hero = now ?: next,
@@ -182,5 +185,6 @@ internal fun visitStatus(text: String): VisitStatus =
     }
 
 private val WAITING_OR_BOOKED = setOf(VisitStatus.Arrived, VisitStatus.Booked, VisitStatus.Confirmed)
+private val ONLINE_SOURCES = setOf("website", "app")
 private const val NOON = 12
 private const val EVENING = 17

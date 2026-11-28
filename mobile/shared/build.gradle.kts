@@ -278,6 +278,7 @@ val apiModels =
         "SavedAppointment",
         "Staff",
         "StatusChange",
+        "MoveRequest",
         "StatusChanged",
         "StockLevel",
         "UnreadCount",

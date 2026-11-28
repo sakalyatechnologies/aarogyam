@@ -166,6 +166,9 @@ private struct DayContent: View {
                 .padding(.top, 8)
             }
             TodayStats(counts: view.counts) { onOpenSchedule(0) }.padding(.top, 10)
+            if view.counts.onlineToConfirm > 0, clinic.permissions.contains("appointments.write") {
+                OnlineBookingsCard(count: Int(view.counts.onlineToConfirm)) { onOpenSchedule(3) }.padding(.top, 8)
+            }
             if let hero = view.hero, let kind = view.heroKind {
                 TodayHero(
                     kind: kind, item: hero, progress: Double(view.progress), done: Int(view.counts.done),

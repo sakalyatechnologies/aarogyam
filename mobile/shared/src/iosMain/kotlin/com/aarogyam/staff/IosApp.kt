@@ -228,6 +228,23 @@ fun AppGraph.booking(
     screen: ScreenScope,
 ): BookingStateHolder = booking(clinic, patientId, date, screen.scope)
 
+/** The actions sheet for [entry], living as long as [screen]; [onChanged] reloads the day. */
+fun AppGraph.appointmentActions(
+    clinic: ClinicContext,
+    entry: com.aarogyam.staff.calendar.CalendarEntry,
+    screen: ScreenScope,
+    onChanged: () -> Unit,
+): com.aarogyam.staff.calendar.AppointmentActionsHolder = appointmentActions(clinic, entry, screen.scope, onChanged)
+
+/** The reschedule sheet for [entry] opening on [date], living as long as [screen]. */
+fun AppGraph.reschedule(
+    clinic: ClinicContext,
+    entry: com.aarogyam.staff.calendar.CalendarEntry,
+    date: LocalDate,
+    screen: ScreenScope,
+    onChanged: () -> Unit,
+): com.aarogyam.staff.calendar.RescheduleStateHolder = reschedule(clinic, entry, date, screen.scope, onChanged)
+
 /** "Register and book" for someone the search did not find, living as long as [screen]. */
 fun AppGraph.quickRegister(
     clinic: ClinicContext,

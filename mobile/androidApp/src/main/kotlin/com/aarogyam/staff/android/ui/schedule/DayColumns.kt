@@ -226,6 +226,15 @@ private fun Block(
                 maxLines = 1,
             )
         }
+        if (e.online) {
+            Text(
+                stringResource(R.string.appt_badge).uppercase(),
+                style = v7(9.5f, FontWeight.ExtraBold).copy(letterSpacing = 0.4.sp),
+                color = ink.color,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         Text(
             e.patientName,
             style = v7(11.5f, FontWeight.Bold),

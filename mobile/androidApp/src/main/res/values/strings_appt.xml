@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="appt_badge">New online booking</string>
+    <string name="appt_confirm">Confirm</string>
+    <string name="appt_reschedule">Reschedule</string>
+    <string name="appt_cancel">Cancel appointment</string>
+    <string name="appt_no_show">Mark no-show</string>
+    <string name="appt_call">Call patient</string>
+    <string name="appt_no_phone">No phone number on file</string>
+    <string name="appt_cancel_title">Why cancel?</string>
+    <string name="appt_cancel_reason">Reason</string>
+    <string name="appt_cancel_patient">Patient asked</string>
+    <string name="appt_cancel_doctor">Doctor unavailable</string>
+    <string name="appt_cancel_duplicate">Duplicate</string>
+    <string name="appt_cancel_submit">Cancel it</string>
+    <string name="appt_taken_title">This time is taken. Book anyway?</string>
+    <string name="appt_taken_yes">Book anyway</string>
+    <string name="appt_taken_no">Keep as is</string>
+    <string name="appt_move_title">Pick a new time</string>
+    <string name="appt_move_submit">Move appointment</string>
+    <string name="appt_online_one">1 online booking to confirm</string>
+    <string name="appt_online_many" tools:ignore="PluralsCandidate">%1$d online bookings to confirm</string>
+    <string name="appt_back">Back</string>
+    <string name="appt_filter_online">Online requests</string>
+</resources>

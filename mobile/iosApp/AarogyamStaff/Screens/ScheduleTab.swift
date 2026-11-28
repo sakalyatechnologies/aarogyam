@@ -24,9 +24,10 @@ struct ScheduleTab: View {
     #endif
 
     private func apply(_ asked: Int?, to schedule: ScheduleStateHolder) {
-        guard let asked, (0...2).contains(asked) else { return }
-        segment = asked
-        schedule.show(segment: [ScheduleSegment.queue, .day, .week][asked])
+        guard let asked, (0...3).contains(asked) else { return }
+        // 3 is Today's "online bookings to confirm": the Day view with only those.
+        segment = asked == 3 ? 1 : asked
+        if asked == 3 { schedule.showOnlineRequests() } else { schedule.show(segment: [ScheduleSegment.queue, .day, .week][asked]) }
         request = nil
     }
 
@@ -47,7 +48,7 @@ struct ScheduleTab: View {
                     switch segment {
                     case 1:
                         ScreenHost(make: { _ in schedule.day }, state: { $0.state }) { holder, state in
-                            DayV7Screen(holder: holder, state: state, clinic: clinic, onOpenPatient: onOpenPatient)
+                            DayV7Screen(graph: graph, holder: holder, state: state, clinic: clinic, onOpenPatient: onOpenPatient)
                         }
                     case 2:
                         ScreenHost(make: { _ in schedule.week }, state: { $0.state }) { holder, state in

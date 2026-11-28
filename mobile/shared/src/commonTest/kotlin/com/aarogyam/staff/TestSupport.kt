@@ -159,9 +159,10 @@ fun appointment(
     status: String,
     name: String,
     reason: String? = null,
+    origin: String = "front_desk",
 ): String =
     """{"id":"$id","branch_id":"b1","starts_at":"$startsAt","ends_at":"$startsAt","status":"$status","kind":"follow_up",
-       "has_notes":false,"patient_type":"existing","row_version":1,"source":"front_desk","reason":${reason?.let {
+       "has_notes":false,"patient_type":"existing","row_version":1,"source":"$origin","reason":${reason?.let {
         "\"$it\""
     } ?: "null"},"room":"Chair 1",
        "patient":{"id":"p-$id","number":"SC-10$id","full_name":"$name","sex":"female","registration_incomplete":false,"age_years":34},

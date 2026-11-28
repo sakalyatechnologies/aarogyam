@@ -176,6 +176,8 @@ private fun TabContent(
     onTab: (Tab) -> Unit,
 ) {
     val onOpenPatient: (String) -> Unit = { nav.openPatient(it) }
+    // Today's "online bookings to confirm" card asks Schedule to show only those, once.
+    var askOnline by rememberSaveable { mutableStateOf(false) }
     when (tab) {
         Tab.Today -> {
             TodayTab(
@@ -184,6 +186,10 @@ private fun TabContent(
                 nav,
                 onOpenPatient,
                 onOpenSchedule = { onTab(Tab.Schedule) },
+                onOpenOnline = {
+                    askOnline = true
+                    onTab(Tab.Schedule)
+                },
                 onAddExpense = nav::openExpenses,
             )
         }
@@ -200,6 +206,8 @@ private fun TabContent(
                 onWalkIn,
                 nav::openDeskBoard,
                 onOpenPatient,
+                askOnline,
+                { askOnline = false },
             )
         }
 

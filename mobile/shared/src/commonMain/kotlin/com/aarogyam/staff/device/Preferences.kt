@@ -1,5 +1,8 @@
 package com.aarogyam.staff.device
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
+
 /** A setting kept on this device only: not secret, not synced, gone when the app is removed. */
 enum class PreferenceKey(
     val storageName: String,
@@ -38,16 +41,19 @@ interface Preferences {
     )
 }
 
-/** Preferences held in memory: the default before a platform store is passed, and for tests. */
+/**
+ * Preferences held in memory: the default before a platform store is passed, and for tests.
+ * An immutable map swapped atomically, because push registration reads it from another thread while sign-out writes.
+ */
 class MemoryPreferences : Preferences {
-    private val values = mutableMapOf<PreferenceKey, String>()
+    private val values = MutableStateFlow(emptyMap<PreferenceKey, String>())
 
-    override fun get(key: PreferenceKey): String? = values[key]
+    override fun get(key: PreferenceKey): String? = values.value[key]
 
     override fun set(
         key: PreferenceKey,
         value: String?,
     ) {
-        if (value == null) values.remove(key) else values[key] = value
+        values.update { if (value == null) it - key else it + (key to value) }
     }
 }

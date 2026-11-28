@@ -18048,7 +18048,7 @@
         "tags": [
           "self-check-in"
         ],
-        "summary": "The QR check-in settings and the address the QR code opens.",
+        "summary": "The QR check-in settings and the address the QR code opens. Anyone who sees patients may read\nit, so the desk can show the poster's QR on a phone; switching and a new key need settings.manage.",
         "operationId": "getSelfCheckInSettings",
         "responses": {
           "200": {
@@ -18064,7 +18064,7 @@
             "description": "Not signed in"
           },
           "403": {
-            "description": "The role lacks settings.manage"
+            "description": "The role lacks patients.read"
           }
         },
         "security": [

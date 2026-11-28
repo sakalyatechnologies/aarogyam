@@ -54,7 +54,8 @@ fn settings_body(settings: QrSettings, host: &str) -> SelfCheckInSettings {
     }
 }
 
-/// The QR check-in settings and the address the QR code opens.
+/// The QR check-in settings and the address the QR code opens. Anyone who sees patients may read
+/// it, so the desk can show the poster's QR on a phone; switching and a new key need settings.manage.
 #[utoipa::path(
     get,
     path = "/api/v1/settings/self-check-in",
@@ -64,13 +65,13 @@ fn settings_body(settings: QrSettings, host: &str) -> SelfCheckInSettings {
     responses(
         (status = 200, body = SelfCheckInSettings),
         (status = 401, description = "Not signed in"),
-        (status = 403, description = "The role lacks settings.manage")
+        (status = 403, description = "The role lacks patients.read")
     )
 )]
 pub(crate) async fn get_settings(
     State(state): State<AppState>,
     host: ClinicHost,
-    Require { request, .. }: Require<SettingsManage>,
+    Require { request, .. }: Require<PatientsRead>,
 ) -> Result<Json<SelfCheckInSettings>, ApiFailure> {
     let settings = app::get_settings(state.db(), &request.actor, request.request_id).await?;
     Ok(Json(settings_body(settings, &host.host)))

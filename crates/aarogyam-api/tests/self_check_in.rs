@@ -139,19 +139,28 @@ async fn the_key_and_the_switch_gate_the_public_page() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
-    // Only settings.manage reaches the settings.
-    for method in [Method::GET, Method::PUT] {
-        let (status, _) = call(
-            &app,
-            method,
-            ALPHA,
-            "/api/v1/settings/self-check-in",
-            Some(&desk),
-            Some(json!({ "enabled": true })),
-        )
-        .await;
-        assert_eq!(status, StatusCode::FORBIDDEN);
-    }
+    // The desk may read the QR (to show the poster's code on a phone) but not switch it.
+    let (status, seen) = call(
+        &app,
+        Method::GET,
+        ALPHA,
+        "/api/v1/settings/self-check-in",
+        Some(&desk),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["enabled"], false, "{seen}");
+    let (status, _) = call(
+        &app,
+        Method::PUT,
+        ALPHA,
+        "/api/v1/settings/self-check-in",
+        Some(&desk),
+        Some(json!({ "enabled": true })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
     let (status, _) = call(
         &app,
         Method::POST,

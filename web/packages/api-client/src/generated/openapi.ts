@@ -5527,7 +5527,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The QR check-in settings and the address the QR code opens. */
+        /**
+         * The QR check-in settings and the address the QR code opens. Anyone who sees patients may read
+         *     it, so the desk can show the poster's QR on a phone; switching and a new key need settings.manage.
+         */
         get: operations["getSelfCheckInSettings"];
         /** Switches the QR on or off. Switching on for the first time makes the clinic's QR key. */
         put: operations["setSelfCheckIn"];
@@ -36619,7 +36622,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The role lacks settings.manage */
+            /** @description The role lacks patients.read */
             403: {
                 headers: {
                     [name: string]: unknown;

@@ -98,7 +98,7 @@ pub async fn get_settings(
     actor: &ClinicActor,
     request_id: Option<Uuid>,
 ) -> Result<QrSettings, AppError> {
-    actor.require(Permission::SettingsManage)?;
+    actor.require(Permission::PatientsRead)?;
     db.scoped(&staff_scope(actor, request_id), async |tx| {
         Ok(read(&dal::settings(tx.conn()).await?))
     })

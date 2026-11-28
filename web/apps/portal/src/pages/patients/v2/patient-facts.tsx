@@ -5,12 +5,13 @@
  */
 import { Mail, Phone } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 
 import type { Patient } from "@aarogyam/api-client";
 import { formatDate, formatDateTime, formatRupees } from "@aarogyam/app-kit";
 
 import { useClinic } from "../../../clinic.js";
-import { formatPhone } from "../../../lib/patients.js";
+import { formatPhone, patientPath } from "../../../lib/patients.js";
 import { useVisits } from "../../../queries.js";
 import { MoneyEye, useShowMoney } from "../../today/v2/money.js";
 
@@ -35,6 +36,12 @@ export function PatientFacts({ patient }: { patient: Patient }) {
   const canMoney = can("billing.read");
   const [shown] = useShowMoney();
   const visits = useVisits(canClinical ? patient.id : undefined);
+  const address = addressLine(patient);
+  // The date the patient list shows; a visit recorded here that is newer wins. With no visits here but a date, those are earlier records.
+  const newest = visits.data?.items.map((v) => v.started_at).sort().at(-1);
+  const lastVisit = [patient.last_visit_at ?? undefined, newest].filter((d): d is string => d !== undefined).sort().at(-1);
+  const earlier = canClinical && visits.data !== undefined && visits.data.items.length === 0 && lastVisit !== undefined;
+  const missing = (patient.email == null || address === undefined) && can("patients.write");
   const money = (paise: number | null | undefined): string => (!shown ? "₹ ••••" : paise == null ? "—" : formatRupees(paise));
   return (
     <div className="p360-facts" role="group" aria-label="Contact and care">
@@ -48,25 +55,25 @@ export function PatientFacts({ patient }: { patient: Patient }) {
           </span>
         )}
       </Fact>
-      <Fact label="Email" wide>
-        {patient.email == null ? (
-          "Not recorded"
-        ) : (
+      {patient.email == null ? null : (
+        <Fact label="Email" wide>
           <span className="p360-fact-line">
             <Mail aria-hidden="true" />
             <span>{patient.email}</span>
           </span>
-        )}
-      </Fact>
-      <Fact label="Address" wide>
-        {addressLine(patient) ?? "Not recorded"}
-      </Fact>
+        </Fact>
+      )}
+      {address === undefined ? null : (
+        <Fact label="Address" wide>
+          {address}
+        </Fact>
+      )}
       <Fact label="Date of birth">{birthLine(patient)}</Fact>
       <Fact label="File number">
         <span className="mk-mono">{patient.number}</span>
       </Fact>
-      {canClinical ? <Fact label="Visits">{visits.data === undefined ? "…" : String(visits.data.items.length)}</Fact> : null}
-      <Fact label="Last visit">{patient.last_visit_at == null ? "None yet" : formatDate(patient.last_visit_at)}</Fact>
+      {canClinical ? <Fact label={earlier ? "Visits here" : "Visits"}>{visits.data === undefined ? "…" : String(visits.data.items.length)}</Fact> : null}
+      <Fact label="Last visit">{lastVisit === undefined ? "None yet" : earlier ? `${formatDate(lastVisit)} (earlier records)` : formatDate(lastVisit)}</Fact>
       <Fact label="Next appointment" wide>
         {patient.next_appointment == null ? "None booked" : `${formatDateTime(patient.next_appointment.starts_at)} · ${patient.next_appointment.practitioner}`}
       </Fact>
@@ -84,6 +91,11 @@ export function PatientFacts({ patient }: { patient: Patient }) {
             </span>
           </Fact>
         </>
+      ) : null}
+      {missing ? (
+        <Link className="p360-addmore" to={`${patientPath(patient)}/edit`}>
+          Add email or address
+        </Link>
       ) : null}
     </div>
   );

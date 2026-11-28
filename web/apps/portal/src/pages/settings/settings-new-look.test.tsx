@@ -38,21 +38,21 @@ describe("Settings in the new look", () => {
     expect(await sections()).toEqual([
       "My profile",
       "Appearance",
+      "Sessions",
       "Clinic profile",
       "Letterhead",
       "Chairs & doctors",
       "Price list",
+      "Treatment terms",
+      "Website",
+      "Support access",
       "Team & roles",
       "Time off",
       "Tasks",
       "Booking & notifications",
       "Patient QR",
       "Offers",
-      "Website",
       "Show patient",
-      "Treatment terms",
-      "Support access",
-      "Sessions",
     ]);
     expect(screen.getByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();
     expect(screen.getByText("Clinic-wide setup · changes apply to everyone")).toBeTruthy();
@@ -85,7 +85,7 @@ describe("Settings in the new look", () => {
 
   it("shows only the sections a role may open, and calls the account My profile", async () => {
     renderPortal("/settings", { as: PEOPLE.farah, backend: farahWith(["patients.read"]) });
-    expect(await sections()).toEqual(["My profile", "Appearance", "Booking & notifications", "Sessions"]);
+    expect(await sections()).toEqual(["My profile", "Appearance", "Sessions", "Booking & notifications"]);
     await screen.findByText("Only the clinic owner can change the clinic profile.");
     expect(screen.getByText("Your profile and look")).toBeTruthy();
   });
@@ -94,6 +94,16 @@ describe("Settings in the new look", () => {
     renderPortal("/settings?tab=website", { as: PEOPLE.farah, backend: farahWith(["patients.read"]) });
     await screen.findByText("Only the clinic owner can change the clinic profile.");
     expect(current()).toBe("My profile");
+  });
+
+  it("groups the nav under You, Clinic, People and Patients headings", async () => {
+    renderPortal("/settings", { as: PEOPLE.asha });
+    const nav = await screen.findByRole("navigation", { name: "Settings sections" });
+    await within(nav).findByRole("button", { name: "Sessions" });
+    const walk = [...nav.children].map((el) => (el.classList.contains("st-nl-group") ? `# ${el.textContent}` : el.textContent));
+    expect(walk.filter((x) => x.startsWith("# "))).toEqual(["# You", "# Clinic", "# People", "# Patients"]);
+    expect(walk.indexOf("# People") + 1).toBe(walk.indexOf("Team & roles"));
+    expect(settingsCss).toMatch(/@media \(max-width: 900px\) \{[^@]*\.st-nl-group \{ display: none; \}/);
   });
 
   it("has no axe violations", async () => {

@@ -55,6 +55,14 @@ describe("My profile (new look)", () => {
     expect(calls[1]).toEqual({ phone: "" });
   });
 
+  it("groups the browser-only choices under one heading", async () => {
+    renderPortal("/settings?tab=me", { as: PEOPLE.asha });
+    const group = await screen.findByRole("group", { name: "On this browser" });
+    expect(within(group).getByText("Voice notes language")).toBeTruthy();
+    expect(within(group).getByText("History opens as", { selector: "p" })).toBeTruthy();
+    expect(within(group).getByRole("switch", { name: /waiting patient/ })).toBeTruthy();
+  });
+
   it("keeps the voice notes language for this person", async () => {
     const user = userEvent.setup();
     renderPortal("/settings", { as: PEOPLE.asha });

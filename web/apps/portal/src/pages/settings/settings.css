@@ -53,11 +53,18 @@
 .st-nl-item:hover { background: var(--hover); }
 .st-nl-item[aria-current="page"] { background: var(--ink); color: var(--surface); font-weight: 600; }
 .st-nl-item:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.st-nl-group { padding: 12px 16px 2px; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.st-nl-group:first-child { padding-top: 4px; }
+.st-pin { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+.st-pin label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 12px 0 6px; }
+.st-me-prefs { margin-top: 20px; padding-top: 4px; border-top: 1px solid var(--rule); }
+.st-me-prefs-title { margin: 12px 0 0; font-size: 14px; font-weight: 700; color: var(--ink); }
 .st-nl-body { min-width: 0; }
 @media (max-width: 900px) {
   .st-nl-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .st-nl-nav { position: static; flex-direction: row; overflow-x: auto; padding: 6px; border-radius: var(--nl-pill-r, 999px); scrollbar-width: thin; }
   .st-nl-item { flex: none; }
+  .st-nl-group { display: none; }
 }
 
 /* New look, Chairs & doctors: the two cards side by side from 1100px; upcoming leave stays full width below. */

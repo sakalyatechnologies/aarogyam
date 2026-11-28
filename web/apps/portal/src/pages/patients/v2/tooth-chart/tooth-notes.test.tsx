@@ -41,7 +41,7 @@ function notesApi() {
   return { posted, wrap };
 }
 
-const ready = () => screen.findByRole("radiogroup", { name: "Chart look" });
+const ready = () => screen.findByRole("button", { name: "View" });
 const tooth = (n: number) => screen.getByRole("button", { name: new RegExp(`^Tooth ${String(n)},`) });
 
 async function pick(user: ReturnType<typeof userEvent.setup>, n: number) {
@@ -117,7 +117,7 @@ describe("tooth notes", () => {
     await user.click(await within(panel).findByRole("button", { name: "Add treatment" }));
     expect(within(panel).getByRole("textbox", { name: "Notes" })).toBeTruthy();
     const status = within(panel).getByRole("group", { name: "Status" });
-    expect(within(status).getAllByRole("button").map((b) => b.textContent)).toEqual(["Done", "In progress", "Planned"]);
+    expect(within(status).getAllByRole("button").map((b) => b.textContent)).toEqual(["Planned", "In progress", "Done"]);
     expect(within(status).getByRole("button", { name: "Planned" }).getAttribute("aria-pressed")).toBe("true");
     const result = await axe.run(panel, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
     expect(result.violations).toEqual([]);

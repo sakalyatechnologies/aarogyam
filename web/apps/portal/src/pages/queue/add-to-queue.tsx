@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { apiErrorOf } from "@aarogyam/api-client";
 import { formatTime } from "@aarogyam/app-kit";
-import { Badge, Button, Dialog, TextInput } from "@sakalya/ui";
+import { Button, Dialog, TextInput } from "@sakalya/ui";
 
 import { useClinic } from "../../clinic.js";
 import { useCheckIn } from "../../components/check-in.js";
@@ -142,7 +142,6 @@ function CheckInList({ day, onDone }: { day: string; onDone: () => void }) {
                   {a.reason == null ? "" : ` · ${a.reason}`}
                 </span>
               </div>
-              <Badge tone="info">Booked</Badge>
               <Button
                 disabled={busy}
                 aria-label={`Check in ${a.patient.full_name}`}

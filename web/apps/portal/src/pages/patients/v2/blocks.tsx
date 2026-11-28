@@ -3,9 +3,9 @@
  * picks, voice recorder, prescription editor, plans, consent, files, notes) and none re-implements it. The three
  * layouts arrange the same blocks, so they always show the same data.
  */
-import { FileText, Mic, Pause, Play, Printer, Share2, Square } from "lucide-react";
+import { FileText, Mic, Pause, Play, Share2, Square } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 
 import { addressLine } from "./patient-facts.js";
 
@@ -51,7 +51,7 @@ export function StartVisitPrompt({ what }: { what: string }) {
   }
   return (
     <p className="mk-hint" style={{ margin: 0 }}>
-      {session.canWrite ? `Start a visit to ${what}.` : "There is no open visit."}
+      {session.ended !== undefined || session.finishedVisit !== undefined ? "The visit has ended." : session.canWrite ? `Start a visit to ${what}.` : "There is no open visit."}
     </p>
   );
 }
@@ -332,7 +332,6 @@ function NoteEditor() {
 export function RxBlock({ flat = false }: { flat?: boolean }) {
   const session = useVisitSession();
   const { rx } = session;
-  const navigate = useNavigate();
   const [sharing, setSharing] = useState(false);
   if (!session.canRx) return null;
   return (
@@ -341,15 +340,6 @@ export function RxBlock({ flat = false }: { flat?: boolean }) {
         <div className="flex flex-col gap-3">
           <SentNotice message={rx.issued.message} />
           <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              icon={<Printer aria-hidden="true" className="size-4" />}
-              onClick={() => {
-                void navigate(`/prescriptions/${rx.issued?.rx.id ?? ""}/print`, { state: { pin: rx.issued?.message.pin ?? null } });
-              }}
-            >
-              Print
-            </Button>
             <Button
               variant="secondary"
               icon={<Share2 aria-hidden="true" className="size-4" />}

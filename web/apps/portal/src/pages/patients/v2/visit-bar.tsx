@@ -1,4 +1,4 @@
-import { Check, Clock, Cloud, CloudOff, ImagePlus, Printer, Send, Stethoscope, Timer, Wallet } from "lucide-react";
+import { Check, Clock, CloudOff, ImagePlus, Printer, Send, Stethoscope, Timer, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -145,10 +145,12 @@ export function VisitBar() {
   return (
     <>
       <div className="p360-bar" role="region" aria-label="Visit actions">
-        <span className={`p360-net ${online ? "" : "off"}`} role="status">
-          {online ? <Cloud aria-hidden="true" /> : <CloudOff aria-hidden="true" />}
-          {online ? "Online" : "No connection. Nothing is saved until it returns."}
-        </span>
+        {online ? null : (
+          <span className="p360-net off" role="status">
+            <CloudOff aria-hidden="true" />
+            No connection. Nothing is saved until it returns.
+          </span>
+        )}
         {visit === undefined || ended !== undefined ? (
           <span className="p360-sum">
             {ended !== undefined ? "Visit ended" : finishedVisit !== undefined ? "Visit finished, payment pending" : checkingIn ? "Not checked in yet" : "No open visit"}
@@ -226,7 +228,7 @@ export function VisitBar() {
             checkingIn ? (
               <AppointmentActionButton appointment={appointment} className="mk-btn mk-btn-primary p360-pill-btn" />
             ) : (
-              <PillButton icon={<Stethoscope aria-hidden="true" />} disabled={session.starting || session.visitLoading} onClick={session.startVisit}>
+              <PillButton icon={<Stethoscope aria-hidden="true" />} disabled={session.starting || session.visitLoading} onClick={() => void session.startVisit()}>
                 {session.starting ? "Starting…" : "Start visit"}
               </PillButton>
             )

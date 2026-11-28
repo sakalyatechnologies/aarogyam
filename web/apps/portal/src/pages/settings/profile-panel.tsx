@@ -179,7 +179,7 @@ function ProfileForm({ settings }: { settings: ClinicSettings }) {
         {input("phone", "Phone")}
         {input("line1", "Address", { span: "wide", placeholder: "House, building and street" })}
         {input("line2", "Address line 2", { span: "wide", placeholder: "Area or landmark" })}
-        <div className="st-field st-wide flex flex-col gap-3">
+        <div className="st-field st-wide st-pin">
           <PinCodeFields
             value={{ pincode: form.pincode, city: form.city, state: form.state }}
             lookup={lookup}

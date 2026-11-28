@@ -51,7 +51,7 @@ const tooth = (n: number) => screen.getByRole("button", { name: new RegExp(`^Too
 
 /** Opens tooth 36 once so the visit is started. */
 async function ready(user: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole("radiogroup", { name: "Chart look" });
+  await screen.findByRole("button", { name: "View" });
   await user.click(tooth(36));
   await screen.findByRole("complementary", { name: "Tooth 36 panel" });
   const start = screen.queryByRole("button", { name: "Start visit" });
@@ -105,7 +105,7 @@ describe("select several teeth", () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
     renderPortal(path, { as: PEOPLE.asha, backend });
-    await screen.findByRole("radiogroup", { name: "Chart look" });
+    await screen.findByRole("button", { name: "View" });
     await user.keyboard("{Shift>}");
     await user.click(tooth(15));
     await user.keyboard("{/Shift}");

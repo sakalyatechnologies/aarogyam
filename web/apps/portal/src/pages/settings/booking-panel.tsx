@@ -73,22 +73,8 @@ function NotificationsCard() {
           />
         </div>
       ))}
-      {[
-        ["Appointment reminders", "24h + 2h before · WhatsApp"],
-        ["Payment receipts", "Auto-send on collection"],
-        ["Recall campaigns", "Promotional · needs opt-in"],
-        ["Low-stock alerts", "Notify front desk + owner"],
-      ].map(([title, text]) => (
-        <div key={title} className="mk-setrow">
-          <div>
-            <b>{title}</b>
-            <p>{text}</p>
-          </div>
-          <Toggle checked={false} disabled label={`${title ?? ""} (not available yet)`} />
-        </div>
-      ))}
       <p className="mk-hint" style={{ margin: "8px 0 0" }}>
-        The other switches connect when Messages and Stock ship.
+        Appointment reminders, payment receipts, recall campaigns and low-stock alerts will appear here when Messages and Stock ship.
       </p>
     </MkCard>
   );
@@ -231,7 +217,7 @@ function DoctorPolicies({ ownMembershipId }: { ownMembershipId: string | undefin
   }
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Each doctor's answer to a taken time">
-      <p className="mk-hint" style={{ margin: 0 }}>{ownMembershipId === undefined ? "Per doctor" : "When a time is already booked"}</p>
+      <p className="mk-hint" style={{ margin: 0 }}>{ownMembershipId === undefined ? "For each doctor, when a time is already booked" : "When a time is already booked"}</p>
       {rows.map((doctor) => (
         <DoctorPolicyRow key={doctor.id} id={doctor.id} name={doctor.display_name} />
       ))}

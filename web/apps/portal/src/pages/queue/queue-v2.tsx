@@ -262,7 +262,7 @@ export function QueueV2() {
                         <p className="fd-facts">
                           <span>
                             <Clock3 aria-hidden="true" className="size-3.5" />
-                            {token.status === "waiting" ? `Waiting ${String(token.wait_minutes)} min` : token.status === "left" ? "Left" : `Waited ${String(token.wait_minutes)} min`}
+                            {token.status === "waiting" ? token.wait_minutes < 1 ? "Just arrived" : `Waiting ${String(token.wait_minutes)} min` : token.status === "left" ? "Left" : `Waited ${String(token.wait_minutes)} min`}
                           </span>
                           {roomName(token.room_id) === undefined ? null : (
                             <span>

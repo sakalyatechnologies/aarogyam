@@ -67,7 +67,8 @@ export interface VisitSession {
   canRx: boolean;
   visit: Visit | undefined;
   visitLoading: boolean;
-  startVisit: () => void;
+  /** Starts the visit (or the appointment's); resolves true once it has started, false when it could not (the error is shown). */
+  startVisit: () => Promise<boolean>;
   starting: boolean;
   /** Today's appointment for this patient that is still open, if any: Start visit links the visit to it. */
   appointment: ReturnType<typeof useOpenAppointment>;
@@ -421,16 +422,19 @@ export function VisitSessionProvider({ patientId, children }: { patientId: Patie
     canRx,
     visit,
     visitLoading: canClinical && visits.isPending,
-    startVisit: () => {
+    startVisit: async () => {
       setError(undefined);
       const onError = (thrown: unknown) => {
         setError(thrown instanceof StartBlocked ? thrown.message : (apiErrorOf(thrown)?.message ?? "Couldn't start a visit."));
       };
-      if (appointment !== undefined) {
-        startAppointmentVisit.mutateAsync(appointment).then(() => undefined, onError);
-        return;
+      try {
+        if (appointment !== undefined) await startAppointmentVisit.mutateAsync(appointment);
+        else await startVisitMutation.mutateAsync({});
+        return true;
+      } catch (thrown) {
+        onError(thrown);
+        return false;
       }
-      startVisitMutation.mutate({}, { onError });
     },
     starting: startVisitMutation.isPending || startAppointmentVisit.isPending,
     appointment,

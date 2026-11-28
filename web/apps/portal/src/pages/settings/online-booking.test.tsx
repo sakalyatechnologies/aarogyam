@@ -85,4 +85,16 @@ describe("Settings: online booking", () => {
     await user.selectOptions(own, "Don't allow");
     expect(await screen.findByText(/: saved/)).toBeTruthy();
   });
+
+  it("shows one note, not four dead switches, for the notifications that are not built yet", async () => {
+    renderPortal("/settings?tab=booking", { as: PEOPLE.asha, backend: fakeApi() });
+    await screen.findByRole("heading", { name: "Notifications" });
+    expect(screen.queryByRole("switch", { name: /Recall campaigns/ })).toBeNull();
+    expect(screen.getByText(/will appear here when Messages and Stock ship/)).toBeTruthy();
+  });
+
+  it("labels the per-doctor policy list so it reads as a question", async () => {
+    renderPortal("/settings?tab=booking", { as: PEOPLE.asha, backend: fakeApi() });
+    expect(await screen.findByText("For each doctor, when a time is already booked")).toBeTruthy();
+  });
 });

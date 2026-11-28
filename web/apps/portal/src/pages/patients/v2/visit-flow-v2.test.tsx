@@ -205,6 +205,26 @@ describe("Voice notes", () => {
 });
 
 describe("Ending the visit and payment", () => {
+  it("says the visit has ended, not 'Start a visit', once it is over; the issued Rx has one Print (the bar's)", async () => {
+    const user = userEvent.setup();
+    const { path, backend } = patientWithBackend();
+    renderPortal(path, { as: PEOPLE.asha, backend });
+    await user.click(await screen.findByRole("button", { name: "Start visit" }));
+    await user.click(await screen.findByRole("button", { name: "New prescription" }));
+    await user.click(await screen.findByRole("button", { name: /Post-extraction/ }));
+    // Each medicine row: the name on its own line, dose / frequency / timing beneath it.
+    const name = (await screen.findAllByPlaceholderText("Medicine name"))[0];
+    if (name === undefined) throw new Error("no medicine row");
+    expect(name.closest("div[class*='col-span-full']")).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Issue prescription" }));
+    await screen.findByRole("button", { name: "Share with patient" }, { timeout: 5000 });
+    expect(screen.getAllByRole("button", { name: /^Print/ })).toHaveLength(1);
+    await doctorsDay(user);
+    await screen.findByRole("button", { name: "Collect payment" });
+    expect(screen.queryByText(/Start a visit to/)).toBeNull();
+    expect(screen.getAllByText("The visit has ended.").length).toBeGreaterThan(0);
+  });
+
   it("sends the patient for payment: the open token becomes ready to bill, then the celebration shows", async () => {
     const user = userEvent.setup();
     const { path, backend, patientId } = patientWithBackend();

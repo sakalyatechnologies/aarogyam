@@ -380,8 +380,8 @@ export function DraftEditor({ rx, onIssued, handle }: { rx: Prescription; onIssu
         {items.length === 0 ? <p className="text-sm text-muted">No medicines yet.</p> : null}
         <ul className="flex flex-col gap-3">
           {items.map((item, index) => (
-            <li key={index} className="grid grid-cols-1 gap-2 rounded-2xl border border-border p-3 sm:grid-cols-[2fr_1fr_1fr_1fr_auto]">
-              <Field label="Medicine" hideLabel>
+            <li key={index} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 rounded-2xl border border-border p-3">
+              <Field label="Medicine" hideLabel className="col-span-full">
                 <TextInput
                   placeholder="Medicine name"
                   disabled={item.drug_id != null}

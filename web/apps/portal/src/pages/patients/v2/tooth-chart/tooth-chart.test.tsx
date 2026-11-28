@@ -58,7 +58,12 @@ function spy() {
 }
 
 /** The chart has loaded: its Rows / 3D arch switch is there. */
-const ready = () => screen.findByRole("radiogroup", { name: "Chart look" });
+/** The look, Adult / Child and the Key sit in one View menu. */
+const openView = async (user: ReturnType<typeof userEvent.setup>) => {
+  const button = screen.getByRole("button", { name: "View" });
+  if (button.getAttribute("aria-expanded") !== "true") await user.click(button);
+};
+const ready = () => screen.findByRole("button", { name: "View" });
 
 const tooth = (n: number) => screen.getByRole("button", { name: new RegExp(`^Tooth ${String(n)},`) });
 
@@ -82,10 +87,12 @@ describe("the chart", () => {
     expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(32);
     expect(tooth(18)).toBeTruthy();
 
+    await openView(user);
     await user.click(screen.getByRole("radio", { name: "Child" }));
     expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(20);
     expect(tooth(55)).toBeTruthy();
 
+    await openView(user);
     await user.click(screen.getByRole("radio", { name: "3D arch" }));
     expect(document.querySelector(".tc-arch")).not.toBeNull();
     expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toEqual({ look: "arch", dentition: "adult", view: "treatment" });
@@ -93,19 +100,20 @@ describe("the chart", () => {
     cleanup();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await ready();
+    await openView(user);
     expect(screen.getByRole("radio", { name: "3D arch" }).getAttribute("aria-checked")).toBe("true");
     // The dentition belongs to the patient: an adult opens on all 32 teeth.
     expect(screen.getAllByRole("button", { name: /^Tooth \d+,/ })).toHaveLength(32);
   });
 
-  it("keeps the legend behind a Key button, and shows it on demand", async () => {
+  it("keeps the legend inside the View menu, and shows it on demand", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await ready();
     expect(screen.queryByRole("list", { name: "Legend" })).toBeNull();
     expect(screen.queryByRole("list", { name: "Chart summary" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Key" }));
+    await openView(user);
     const legend = screen.getByRole("list", { name: "Legend" });
     expect(within(legend).getByText("Caries")).toBeTruthy();
     expect(within(legend).getByText("Planned")).toBeTruthy();
@@ -114,10 +122,12 @@ describe("the chart", () => {
   });
 
   it.each(LAYOUTS)("is in the %s layout", async (layout) => {
+    const user = userEvent.setup();
     localStorage.setItem(layoutKey(PEOPLE.asha), layout);
     const { path, backend } = patient();
     renderPortal(path, { as: PEOPLE.asha, backend });
     await ready();
+    await openView(user);
     expect(screen.getByRole("radio", { name: "Rows" })).toBeTruthy();
     expect(tooth(16)).toBeTruthy();
   });
@@ -130,6 +140,7 @@ describe("the Classic view", () => {
     const calls = spy();
     renderPortal(path, { as: PEOPLE.asha, backend, wrap: calls.wrap });
     await ready();
+    await openView(user);
     await user.click(screen.getByRole("radio", { name: "Classic" }));
     expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toMatchObject({ look: "classic" });
     // The odontogram's zoom and Select several sit in its overflow menu; no summary strip or legend under the chart.
@@ -271,6 +282,7 @@ describe("the tooth panel", () => {
     renderPortal(path, { as: PEOPLE.asha, backend, wrap: calls.wrap });
     const panel = await openTooth(user, 14);
     await user.click(within(panel).getByRole("button", { name: "Add treatment" }));
+    await user.click(within(panel).getByRole("button", { name: "Filling" }));
     await user.click(within(panel).getByRole("button", { name: "Done" }));
     await user.click(within(panel).getByRole("button", { name: "Mesial" }));
     await user.click(within(panel).getByRole("button", { name: "Occlusal" }));
@@ -336,21 +348,26 @@ describe("the tooth panel", () => {
     expect(calls.chart[1]?.visit_id).toBe(calls.chart[0]?.visit_id);
   });
 
-  it("without an open visit, shows the history and points to the visit bar, with no second Start visit", async () => {
+  it("without an open visit, offers Add treatment; saving one starts the visit, then records it", async () => {
     const user = userEvent.setup();
     const { path, backend } = patient();
-    renderPortal(path, { as: PEOPLE.asha, backend });
+    const calls = spy();
+    renderPortal(path, { as: PEOPLE.asha, backend, wrap: calls.wrap });
     await ready();
     await user.click(tooth(16));
     const panel = await screen.findByRole("complementary", { name: "Tooth 16 panel" });
-    expect(await within(panel).findByText("Start the visit from the bar at the top to add treatment.")).toBeTruthy();
-    expect(within(panel).queryByRole("button", { name: "Start visit" })).toBeNull();
-    expect(within(panel).queryByRole("button", { name: "Add treatment" })).toBeNull();
-    expect(within(panel).getByRole("button", { name: "Close" })).toBeTruthy();
-    // The one Start visit is the visit bar's.
-    expect(screen.getAllByRole("button", { name: "Start visit" })).toHaveLength(1);
-    const result = await axe.run(panel, { rules: { "color-contrast": { enabled: false }, region: { enabled: false } } });
-    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+    expect(within(panel).queryByText("Start the visit from the bar at the top to add treatment.")).toBeNull();
+    expect(within(panel).queryByText(/entries$/)).toBeNull();
+    await user.click(await within(panel).findByRole("button", { name: "Add treatment" }));
+    // Nothing is chosen yet, so Save waits; the statuses read Planned, In progress, Done.
+    expect(within(panel).getByRole("button", { name: "Save treatment" }).hasAttribute("disabled")).toBe(true);
+    expect(within(panel).getAllByRole("button", { pressed: true })).toHaveLength(1);
+    const status = within(panel).getByRole("group", { name: "Status" });
+    expect(within(status).getAllByRole("button").map((b) => b.textContent)).toEqual(["Planned", "In progress", "Done"]);
+    expect(within(status).getByRole("button", { name: "Planned" }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(within(panel).getByRole("button", { name: "Crown" }));
+    await user.click(within(panel).getByRole("button", { name: "Save treatment" }));
+    expect(await screen.findByText(/Tooth 16: Crown saved/)).toBeTruthy();
   });
 
   it("has no axe violations with the panel and the form open", async () => {
@@ -674,7 +691,7 @@ describe("tooth health and a quick note", () => {
     expect(tooth(18).getAttribute("data-health")).toBe("unassessed");
     expect(tooth(18).querySelector(".tc-glyph")).toBeNull();
     expect(JSON.parse(localStorage.getItem(chartPrefsKey(PEOPLE.asha)) ?? "null")).toMatchObject({ view: "health" });
-    await user.click(screen.getByRole("button", { name: "Key" }));
+    await openView(user);
     expect(within(screen.getByRole("list", { name: "Legend" })).getByText("Not assessed")).toBeTruthy();
   });
 
@@ -719,7 +736,7 @@ describe("work done elsewhere, and progress", () => {
     await user.click(within(panel).getByRole("button", { name: "Crown" }));
     await user.click(within(panel).getByRole("button", { name: "Done" }));
     expect(within(panel).getByRole("switch", { name: "Done elsewhere" }).getAttribute("aria-checked")).toBe("true");
-    await user.click(screen.getByRole("button", { name: "Key" }));
+    await openView(user);
     expect(within(screen.getByRole("list", { name: "Legend" })).getByText("dashed = done elsewhere")).toBeTruthy();
   });
 

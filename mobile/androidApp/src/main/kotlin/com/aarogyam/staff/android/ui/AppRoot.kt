@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,7 +41,9 @@ import com.sakalya.mobile.core.Outcome
 import com.sakalya.mobile.designcompose.SkEmptyState
 import com.sakalya.mobile.designcompose.SkTheme
 import com.sakalya.mobile.designcompose.color
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 
 private object Routes {
     const val SIGN_IN = "sign-in"
@@ -55,9 +58,22 @@ private object Routes {
 fun AppRoot(graphState: StateFlow<GraphState>) {
     val state by graphState.collectAsStateWithLifecycle()
     StatusBarTone.Apply()
+    val graph = (state as? GraphState.Ready)?.graph
+    val sessions: Flow<SessionState?> = remember(graph) { graph?.sessionState ?: flowOf(null) }
+    val session by sessions.collectAsStateWithLifecycle(null)
+    val waiting =
+        state is GraphState.Starting || (graph != null && (session == null || session == SessionState.Restoring))
+    LaunchGate(waiting) { launching -> Routed(state, launching) }
+}
+
+@Composable
+private fun Routed(
+    state: GraphState,
+    launching: Boolean,
+) {
     when (val current = state) {
         GraphState.Starting -> {
-            Themed(ClinicBranding.Default) { LoadingIndicator() }
+            Themed(ClinicBranding.Default) { if (!launching) LoadingIndicator() }
         }
 
         GraphState.NotConfigured -> {
@@ -70,13 +86,16 @@ fun AppRoot(graphState: StateFlow<GraphState>) {
         }
 
         is GraphState.Ready -> {
-            Signed(current.graph)
+            Signed(current.graph, launching)
         }
     }
 }
 
 @Composable
-private fun Signed(graph: AppGraph) {
+private fun Signed(
+    graph: AppGraph,
+    launching: Boolean,
+) {
     val session by graph.sessionState.collectAsStateWithLifecycle()
     val clinic by graph.directory.current.collectAsStateWithLifecycle()
     // After the person leaves a clinic, the picker waits for a tap even if there is only one.
@@ -85,7 +104,7 @@ private fun Signed(graph: AppGraph) {
     Themed(clinic?.branding ?: ClinicBranding.Default) {
         when (session) {
             SessionState.Restoring -> {
-                LoadingIndicator()
+                if (!launching) LoadingIndicator()
             }
 
             SessionState.StorageUnavailable -> {
